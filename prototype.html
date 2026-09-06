@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Lecturer Clone - Interactive Prototype</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --primary: #38bdf8;
+            --primary-hover: #0ea5e9;
+            --success: #34d399;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        header {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto 20px;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-title h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-title p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .badge {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            flex-grow: 1;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .card-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon-emoji {
+            font-size: 1.4rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        textarea, select, input {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.95rem;
+            width: 100%;
+            transition: all 0.3s;
+        }
+
+        textarea:focus, select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #0f172a;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Chat Panel Styles */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 350px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.4);
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.92rem;
+            line-height: 1.4;
+        }
+
+        .message.bot {
+            background: rgba(255, 255, 255, 0.08);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        .message.user {
+            background: var(--primary);
+            color: #0f172a;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+            font-weight: 500;
+        }
+
+        .source-ref {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 8px;
+            border-top: 1px solid var(--border);
+            gap: 8px;
+        }
+
+        .voice-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .voice-toggle {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Quiz Panel Styles */
+        .quiz-box {
+            background: rgba(56, 189, 248, 0.05);
+            border: 1px dashed rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .quiz-option {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            color: var(--text-main);
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .quiz-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .quiz-option.correct {
+            background: rgba(52, 211, 153, 0.2);
+            border-color: var(--success);
+            color: #6ee7b7;
+        }
+
+        .quiz-option.incorrect {
+            background: rgba(248, 113, 113, 0.2);
+            border-color: var(--danger);
+            color: #fca5a5;
+        }
+
+        /* Lecturer Timetable & Pending Qs */
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .meta-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .meta-box h4 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .pending-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
+        .pending-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 10px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pending-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--warning);
+            color: #0f172a;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-title">
+            <h1>iSOLMS Smart AI Demo</h1>
+            <p>DF50114 Final Year Project - Interactive Prototype</p>
+        </div>
+        <div class="badge">Student: Daniel Wong</div>
+    </header>
+
+    <div class="container">
+        
+        <!-- LECTURER PANEL (LEFT) -->
+        <div class="card">
+            <div class="card-header">
+                <h2><span class="icon-emoji">👨‍🏫</span> Lecturer & Admin Control Panel</h2>
+            </div>
+            
+            <div>
+                <label for="lectureNotes">1. Upload Lecture Notes (Raw Text Context):</label>
+                <textarea id="lectureNotes" rows="7" placeholder="Paste lecture slide text here...">
+Chapter 1: Internet of Things (IoT) Overview.
+Slide 1.1: The Internet of Things is a network of interconnected physical devices embedded with software, electronics, and smart sensors that exchange data over the internet.
+Slide 1.2: A smart sensor collects environmental parameters (such as temperature, motion, or light) and converts them into digital signals for network transmission.
+Slide 1.3: Actuators perform physical movements or operations (like opening a valve or turning on a fan) when instructed by the IoT controller.
+Slide 1.4: RAG stands for Retrieval-Augmented Generation. It allows AI to fetch specific slides before formulating answers, avoiding AI hallucination.
+                </textarea>
+            </div>
+
+            <div class="meta-grid">
+                <div class="meta-box">
+                    <h4>Lecturer Schedule</h4>
+                    <p style="font-size:0.9rem; font-weight:600; color:var(--success);">🔴 OFFLINE</p>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Direct chat open:<br>Mon-Wed 2:00PM - 4:00PM</p>
+                </div>
+                <div class="meta-box">
+                    <h4>Lecturer Queue (Pending Q&A)</h4>
+                    <ul class="pending-list" id="pendingQueue">
+                        <li class="pending-item">
+                            <span>How secure is FAISS?</span>
+                            <span class="pending-badge">Pending</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="resetNotes()">Reset Notes to Default</button>
+        </div>
+
+        <!-- STUDENT PANEL (RIGHT) -->
+        <div class="card">
+            <div class="card-header">
+                <h2><span class="icon-emoji">🎓</span> Student AI Learning Assistant</h2>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label for="lecturerSelect">Select Lecturer Profile:</label>
+                    <select id="lecturerSelect" onchange="changeVoiceAccent()">
+                        <option value="male">Dr. Ahmad Faisal (AI Clone Accent: Male)</option>
+                        <option value="female">Madam Norhaliza (AI Clone Accent: Female)</option>
+                    </select>
+                </div>
+                <div class="voice-controls">
+                    <label class="voice-toggle">
+                        <input type="checkbox" id="voiceToggle" checked style="width:auto; margin-right:4px;">
+                        Enable AI Voice Output
+                    </label>
+                </div>
+            </div>
+
+            <!-- CHAT INTERFACE -->
+            <label>AI Tutor Chat Box:</label>
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot">
+                        Hello Daniel! Select my profile, and ask me any question about the uploaded notes.
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="userInput" placeholder="Ask about smart sensors, actuators, or IoT..." onkeypress="handleKeyPress(event)">
+                    <button class="btn" onclick="askQuestion()">Send</button>
+                </div>
+            </div>
+
+            <!-- QUIZ MODULE -->
+            <div class="quiz-box">
+                <h4 style="font-size: 0.9rem; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>📝 AI-Generated Practice Quiz</span>
+                    <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="generateQuiz()">Generate Quiz</button>
+                </h4>
+                <div id="quizContent">
+                    <p style="font-size:0.85rem; color:var(--text-muted);">Click "Generate Quiz" to test your knowledge based on the notes.</p>
+                </div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <script>
+        // Set initial voices and configurations
+        let ttsVoice = null;
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                askQuestion();
+            }
+        }
+
+        // Simulating the RAG retrieval and response generation
+        function askQuestion() {
+            const inputField = document.getElementById('userInput');
+            const questionText = inputField.value.trim();
+            if (!questionText) return;
+
+            // Add user message to chat
+            appendMessage(questionText, 'user');
+            inputField.value = '';
+
+            // Retrieve Context (Simulating RAG Vector Search via substring matches)
+            const notesText = document.getElementById('lectureNotes').value;
+            const sentences = notesText.split('\n');
+
+            let matchedSentence = null;
+            let reference = "General Knowledge (Context Not Found in Slides)";
+
+            // Look for matching keywords in the notes
+            const words = questionText.toLowerCase().split(' ');
+            
+            // Search logic
+            for (let sentence of sentences) {
+                if (sentence.trim() === '') continue;
+                
+                // Check if sentence contains keywords
+                let matches = 0;
+                words.forEach(word => {
+                    if (word.length > 3 && sentence.toLowerCase().includes(word)) {
+                        matches++;
+                    }
+                });
+
+                if (matches > 0) {
+                    matchedSentence = sentence;
+                    break;
+                }
+            }
+
+            let responseText = "";
+            let requiresHuman = false;
+
+            if (matchedSentence) {
+                // Parse slide number and content
+                const parts = matchedSentence.split(':');
+                if (parts.length > 1) {
+                    reference = parts[0].trim();
+                    responseText = parts.slice(1).join(':').trim();
+                } else {
+                    responseText = matchedSentence;
+                }
+            } else {
+                // Trigger fallback queue if the answer isn't in the slides
+                responseText = "I couldn't locate specific information about that in the lecture notes. I have forwarded your question to your lecturer's pending queue.";
+                requiresHuman = true;
+                addToQueue(questionText);
+            }
+
+            // Simulate slight AI processing delay
+            setTimeout(() => {
+                appendMessage(responseText, 'bot', reference);
+                speakAnswer(responseText);
+            }, 600);
+        }
+
+        function appendMessage(text, sender, source = null) {
+            const chatMessages = document.getElementById('chatMessages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            
+            let htmlContent = text;
+            if (source) {
+                htmlContent += `<span class="source-ref">Source: ${source}</span>`;
+            }
+            msgDiv.innerHTML = htmlContent;
+            
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Text to Speech
+        function speakAnswer(text) {
+            const voiceEnabled = document.getElementById('voiceToggle').checked;
+            if (!voiceEnabled) return;
+
+            // Stop any ongoing speech
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            const lecturer = document.getElementById('lecturerSelect').value;
+
+            // Set voice based on gender selection
+            const voices = window.speechSynthesis.getVoices();
+            let selectedVoice = null;
+
+            if (lecturer === 'female') {
+                // Find a female voice
+                selectedVoice = voices.find(v => v.name.includes('Zira') || v.name.includes('Google UK English Female') || v.name.includes('Hazel') || v.name.includes('female'));
+                utterance.rate = 1.05;
+                utterance.pitch = 1.1;
+            } else {
+                // Find a male voice
+                selectedVoice = voices.find(v => v.name.includes('David') || v.name.includes('Google UK English Male') || v.name.includes('male'));
+                utterance.rate = 0.95;
+                utterance.pitch = 0.85;
+            }
+
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+            }
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Quiz Generator (Simulating AI processing the context)
+        function generateQuiz() {
+            const quizContent = document.getElementById('quizContent');
+            const notesText = document.getElementById('lectureNotes').value.toLowerCase();
+
+            let question = "What is the primary role of a smart sensor in an IoT system?";
+            let options = [
+                { text: "It executes physical actions like turning on fans.", correct: false },
+                { text: "It converts collected environmental data into digital signals.", correct: true },
+                { text: "It hosts web servers directly.", correct: false }
+            ];
+
+            if (notesText.includes('actuator') && !notesText.includes('sensor')) {
+                question = "What component executes movement or operations (e.g. turning on a fan)?";
+                options = [
+                    { text: "Smart Sensor", correct: false },
+                    { text: "Actuator", correct: true },
+                    { text: "Vector Database", correct: false }
+                ];
+            } else if (notesText.includes('rag') && !notesText.includes('sensor')) {
+                question = "What does RAG help avoid in educational AI systems?";
+                options = [
+                    { text: "AI Hallucination", correct: true },
+                    { text: "Database crashes", correct: false },
+                    { text: "Internet disconnection", correct: false }
+                ];
+            }
+
+            let optionsHtml = '';
+            options.forEach((opt, idx) => {
+                optionsHtml += `<button class="quiz-option" onclick="checkAnswer(this, ${opt.correct})">${String.fromCharCode(65 + idx)}. ${opt.text}</button>`;
+            });
+
+            quizContent.innerHTML = `
+                <p style="font-size: 0.95rem; font-weight: 500; color: var(--text-main); margin-bottom:10px;">${question}</p>
+                <div class="quiz-options">${optionsHtml}</div>
+                <p id="quizFeedback" style="margin-top:10px; font-size:0.85rem; font-weight:bold; display:none;"></p>
+            `;
+        }
+
+        function checkAnswer(btn, isCorrect) {
+            const feedback = document.getElementById('quizFeedback');
+            feedback.style.display = 'block';
+
+            // Disable all options
+            const options = btn.parentElement.querySelectorAll('.quiz-option');
+            options.forEach(opt => opt.onclick = null);
+
+            if (isCorrect) {
+                btn.classList.add('correct');
+                feedback.innerHTML = "🎉 Correct answer! Checked against Slide context.";
+                feedback.style.color = "var(--success)";
+            } else {
+                btn.classList.add('incorrect');
+                feedback.innerHTML = "❌ Incorrect. Try reading the Slide reference again.";
+                feedback.style.color = "var(--danger)";
+            }
+        }
+
+        // Add unanswered questions to lecturer's dashboard queue
+        function addToQueue(question) {
+            const queueList = document.getElementById('pendingQueue');
+            const li = document.createElement('li');
+            li.className = 'pending-item';
+            li.innerHTML = `
+                <span>${question}</span>
+                <span class="pending-badge">Pending</span>
+            `;
+            queueList.appendChild(li);
+        }
+
+        function resetNotes() {
+            document.getElementById('lectureNotes').value = `Chapter 1: Internet of Things (IoT) Overview.
+Slide 1.1: The Internet of Things is a network of interconnected physical devices embedded with software, electronics, and smart sensors that exchange data over the internet.
+Slide 1.2: A smart sensor collects environmental parameters (such as temperature, motion, or light) and converts them into digital signals for network transmission.
+Slide 1.3: Actuators perform physical movements or operations (like opening a valve or turning on a fan) when instructed by the IoT controller.
+Slide 1.4: RAG stands for Retrieval-Augmented Generation. It allows AI to fetch specific slides before formulating answers, avoiding AI hallucination.`;
+        }
+
+        // Load voices on startup
+        window.speechSynthesis.onvoiceschanged = () => {};
+    </script>
+
+</body>
+</html>

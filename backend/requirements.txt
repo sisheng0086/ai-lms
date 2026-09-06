@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+python-multipart
+PyPDF2
+sentence-transformers
+faiss-cpu
+openai
+google-generativeai
+numpy
+psycopg2-binary
+bcrypt
+python-dotenv
