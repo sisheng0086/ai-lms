@@ -1,6 +1,8 @@
 import bcrypt
 import smtplib
 import random
+import threading
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -21,11 +23,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # Format: {email: {"code": "123456", "user_data": {...}}}
 pending_registrations = {}
 
-def send_verification_email(to_email: str, code: str):
-    """Send a verification email with a 6-digit code."""
-    # Real credentials supplied by user
-    sender_email = "danielwong9487@gmail.com"
-    sender_password = "hjoltvtysubdgouz"
+def _send_email_task(to_email: str, code: str):
+    """Internal function that runs in background thread to send email."""
+    sender_email = os.getenv("SENDER_EMAIL", "danielwong9487@gmail.com")
+    sender_password = os.getenv("SENDER_PASSWORD", "hjoltvtysubdgouz")
 
     msg = MIMEMultipart()
     msg['From'] = sender_email
@@ -36,22 +37,24 @@ def send_verification_email(to_email: str, code: str):
     msg.attach(MIMEText(body, 'plain'))
 
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        # 10 second timeout so it never hangs forever
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
         server.starttls()
-        # Send actual email
         server.login(sender_email, sender_password)
         server.send_message(msg)
         server.quit()
-        
-        # We print it to console so it's usable even if email fails to send due to fake credentials
-        print(f"*** VERIFICATION EMAIL SIMULATION ***")
-        print(f"To: {to_email}")
-        print(f"Code: {code}")
-        print(f"*************************************")
-        return True
+        print(f"[EMAIL] Sent verification code to {to_email}")
     except Exception as e:
-        print(f"Failed to send email: {e}")
-        return False
+        print(f"[EMAIL] Failed to send to {to_email}: {e}")
+    finally:
+        # Always print code to console so you can see it in Railway logs
+        print(f"*** VERIFICATION CODE for {to_email}: {code} ***")
+
+def send_verification_email(to_email: str, code: str):
+    """Send verification email in background thread — never blocks registration."""
+    thread = threading.Thread(target=_send_email_task, args=(to_email, code), daemon=True)
+    thread.start()
+    return True
 
 def generate_verification_code() -> str:
     """Generate a 6-digit random code."""
