@@ -55,7 +55,7 @@ const RegisterPage = () => {
       if (response.ok && data.status === 'success') {
         navigate('/verify-email', { state: { email: formData.email } });
       } else {
-        setError(data.message || 'Registration failed.');
+        setError(data.detail || data.message || 'Registration failed.');
       }
     } catch (err) {
       setError('Network error. Please try again later.');
