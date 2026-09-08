@@ -34,11 +34,12 @@ const RegisterPage = () => {
   const hasLowercase = /[a-z]/.test(formData.password);
   const hasUppercase = /[A-Z]/.test(formData.password);
   const hasNumber = /[0-9]/.test(formData.password);
-  const hasLength = formData.password.length >= 8 && formData.password.length <= 10;
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-+=~/\\`[\];]/.test(formData.password);
+  const hasLength = formData.password.length >= 8 && formData.password.length <= 12;
 
-  const criteriaPassed = [hasLowercase, hasUppercase, hasNumber, hasLength].filter(Boolean).length;
+  const criteriaPassed = [hasLowercase, hasUppercase, hasNumber, hasSpecial, hasLength].filter(Boolean).length;
 
-  // Password Level Calculation
+  // Password Level Calculation (5 tiers)
   let levelInfo = {
     level: 0,
     text: 'Enter Password',
@@ -48,13 +49,15 @@ const RegisterPage = () => {
 
   if (formData.password.length > 0) {
     if (criteriaPassed === 1) {
-      levelInfo = { level: 1, text: 'Level 1 - Weak', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
+      levelInfo = { level: 1, text: 'Level 1 - Very Weak', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
     } else if (criteriaPassed === 2) {
-      levelInfo = { level: 2, text: 'Level 2 - Fair', color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)' };
+      levelInfo = { level: 2, text: 'Level 2 - Weak', color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)' };
     } else if (criteriaPassed === 3) {
-      levelInfo = { level: 3, text: 'Level 3 - Good', color: '#eab308', bg: 'rgba(234, 179, 8, 0.15)' };
+      levelInfo = { level: 3, text: 'Level 3 - Fair', color: '#eab308', bg: 'rgba(234, 179, 8, 0.15)' };
     } else if (criteriaPassed === 4) {
-      levelInfo = { level: 4, text: 'Level 4 - Strong', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
+      levelInfo = { level: 4, text: 'Level 4 - Good', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' };
+    } else if (criteriaPassed === 5) {
+      levelInfo = { level: 5, text: 'Level 5 - Strong', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
     } else {
       levelInfo = { level: 0, text: 'Very Weak', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
     }
@@ -95,8 +98,8 @@ const RegisterPage = () => {
       return;
     }
 
-    if (criteriaPassed < 4) {
-      setError('Please satisfy all password requirements (Level 4 - Strong required).');
+    if (criteriaPassed < 5) {
+      setError('Please satisfy all password requirements (Level 5 - Strong required).');
       return;
     }
 
@@ -234,7 +237,7 @@ const RegisterPage = () => {
                 name="password"
                 className={`form-input ${
                   touched.password && formData.password
-                    ? criteriaPassed === 4
+                    ? criteriaPassed === 5
                       ? 'input-success'
                       : 'input-error'
                     : ''
@@ -242,7 +245,7 @@ const RegisterPage = () => {
                 value={formData.password}
                 onChange={handleChange}
                 onBlur={() => handleBlur('password')}
-                placeholder="Create a password (8 - 10 characters)"
+                placeholder="Create a password (8 - 12 characters)"
                 required
               />
               <button
@@ -272,9 +275,13 @@ const RegisterPage = () => {
                   <span className="gfg-icon">{hasNumber ? '✔' : '✖'}</span>
                   <span>At least <strong>one number</strong></span>
                 </li>
+                <li className={`gfg-criteria-item ${hasSpecial ? 'valid' : 'invalid'}`}>
+                  <span className="gfg-icon">{hasSpecial ? '✔' : '✖'}</span>
+                  <span>At least <strong>one special character (!@#$%^&*)</strong></span>
+                </li>
                 <li className={`gfg-criteria-item ${hasLength ? 'valid' : 'invalid'}`}>
                   <span className="gfg-icon">{hasLength ? '✔' : '✖'}</span>
-                  <span><strong>8 - 10 characters</strong></span>
+                  <span><strong>8 - 12 characters</strong></span>
                 </li>
               </ul>
 
@@ -290,7 +297,7 @@ const RegisterPage = () => {
                   </span>
                 </div>
                 <div className="level-segments">
-                  {[1, 2, 3, 4].map((seg) => (
+                  {[1, 2, 3, 4, 5].map((seg) => (
                     <div
                       key={seg}
                       className="level-segment"
@@ -350,7 +357,7 @@ const RegisterPage = () => {
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading || (formData.email && !isEmailValid) || (formData.password && criteriaPassed < 4)}
+            disabled={loading || (formData.email && !isEmailValid) || (formData.password && criteriaPassed < 5)}
           >
             {loading ? 'Registering...' : 'Register'}
           </button>
