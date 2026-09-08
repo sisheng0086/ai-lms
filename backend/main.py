@@ -55,6 +55,16 @@ def register_user(request: RegisterRequest):
     if request.role not in ["student", "lecturer"]:
         raise HTTPException(status_code=400, detail="Role must be student or lecturer")
 
+    # Validate password requirements
+    if len(request.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+    if not any(c.isupper() for c in request.password):
+        raise HTTPException(status_code=400, detail="Password must include at least one uppercase letter (A-Z)")
+    if not any(c.islower() for c in request.password):
+        raise HTTPException(status_code=400, detail="Password must include at least one lowercase letter (a-z)")
+    if not any(c.isdigit() for c in request.password):
+        raise HTTPException(status_code=400, detail="Password must include at least one number (0-9)")
+
     conn = get_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
