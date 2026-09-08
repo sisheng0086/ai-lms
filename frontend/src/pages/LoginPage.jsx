@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import { EyeOpenIcon, EyeClosedIcon } from '../components/EyeIcon';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -70,14 +72,25 @@ const LoginPage = () => {
           
           <div className="form-group">
             <label className="form-label">Password</label>
-            <input 
-              type="password" 
-              className="form-input" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-            />
+            <div className="input-wrapper">
+              <input 
+                type={showPassword ? 'text' : 'password'} 
+                className="form-input" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+              />
+              <button
+                type="button"
+                className="input-icon-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeClosedIcon size={20} /> : <EyeOpenIcon size={20} />}
+              </button>
+            </div>
           </div>
           
           <button type="submit" className="btn-primary" disabled={loading}>

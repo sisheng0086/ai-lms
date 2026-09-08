@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import { EyeOpenIcon, EyeClosedIcon } from '../components/EyeIcon';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -249,8 +250,9 @@ const RegisterPage = () => {
                 className="input-icon-btn"
                 onClick={() => setShowPassword(!showPassword)}
                 title={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? <EyeClosedIcon size={20} /> : <EyeOpenIcon size={20} />}
               </button>
             </div>
 
@@ -328,8 +330,9 @@ const RegisterPage = () => {
                 className="input-icon-btn"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
               >
-                {showConfirmPassword ? '🙈' : '👁️'}
+                {showConfirmPassword ? <EyeClosedIcon size={20} /> : <EyeOpenIcon size={20} />}
               </button>
             </div>
             {passwordsMismatch && (
