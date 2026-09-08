@@ -25,35 +25,38 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Email format validation regex
+  // Email format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   const isEmailValid = emailRegex.test(formData.email.trim());
 
-  // Password criteria checklist
-  const passwordCriteria = {
-    length: formData.password.length >= 8,
-    uppercase: /[A-Z]/.test(formData.password),
-    lowercase: /[a-z]/.test(formData.password),
-    number: /[0-9]/.test(formData.password),
-    special: /[!@#$%^&*(),.?":{}|<>_\-+=~/\\`[\];]/.test(formData.password)
+  // Password criteria (matching GeeksforGeeks reference)
+  const hasLowercase = /[a-z]/.test(formData.password);
+  const hasUppercase = /[A-Z]/.test(formData.password);
+  const hasNumber = /[0-9]/.test(formData.password);
+  const hasLength = formData.password.length >= 8 && formData.password.length <= 10;
+
+  const criteriaPassed = [hasLowercase, hasUppercase, hasNumber, hasLength].filter(Boolean).length;
+
+  // Password Level Calculation
+  let levelInfo = {
+    level: 0,
+    text: 'Enter Password',
+    color: 'var(--text-muted)',
+    bg: 'transparent'
   };
 
-  const criteriaCount = Object.values(passwordCriteria).filter(Boolean).length;
-
-  // Strength calculation
-  let strengthLabel = 'Too Weak';
-  let strengthColor = '#ef4444';
-  let strengthPercent = (criteriaCount / 5) * 100;
-
-  if (criteriaCount === 5) {
-    strengthLabel = 'Strong';
-    strengthColor = '#10b981';
-  } else if (criteriaCount >= 3) {
-    strengthLabel = 'Medium';
-    strengthColor = '#f59e0b';
-  } else if (formData.password.length > 0) {
-    strengthLabel = 'Weak';
-    strengthColor = '#ef4444';
+  if (formData.password.length > 0) {
+    if (criteriaPassed === 1) {
+      levelInfo = { level: 1, text: 'Level 1 - Weak', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
+    } else if (criteriaPassed === 2) {
+      levelInfo = { level: 2, text: 'Level 2 - Fair', color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)' };
+    } else if (criteriaPassed === 3) {
+      levelInfo = { level: 3, text: 'Level 3 - Good', color: '#eab308', bg: 'rgba(234, 179, 8, 0.15)' };
+    } else if (criteriaPassed === 4) {
+      levelInfo = { level: 4, text: 'Level 4 - Strong', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
+    } else {
+      levelInfo = { level: 0, text: 'Very Weak', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
+    }
   }
 
   // Password match validation
@@ -79,7 +82,6 @@ const RegisterPage = () => {
     e.preventDefault();
     setError('');
 
-    // Mark all fields touched
     setTouched({
       email: true,
       username: true,
@@ -92,8 +94,8 @@ const RegisterPage = () => {
       return;
     }
 
-    if (criteriaCount < 4) {
-      setError('Password does not meet the minimum security requirements.');
+    if (criteriaPassed < 4) {
+      setError('Please satisfy all password requirements (Level 4 - Strong required).');
       return;
     }
 
@@ -231,7 +233,7 @@ const RegisterPage = () => {
                 name="password"
                 className={`form-input ${
                   touched.password && formData.password
-                    ? criteriaCount >= 4
+                    ? criteriaPassed === 4
                       ? 'input-success'
                       : 'input-error'
                     : ''
@@ -239,7 +241,7 @@ const RegisterPage = () => {
                 value={formData.password}
                 onChange={handleChange}
                 onBlur={() => handleBlur('password')}
-                placeholder="Create a strong password"
+                placeholder="Create a password (8 - 10 characters)"
                 required
               />
               <button
@@ -252,52 +254,52 @@ const RegisterPage = () => {
               </button>
             </div>
 
-            {/* Password Strength Meter */}
-            {formData.password.length > 0 && (
-              <div className="strength-bar-container">
-                <div className="strength-bar-track">
-                  <div
-                    className="strength-bar-fill"
-                    style={{
-                      width: `${strengthPercent}%`,
-                      backgroundColor: strengthColor
-                    }}
-                  />
-                </div>
-                <div className="strength-label">
-                  <span>Strength</span>
-                  <span style={{ color: strengthColor, fontWeight: 600 }}>
-                    {strengthLabel}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Password Criteria Checklist */}
-            <div className="password-criteria-box">
-              <div className="criteria-title">Password Must Include:</div>
-              <ul className="criteria-list">
-                <li className={`criteria-item ${passwordCriteria.length ? 'valid' : ''}`}>
-                  <span className="criteria-icon">{passwordCriteria.length ? '✓' : '○'}</span>
-                  <span>At least 8 characters</span>
+            {/* PASSWORD MUST CONTAIN (GeeksforGeeks style) */}
+            <div className="gfg-criteria-box">
+              <div className="gfg-criteria-heading">Password Must Contain:</div>
+              <ul className="gfg-criteria-list">
+                <li className={`gfg-criteria-item ${hasLowercase ? 'valid' : 'invalid'}`}>
+                  <span className="gfg-icon">{hasLowercase ? '✔' : '✖'}</span>
+                  <span>At least <strong>one lowercase letter</strong></span>
                 </li>
-                <li className={`criteria-item ${passwordCriteria.uppercase ? 'valid' : ''}`}>
-                  <span className="criteria-icon">{passwordCriteria.uppercase ? '✓' : '○'}</span>
-                  <span>At least 1 uppercase letter (A-Z)</span>
+                <li className={`gfg-criteria-item ${hasUppercase ? 'valid' : 'invalid'}`}>
+                  <span className="gfg-icon">{hasUppercase ? '✔' : '✖'}</span>
+                  <span>At least <strong>one uppercase letter</strong></span>
                 </li>
-                <li className={`criteria-item ${passwordCriteria.lowercase ? 'valid' : ''}`}>
-                  <span className="criteria-icon">{passwordCriteria.lowercase ? '✓' : '○'}</span>
-                  <span>At least 1 lowercase letter (a-z)</span>
+                <li className={`gfg-criteria-item ${hasNumber ? 'valid' : 'invalid'}`}>
+                  <span className="gfg-icon">{hasNumber ? '✔' : '✖'}</span>
+                  <span>At least <strong>one number</strong></span>
                 </li>
-                <li className={`criteria-item ${passwordCriteria.number ? 'valid' : ''}`}>
-                  <span className="criteria-icon">{passwordCriteria.number ? '✓' : '○'}</span>
-                  <span>At least 1 number (0-9)</span>
-                </li>
-                <li className={`criteria-item ${passwordCriteria.special ? 'valid' : ''}`}>
-                  <span className="criteria-icon">{passwordCriteria.special ? '✓' : '○'}</span>
-                  <span>At least 1 special character (!@#$%^&*)</span>
+                <li className={`gfg-criteria-item ${hasLength ? 'valid' : 'invalid'}`}>
+                  <span className="gfg-icon">{hasLength ? '✔' : '✖'}</span>
+                  <span><strong>8 - 10 characters</strong></span>
                 </li>
               </ul>
+
+              {/* Password Level */}
+              <div className="password-level-card">
+                <div className="password-level-header">
+                  <span className="password-level-title">Password Level</span>
+                  <span
+                    className="password-level-badge"
+                    style={{ color: levelInfo.color, background: levelInfo.bg }}
+                  >
+                    {levelInfo.text}
+                  </span>
+                </div>
+                <div className="level-segments">
+                  {[1, 2, 3, 4].map((seg) => (
+                    <div
+                      key={seg}
+                      className="level-segment"
+                      style={{
+                        backgroundColor:
+                          seg <= levelInfo.level ? levelInfo.color : undefined
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -345,7 +347,7 @@ const RegisterPage = () => {
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading || (formData.email && !isEmailValid) || (formData.password && criteriaCount < 4)}
+            disabled={loading || (formData.email && !isEmailValid) || (formData.password && criteriaPassed < 4)}
           >
             {loading ? 'Registering...' : 'Register'}
           </button>

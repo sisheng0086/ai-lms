@@ -56,8 +56,8 @@ def register_user(request: RegisterRequest):
         raise HTTPException(status_code=400, detail="Role must be student or lecturer")
 
     # Validate password requirements
-    if len(request.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+    if len(request.password) < 8 or len(request.password) > 10:
+        raise HTTPException(status_code=400, detail="Password must be between 8 and 10 characters")
     if not any(c.isupper() for c in request.password):
         raise HTTPException(status_code=400, detail="Password must include at least one uppercase letter (A-Z)")
     if not any(c.islower() for c in request.password):
