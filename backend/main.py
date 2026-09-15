@@ -301,3 +301,70 @@ def list_lecturer_notes(lecturer_id: int):
             return {"status": "success", "notes": notes}
     finally:
         conn.close()
+
+@app.get("/notes")
+def list_all_notes():
+    """Returns all uploaded lecture notes for students to browse and study."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ln.id, ln.subject_code, ln.title, ln.file_name, ln.file_path, 
+                       ln.file_size_kb, ln.uploaded_at, u.full_name as lecturer_name
+                FROM lecture_notes ln
+                LEFT JOIN users u ON ln.lecturer_id = u.id
+                ORDER BY ln.uploaded_at DESC
+                """
+            )
+            notes = cur.fetchall()
+            return {"status": "success", "notes": notes}
+    finally:
+        conn.close()
+
+@app.get("/notes/{note_id}/content")
+def get_note_content(note_id: int):
+    """Extracts and returns text content from an uploaded note file (PDF or text)."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT file_path, file_name, title FROM lecture_notes WHERE id = %s", 
+                (note_id,)
+            )
+            note = cur.fetchone()
+            if not note:
+                raise HTTPException(status_code=404, detail="Note not found")
+            
+            file_path = note["file_path"]
+            if not os.path.exists(file_path):
+                return {"status": "success", "content": f"Title: {note['title']}\nFilename: {note['file_name']}"}
+            
+            # If PDF, extract text using PyPDF2
+            if file_path.lower().endswith('.pdf'):
+                try:
+                    import PyPDF2
+                    text = ""
+                    with open(file_path, 'rb') as f:
+                        reader = PyPDF2.PdfReader(f)
+                        for page in reader.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text += page_text + "\n"
+                    return {"status": "success", "content": text.strip()}
+                except Exception:
+                    return {"status": "success", "content": f"Title: {note['title']}\nFilename: {note['file_name']}"}
+            else:
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        return {"status": "success", "content": f.read().strip()}
+                except Exception:
+                    return {"status": "success", "content": f"Title: {note['title']}\nFilename: {note['file_name']}"}
+    finally:
+        conn.close()

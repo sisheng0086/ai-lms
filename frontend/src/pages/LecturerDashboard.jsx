@@ -19,11 +19,8 @@ const LecturerDashboard = () => {
   const [notesList, setNotesList] = useState([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
 
-  // Queue state (mocked for UI)
-  const [pendingQueue] = useState([
-    { question: "How secure is FAISS?", status: "Pending" },
-    { question: "What happens if a sensor breaks?", status: "Pending" }
-  ]);
+  // Student escalated questions queue
+  const [pendingQueue] = useState([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
