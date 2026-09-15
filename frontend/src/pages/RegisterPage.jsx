@@ -12,7 +12,8 @@ const RegisterPage = () => {
     email: '',
     password: '',
     confirm_password: '',
-    role: 'student'
+    role: 'student',
+    staff_code: ''
   });
   const [touched, setTouched] = useState({
     email: false,
@@ -22,6 +23,7 @@ const RegisterPage = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showStaffCode, setShowStaffCode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -103,6 +105,11 @@ const RegisterPage = () => {
       return;
     }
 
+    if (formData.role === 'lecturer' && !formData.staff_code.trim()) {
+      setError('Faculty Secret Passcode is required for Lecturer registration.');
+      return;
+    }
+
     if (formData.password !== formData.confirm_password) {
       setError('Passwords do not match.');
       return;
@@ -121,7 +128,8 @@ const RegisterPage = () => {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          role: formData.role
+          role: formData.role,
+          staff_code: formData.role === 'lecturer' ? formData.staff_code.trim() : null
         }),
       });
 
@@ -227,6 +235,39 @@ const RegisterPage = () => {
               <option value="lecturer">Lecturer</option>
             </select>
           </div>
+
+          {/* Faculty Secret Passcode (Only displayed when Lecturer is chosen) */}
+          {formData.role === 'lecturer' && (
+            <div className="form-group staff-passcode-group">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Faculty Secret Passcode <span style={{ color: '#ef4444' }}>*</span></span>
+                <span className="staff-badge">Staff Only</span>
+              </label>
+              <div className="input-wrapper">
+                <input
+                  type={showStaffCode ? 'text' : 'password'}
+                  name="staff_code"
+                  className="form-input"
+                  value={formData.staff_code}
+                  onChange={handleChange}
+                  placeholder="Enter faculty access code (e.g. STAFF2026)"
+                  required
+                />
+                <button
+                  type="button"
+                  className="input-icon-btn"
+                  onClick={() => setShowStaffCode(!showStaffCode)}
+                  title={showStaffCode ? 'Hide passcode' : 'Show passcode'}
+                  aria-label={showStaffCode ? 'Hide passcode' : 'Show passcode'}
+                >
+                  {showStaffCode ? <EyeClosedIcon size={20} /> : <EyeOpenIcon size={20} />}
+                </button>
+              </div>
+              <div className="field-tip-msg" style={{ color: '#f59e0b', fontSize: '0.8rem' }}>
+                🔒 Required for Lecturer role. Prevents unauthorized student registrations.
+              </div>
+            </div>
+          )}
 
           {/* Password */}
           <div className="form-group">
@@ -357,7 +398,12 @@ const RegisterPage = () => {
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading || (formData.email && !isEmailValid) || (formData.password && criteriaPassed < 5)}
+            disabled={
+              loading ||
+              (formData.email && !isEmailValid) ||
+              (formData.password && criteriaPassed < 5) ||
+              (formData.role === 'lecturer' && !formData.staff_code.trim())
+            }
           >
             {loading ? 'Registering...' : 'Register'}
           </button>

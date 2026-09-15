@@ -30,6 +30,7 @@ class RegisterRequest(BaseModel):
     full_name: str
     email: EmailStr
     role: str # student or lecturer
+    staff_code: Optional[str] = None
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStr
@@ -54,6 +55,15 @@ def register_user(request: RegisterRequest):
     # Validate role
     if request.role not in ["student", "lecturer"]:
         raise HTTPException(status_code=400, detail="Role must be student or lecturer")
+
+    # Validate staff secret code for lecturers
+    if request.role == "lecturer":
+        expected_code = os.getenv("LECTURER_SECRET_KEY", "STAFF2026")
+        if not request.staff_code or request.staff_code.strip() != expected_code:
+            raise HTTPException(
+                status_code=403,
+                detail="Invalid Lecturer Secret Passcode. Contact faculty administration for the access key."
+            )
 
     # Validate password requirements
     if len(request.password) < 8 or len(request.password) > 12:

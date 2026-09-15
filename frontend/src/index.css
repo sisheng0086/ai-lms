@@ -277,6 +277,31 @@ body {
   margin-top: 6px;
 }
 
+/* Staff Passcode Field */
+.staff-passcode-group {
+  padding: 12px 14px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+[data-theme="light"] .staff-passcode-group {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(217, 119, 6, 0.5);
+}
+
+.staff-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 /* GeeksforGeeks Style Password Validation */
 .gfg-criteria-box {
   margin-top: 14px;
