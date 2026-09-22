@@ -149,6 +149,43 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 
 
 -- ============================================================
+-- TABLE 10: ASSIGNMENTS
+-- Stores homework/assignments published by lecturers
+-- ============================================================
+CREATE TABLE IF NOT EXISTS assignments (
+    id           SERIAL        PRIMARY KEY,
+    lecturer_id  INT           NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject_code VARCHAR(20)   NOT NULL DEFAULT 'GEN101',
+    title        VARCHAR(200)  NOT NULL,
+    description  TEXT,
+    due_date     VARCHAR(50),
+    file_name    VARCHAR(255),
+    file_path    VARCHAR(500),
+    file_data    BYTEA,
+    created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- ============================================================
+-- TABLE 11: ASSIGNMENT SUBMISSIONS
+-- Stores student homework submissions, grades, and feedback
+-- ============================================================
+CREATE TABLE IF NOT EXISTS assignment_submissions (
+    id            SERIAL        PRIMARY KEY,
+    assignment_id INT           NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+    student_id    INT           NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    file_name     VARCHAR(255)  NOT NULL,
+    file_path     VARCHAR(500),
+    file_size_kb  INT,
+    file_data     BYTEA,
+    comment       TEXT,
+    grade         VARCHAR(30),
+    feedback      TEXT,
+    submitted_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- ============================================================
 -- SAMPLE DATA (for testing)
 -- ============================================================
 INSERT INTO users (username, password_hash, full_name, role, email) VALUES

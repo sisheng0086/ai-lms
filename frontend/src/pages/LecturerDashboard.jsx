@@ -21,6 +21,25 @@ const LecturerDashboard = () => {
   const [notesList, setNotesList] = useState([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
 
+  // Assignments & Student Homework Submissions state
+  const [assignmentsList, setAssignmentsList] = useState([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [assignSubject, setAssignSubject] = useState('');
+  const [assignTitle, setAssignTitle] = useState('');
+  const [assignDesc, setAssignDesc] = useState('');
+  const [assignDueDate, setAssignDueDate] = useState('');
+  const [assignFile, setAssignFile] = useState(null);
+  const [creatingAssign, setCreatingAssign] = useState(false);
+  const [assignMessage, setAssignMessage] = useState({ type: '', text: '' });
+
+  // Expanded assignment submissions viewer & grading state
+  const [expandedAssignId, setExpandedAssignId] = useState(null);
+  const [submissionsMap, setSubmissionsMap] = useState({});
+  const [loadingSubmissionsId, setLoadingSubmissionsId] = useState(null);
+  const [gradeInputs, setGradeInputs] = useState({});
+  const [feedbackInputs, setFeedbackInputs] = useState({});
+  const [savingGradeId, setSavingGradeId] = useState(null);
+
   // Student escalated questions queue
   const [pendingQueue] = useState([]);
 
@@ -39,6 +58,46 @@ const LecturerDashboard = () => {
     }
   }, []);
 
+  const fetchAssignments = useCallback(async (lecturerId) => {
+    if (!lecturerId) return;
+    setLoadingAssignments(true);
+    try {
+      const res = await fetch(`${API_URL}/assignments/lecturer/${lecturerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAssignmentsList(data.assignments || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch lecturer assignments', err);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  }, []);
+
+  const fetchSubmissionsForAssignment = async (assignmentId) => {
+    setLoadingSubmissionsId(assignmentId);
+    try {
+      const res = await fetch(`${API_URL}/assignments/${assignmentId}/submissions`);
+      if (res.ok) {
+        const data = await res.json();
+        const subs = data.submissions || [];
+        setSubmissionsMap(prev => ({ ...prev, [assignmentId]: subs }));
+        const gInit = {};
+        const fInit = {};
+        subs.forEach(s => {
+          gInit[s.id] = s.grade || '';
+          fInit[s.id] = s.feedback || '';
+        });
+        setGradeInputs(prev => ({ ...prev, ...gInit }));
+        setFeedbackInputs(prev => ({ ...prev, ...fInit }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch submissions', err);
+    } finally {
+      setLoadingSubmissionsId(null);
+    }
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -52,7 +111,8 @@ const LecturerDashboard = () => {
     }
     setUser(parsedUser);
     fetchNotes(parsedUser.id);
-  }, [navigate, fetchNotes]);
+    fetchAssignments(parsedUser.id);
+  }, [navigate, fetchNotes, fetchAssignments]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -105,6 +165,80 @@ const LecturerDashboard = () => {
     }
   };
 
+  const handleCreateAssignment = async (e) => {
+    e.preventDefault();
+    if (!assignSubject.trim() || !assignTitle.trim()) {
+      setAssignMessage({ type: 'error', text: 'Subject code and assignment title are required.' });
+      return;
+    }
+
+    setCreatingAssign(true);
+    setAssignMessage({ type: '', text: '' });
+
+    const formData = new FormData();
+    formData.append('user_id', user.id);
+    formData.append('subject_code', assignSubject.trim());
+    formData.append('title', assignTitle.trim());
+    formData.append('description', assignDesc.trim());
+    formData.append('due_date', assignDueDate);
+    if (assignFile) {
+      formData.append('file', assignFile);
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/assignments/create`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setAssignMessage({ type: 'success', text: '✅ Assignment published for students!' });
+        setAssignSubject('');
+        setAssignTitle('');
+        setAssignDesc('');
+        setAssignDueDate('');
+        setAssignFile(null);
+        fetchAssignments(user.id);
+      } else {
+        setAssignMessage({ type: 'error', text: data.detail || 'Failed to create assignment.' });
+      }
+    } catch (err) {
+      setAssignMessage({ type: 'error', text: 'Network error while creating assignment.' });
+    } finally {
+      setCreatingAssign(false);
+    }
+  };
+
+  const handleToggleSubmissions = (assignmentId) => {
+    if (expandedAssignId === assignmentId) {
+      setExpandedAssignId(null);
+    } else {
+      setExpandedAssignId(assignmentId);
+      fetchSubmissionsForAssignment(assignmentId);
+    }
+  };
+
+  const handleSaveGrade = async (submissionId, assignmentId) => {
+    setSavingGradeId(submissionId);
+    try {
+      const res = await fetch(`${API_URL}/submissions/${submissionId}/grade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade: gradeInputs[submissionId] || '',
+          feedback: feedbackInputs[submissionId] || ''
+        })
+      });
+      if (res.ok) {
+        fetchSubmissionsForAssignment(assignmentId);
+      }
+    } catch (err) {
+      console.error('Failed to save grade', err);
+    } finally {
+      setSavingGradeId(null);
+    }
+  };
+
   if (!user) return null;
 
   const initials = (user.full_name || user.username || "LC")
@@ -115,9 +249,10 @@ const LecturerDashboard = () => {
     .toUpperCase();
 
   const tabMeta = {
-    overview: { title: "Educator Portal", subtitle: "Course management, AI training materials, and student Q&A" },
+    overview: { title: "Educator Portal", subtitle: "Course management, AI training materials, and student assignments" },
     upload: { title: "Upload Lecture Notes", subtitle: "Upload PDF or text documents to train the student AI assistant" },
-    materials: { title: "Uploaded Course Materials", subtitle: "Manage your active course notes and indexing status" },
+    materials: { title: "Uploaded Course Materials", subtitle: "Manage and download your active course notes" },
+    assignments: { title: "Assignments & Student Homework", subtitle: "Publish homework assignments and grade student file submissions" },
     queue: { title: "Student Q&A Queue", subtitle: "Review questions escalated by students" },
     profile: { title: "Lecturer Profile", subtitle: "Your faculty account details" }
   };
@@ -129,7 +264,7 @@ const LecturerDashboard = () => {
           📤 Upload Lecture Notes
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          Upload PDF or text files so students can study them with the AI Study Companion.
+          Upload PDF or text files so students can download them and study with the AI Study Companion.
         </p>
       </div>
 
@@ -200,7 +335,7 @@ const LecturerDashboard = () => {
         <div>
           <h2 style={{ fontSize: '1.25rem' }}>📚 Your Uploaded Notes</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Materials currently available to students in the AI Study Companion.
+            Materials currently available to students for download and in the AI Study Companion.
           </p>
         </div>
         <button 
@@ -222,12 +357,13 @@ const LecturerDashboard = () => {
               <th>Size</th>
               <th>AI Status</th>
               <th>Date Uploaded</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {notesList.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '28px' }}>
+                <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '28px' }}>
                   No lecture notes uploaded yet. Use the Upload form to publish your first material.
                 </td>
               </tr>
@@ -257,6 +393,15 @@ const LecturerDashboard = () => {
                   <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     {new Date(note.uploaded_at).toLocaleDateString()}
                   </td>
+                  <td>
+                    <button
+                      onClick={() => window.open(`${API_URL}/notes/${note.id}/download`, '_blank')}
+                      className="btn-secondary"
+                      style={{ padding: '5px 12px', fontSize: '0.8rem' }}
+                    >
+                      ⬇️ Download
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -264,6 +409,263 @@ const LecturerDashboard = () => {
         </table>
       </div>
     </div>
+  );
+
+  const renderAssignmentsSection = () => (
+    <>
+      {/* Create New Assignment Card */}
+      <div className="card">
+        <div>
+          <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            📋 Create New Assignment / Homework
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Publish an assignment or homework task so students can view instructions and submit their completed work.
+          </p>
+        </div>
+
+        {assignMessage.text && (
+          <div className={assignMessage.type === 'success' ? 'success-message' : 'error-message'} style={{ marginBottom: 0 }}>
+            {assignMessage.text}
+          </div>
+        )}
+
+        <form onSubmit={handleCreateAssignment} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div>
+              <label className="form-label">Subject Code</label>
+              <input
+                type="text"
+                className="form-input"
+                value={assignSubject}
+                onChange={(e) => setAssignSubject(e.target.value)}
+                placeholder="e.g. DFC3013"
+                required
+              />
+            </div>
+            <div>
+              <label className="form-label">Assignment Title</label>
+              <input
+                type="text"
+                className="form-input"
+                value={assignTitle}
+                onChange={(e) => setAssignTitle(e.target.value)}
+                placeholder="e.g. Lab Assignment 1: Python Basics"
+                required
+              />
+            </div>
+            <div>
+              <label className="form-label">Due Date</label>
+              <input
+                type="date"
+                className="form-input"
+                value={assignDueDate}
+                onChange={(e) => setAssignDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">Instructions / Description</label>
+            <textarea
+              className="form-input"
+              rows={3}
+              value={assignDesc}
+              onChange={(e) => setAssignDesc(e.target.value)}
+              placeholder="Write clear instructions, grading criteria, or submission requirements for students..."
+              style={{ resize: 'vertical' }}
+            />
+          </div>
+
+          <div>
+            <label className="form-label">Attach Question Sheet / Rubric (Optional PDF, DOCX, ZIP)</label>
+            <input
+              type="file"
+              onChange={(e) => setAssignFile(e.target.files ? e.target.files[0] : null)}
+              className="form-input"
+              style={{ padding: '8px' }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={creatingAssign}
+            style={{ width: 'fit-content', padding: '12px 28px', margin: 0 }}
+          >
+            {creatingAssign ? 'Publishing...' : '📢 Publish Assignment to Students'}
+          </button>
+        </form>
+      </div>
+
+      {/* Published Assignments & Student Submissions Card */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem' }}>📥 Published Assignments & Student Submissions</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Click "View Submissions" on any assignment to download student homework files and assign grades.
+            </p>
+          </div>
+          <button onClick={() => fetchAssignments(user.id)} className="btn-secondary" disabled={loadingAssignments}>
+            {loadingAssignments ? 'Refreshing...' : '🔄 Refresh'}
+          </button>
+        </div>
+
+        {assignmentsList.length === 0 ? (
+          <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: '10px' }}>
+            No assignments published yet. Create your first assignment above!
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {assignmentsList.map((a) => {
+              const isExpanded = expandedAssignId === a.id;
+              const subs = submissionsMap[a.id] || [];
+              return (
+                <div
+                  key={a.id}
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '18px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                        <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '3px 9px', borderRadius: '5px', fontWeight: 700, fontSize: '0.8rem' }}>
+                          {a.subject_code}
+                        </span>
+                        <strong style={{ fontSize: '1.08rem' }}>{a.title}</strong>
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                        {a.due_date && <span>⏰ Due: <strong style={{ color: '#fbbf24' }}>{a.due_date}</strong></span>}
+                        <span>📅 Created: {new Date(a.created_at).toLocaleDateString()}</span>
+                        <span>📥 Student Submissions: <strong style={{ color: '#38bdf8' }}>{a.submission_count || 0}</strong></span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {a.file_name && (
+                        <button
+                          onClick={() => window.open(`${API_URL}/assignments/${a.id}/download`, '_blank')}
+                          className="btn-secondary"
+                          style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                        >
+                          📎 Question File ({a.file_name})
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleToggleSubmissions(a.id)}
+                        className="btn-primary"
+                        style={{ width: 'auto', margin: 0, padding: '7px 16px', fontSize: '0.82rem' }}
+                      >
+                        {isExpanded ? '🔼 Hide Submissions' : `📂 View Submissions (${a.submission_count || 0})`}
+                      </button>
+                    </div>
+                  </div>
+
+                  {a.description && (
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.14)', padding: '10px 14px', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>
+                      {a.description}
+                    </div>
+                  )}
+
+                  {isExpanded && (
+                    <div style={{ marginTop: '8px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                      <h4 style={{ fontSize: '0.95rem', marginBottom: '10px', color: '#38bdf8' }}>
+                        👨‍🎓 Submitted Student Homework ({subs.length})
+                      </h4>
+                      {loadingSubmissionsId === a.id ? (
+                        <div style={{ padding: '16px', color: 'var(--text-muted)' }}>Loading student submissions...</div>
+                      ) : subs.length === 0 ? (
+                        <div style={{ padding: '18px', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.12)', borderRadius: '8px', textAlign: 'center' }}>
+                          No students have submitted homework for this assignment yet.
+                        </div>
+                      ) : (
+                        <div className="data-table-container">
+                          <table className="data-table">
+                            <thead>
+                              <tr>
+                                <th>Student Name</th>
+                                <th>Matrix No</th>
+                                <th>Submitted File</th>
+                                <th>Student Comment</th>
+                                <th>Submitted At</th>
+                                <th>Grade & Feedback</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {subs.map((s) => (
+                                <tr key={s.id}>
+                                  <td style={{ fontWeight: 600 }}>{s.student_name}</td>
+                                  <td>
+                                    <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem' }}>
+                                      {s.matrix_no || 'N/A'}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <button
+                                      onClick={() => window.open(`${API_URL}/submissions/${s.id}/download`, '_blank')}
+                                      className="btn-secondary"
+                                      style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                                    >
+                                      ⬇️ {s.file_name}
+                                    </button>
+                                  </td>
+                                  <td style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                                    {s.comment || '—'}
+                                  </td>
+                                  <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                    {new Date(s.submitted_at).toLocaleString()}
+                                  </td>
+                                  <td>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <input
+                                        type="text"
+                                        placeholder="Grade (e.g. A / 90%)"
+                                        value={gradeInputs[s.id] ?? ''}
+                                        onChange={(e) => setGradeInputs(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                        className="form-input"
+                                        style={{ width: '110px', padding: '6px 8px', fontSize: '0.8rem' }}
+                                      />
+                                      <input
+                                        type="text"
+                                        placeholder="Feedback for student..."
+                                        value={feedbackInputs[s.id] ?? ''}
+                                        onChange={(e) => setFeedbackInputs(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                        className="form-input"
+                                        style={{ width: '160px', padding: '6px 8px', fontSize: '0.8rem' }}
+                                      />
+                                      <button
+                                        onClick={() => handleSaveGrade(s.id, a.id)}
+                                        disabled={savingGradeId === s.id}
+                                        className="btn-primary"
+                                        style={{ width: 'auto', margin: 0, padding: '6px 12px', fontSize: '0.78rem' }}
+                                      >
+                                        {savingGradeId === s.id ? 'Saving...' : '💾 Save'}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
   );
 
   const renderQueueCard = () => (
@@ -368,6 +770,13 @@ const LecturerDashboard = () => {
               <span>Uploaded Materials ({notesList.length})</span>
             </button>
             <button
+              className={`sidebar-nav-item ${activeTab === 'assignments' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('assignments'); setSidebarOpen(false); }}
+            >
+              <span>📋</span>
+              <span>Assignments ({assignmentsList.length})</span>
+            </button>
+            <button
               className={`sidebar-nav-item ${activeTab === 'queue' ? 'active' : ''}`}
               onClick={() => { setActiveTab('queue'); setSidebarOpen(false); }}
             >
@@ -434,10 +843,10 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>❓</div>
+                  <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>📋</div>
                   <div className="stat-info">
-                    <h3>{pendingQueue.length}</h3>
-                    <p>Pending Questions</p>
+                    <h3>{assignmentsList.length}</h3>
+                    <p>Active Assignments</p>
                   </div>
                 </div>
                 <div className="stat-card">
@@ -457,6 +866,8 @@ const LecturerDashboard = () => {
           {activeTab === 'upload' && renderUploadCard()}
 
           {activeTab === 'materials' && renderMaterialsCard()}
+
+          {activeTab === 'assignments' && renderAssignmentsSection()}
 
           {activeTab === 'queue' && renderQueueCard()}
 
