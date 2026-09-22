@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name     VARCHAR(100)    NOT NULL,
     role          VARCHAR(20)     NOT NULL CHECK (role IN ('student', 'lecturer', 'admin')),
     email         VARCHAR(100)    UNIQUE,
+    matrix_no     VARCHAR(30)     UNIQUE,
     created_at    TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
 );
 

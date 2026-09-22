@@ -31,6 +31,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     role: str # student or lecturer
     staff_code: Optional[str] = None
+    matrix_no: Optional[str] = None
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStr
@@ -39,6 +40,22 @@ class VerifyEmailRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+# -----------------
+# Database Auto-Migration
+# -----------------
+@app.on_event("startup")
+def ensure_db_columns():
+    conn = get_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
+                conn.commit()
+        except Exception as e:
+            print(f"[DB] Auto-migration note: {e}")
+        finally:
+            conn.close()
 
 # -----------------
 # General Endpoints
@@ -65,6 +82,16 @@ def register_user(request: RegisterRequest):
                 detail="Invalid Lecturer Secret Passcode. Contact faculty administration for the access key."
             )
 
+    # Validate matrix_no for students
+    clean_matrix_no = None
+    if request.role == "student":
+        if not request.matrix_no or not request.matrix_no.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Matrix No is required for student registration."
+            )
+        clean_matrix_no = request.matrix_no.strip().upper()
+
     # Validate password requirements
     if len(request.password) < 8 or len(request.password) > 12:
         raise HTTPException(status_code=400, detail="Password must be between 8 and 12 characters")
@@ -83,10 +110,20 @@ def register_user(request: RegisterRequest):
     
     try:
         with conn.cursor() as cur:
+            # Ensure matrix_no column exists
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
+            conn.commit()
+
             # Check if username or email already exists
             cur.execute("SELECT id FROM users WHERE username = %s OR email = %s", (request.username, request.email))
             if cur.fetchone():
                 raise HTTPException(status_code=400, detail="Username or email already exists")
+
+            # Check if matrix_no already exists for another student
+            if clean_matrix_no:
+                cur.execute("SELECT id FROM users WHERE matrix_no = %s", (clean_matrix_no,))
+                if cur.fetchone():
+                    raise HTTPException(status_code=400, detail="This Matrix No is already registered")
 
         # Hash the password
         hashed_pw = auth.hash_password(request.password)
@@ -102,7 +139,8 @@ def register_user(request: RegisterRequest):
                 "password_hash": hashed_pw,
                 "full_name": request.full_name,
                 "email": request.email,
-                "role": request.role
+                "role": request.role,
+                "matrix_no": clean_matrix_no
             }
         }
         
@@ -134,9 +172,9 @@ def verify_email(request: VerifyEmailRequest):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO users (username, password_hash, full_name, role, email, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id, username, full_name, role, email
+                INSERT INTO users (username, password_hash, full_name, role, email, matrix_no, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, username, full_name, role, email, matrix_no
                 """,
                 (
                     user_data["username"],
@@ -144,6 +182,7 @@ def verify_email(request: VerifyEmailRequest):
                     user_data["full_name"],
                     user_data["role"],
                     user_data["email"],
+                    user_data.get("matrix_no"),
                     datetime.now()
                 )
             )
@@ -168,8 +207,10 @@ def login_user(request: LoginRequest):
         
     try:
         with conn.cursor() as cur:
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
+            conn.commit()
             cur.execute(
-                "SELECT id, username, password_hash, full_name, role, email FROM users WHERE username = %s", 
+                "SELECT id, username, password_hash, full_name, role, email, matrix_no FROM users WHERE username = %s", 
                 (request.username,)
             )
             user = cur.fetchone()
@@ -193,7 +234,7 @@ def get_user(user_id: int):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, username, full_name, role, email, created_at FROM users WHERE id = %s", 
+                "SELECT id, username, full_name, role, email, matrix_no, created_at FROM users WHERE id = %s", 
                 (user_id,)
             )
             user = cur.fetchone()

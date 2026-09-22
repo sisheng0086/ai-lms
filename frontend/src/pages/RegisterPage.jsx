@@ -13,6 +13,7 @@ const RegisterPage = () => {
     password: '',
     confirm_password: '',
     role: 'student',
+    matrix_no: '',
     staff_code: ''
   });
   const [touched, setTouched] = useState({
@@ -100,6 +101,11 @@ const RegisterPage = () => {
       return;
     }
 
+    if (formData.role === 'student' && !formData.matrix_no.trim()) {
+      setError('Matrix No is required for Student registration.');
+      return;
+    }
+
     if (criteriaPassed < 5) {
       setError('Please satisfy all password requirements (Level 5 - Strong required).');
       return;
@@ -129,6 +135,7 @@ const RegisterPage = () => {
           email: formData.email,
           password: formData.password,
           role: formData.role,
+          matrix_no: formData.role === 'student' ? formData.matrix_no.trim().toUpperCase() : null,
           staff_code: formData.role === 'lecturer' ? formData.staff_code.trim() : null
         }),
       });
@@ -235,6 +242,35 @@ const RegisterPage = () => {
               <option value="lecturer">Lecturer</option>
             </select>
           </div>
+
+          {/* Student Matrix No (Only displayed when Student is chosen) */}
+          {formData.role === 'student' && (
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Matrix No <span style={{ color: '#ef4444' }}>*</span></span>
+                <span style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  background: 'rgba(56, 189, 248, 0.18)',
+                  color: '#38bdf8',
+                  padding: '2px 8px',
+                  borderRadius: '4px'
+                }}>Student ID</span>
+              </label>
+              <input
+                type="text"
+                name="matrix_no"
+                className="form-input"
+                style={{ textTransform: 'uppercase' }}
+                value={formData.matrix_no}
+                onChange={handleChange}
+                placeholder="e.g. 05DDT24F1001"
+                required
+              />
+            </div>
+          )}
 
           {/* Faculty Secret Passcode (Only displayed when Lecturer is chosen) */}
           {formData.role === 'lecturer' && (
@@ -402,6 +438,7 @@ const RegisterPage = () => {
               loading ||
               (formData.email && !isEmailValid) ||
               (formData.password && criteriaPassed < 5) ||
+              (formData.role === 'student' && !formData.matrix_no.trim()) ||
               (formData.role === 'lecturer' && !formData.staff_code.trim())
             }
           >
