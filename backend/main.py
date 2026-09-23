@@ -48,6 +48,28 @@ class GradeSubmissionRequest(BaseModel):
     grade: str
     feedback: Optional[str] = None
 
+class LecturerContactRequest(BaseModel):
+    student_id: int
+    lecturer_id: Optional[int] = None
+    class_name: str
+    subject_code: Optional[str] = "General"
+    question: str
+
+class LecturerReplyRequest(BaseModel):
+    reply: str
+
+class AdminSupportRequest(BaseModel):
+    user_id: int
+    user_role: str
+    category: str
+    priority: Optional[str] = "Normal"
+    subject: str
+    description: str
+
+class AdminResolveRequest(BaseModel):
+    status: str = "resolved"
+    admin_response: str
+
 # -----------------
 # Database Auto-Migration
 # -----------------
@@ -59,6 +81,7 @@ def ensure_db_columns():
             with conn.cursor() as cur:
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
                 cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS file_data BYTEA;")
+                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS file_size_kb INT;")
                 cur.execute(
                     """
                     CREATE TABLE IF NOT EXISTS assignments (
@@ -83,11 +106,44 @@ def ensure_db_columns():
                         student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                         file_name VARCHAR(255) NOT NULL,
                         file_path VARCHAR(500),
+                        file_size_kb INT,
                         file_data BYTEA,
                         comment TEXT,
                         grade VARCHAR(30),
                         feedback TEXT,
                         submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                )
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS lecturer_messages (
+                        id SERIAL PRIMARY KEY,
+                        student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        lecturer_id INT REFERENCES users(id) ON DELETE SET NULL,
+                        class_name VARCHAR(80) NOT NULL,
+                        subject_code VARCHAR(30),
+                        question TEXT NOT NULL,
+                        reply TEXT,
+                        status VARCHAR(20) DEFAULT 'pending',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        replied_at TIMESTAMP
+                    );
+                    """
+                )
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS admin_support_tickets (
+                        id SERIAL PRIMARY KEY,
+                        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        user_role VARCHAR(20) NOT NULL,
+                        category VARCHAR(80) NOT NULL,
+                        priority VARCHAR(20) DEFAULT 'Normal',
+                        subject VARCHAR(200) NOT NULL,
+                        description TEXT NOT NULL,
+                        status VARCHAR(20) DEFAULT 'open',
+                        admin_response TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                     """
                 )
@@ -778,4 +834,209 @@ def grade_submission(submission_id: int, req: GradeSubmissionRequest):
             return {"status": "success", "message": "Grade and feedback saved"}
     finally:
         conn.close()
+
+# -----------------
+# Contact & Support Endpoints (Lecturer Q&A + Admin Tech Support)
+# -----------------
+@app.get("/lecturers")
+def list_all_lecturers():
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, full_name, username, email FROM users WHERE role = 'lecturer' ORDER BY full_name ASC"
+            )
+            lecturers = cur.fetchall()
+            return {"status": "success", "lecturers": lecturers}
+    finally:
+        conn.close()
+
+@app.post("/contact/lecturer")
+def send_lecturer_question(req: LecturerContactRequest):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO lecturer_messages
+                (student_id, lecturer_id, class_name, subject_code, question, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, 'pending', %s)
+                RETURNING id
+                """,
+                (req.student_id, req.lecturer_id, req.class_name, req.subject_code or "General", req.question, datetime.now())
+            )
+            msg_id = cur.fetchone()["id"]
+            conn.commit()
+            return {"status": "success", "message": "Question sent to lecturer!", "message_id": msg_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to send question: {str(e)}")
+    finally:
+        conn.close()
+
+@app.get("/contact/lecturer/student/{student_id}")
+def get_student_lecturer_messages(student_id: int):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT m.id, m.class_name, m.subject_code, m.question, m.reply, m.status,
+                       m.created_at, m.replied_at,
+                       l.full_name AS lecturer_name, l.email AS lecturer_email
+                FROM lecturer_messages m
+                LEFT JOIN users l ON m.lecturer_id = l.id
+                WHERE m.student_id = %s
+                ORDER BY m.created_at DESC
+                """,
+                (student_id,)
+            )
+            messages = cur.fetchall()
+            return {"status": "success", "messages": messages}
+    finally:
+        conn.close()
+
+@app.get("/contact/lecturer/inbox/{lecturer_id}")
+def get_lecturer_inbox(lecturer_id: int):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT m.id, m.student_id, m.lecturer_id, m.class_name, m.subject_code,
+                       m.question, m.reply, m.status, m.created_at, m.replied_at,
+                       s.full_name AS student_name, s.matrix_no, s.email AS student_email
+                FROM lecturer_messages m
+                JOIN users s ON m.student_id = s.id
+                WHERE m.lecturer_id = %s OR m.lecturer_id IS NULL
+                ORDER BY CASE WHEN m.status = 'pending' THEN 0 ELSE 1 END, m.created_at DESC
+                """,
+                (lecturer_id,)
+            )
+            messages = cur.fetchall()
+            return {"status": "success", "messages": messages}
+    finally:
+        conn.close()
+
+@app.post("/contact/lecturer/{message_id}/reply")
+def reply_lecturer_message(message_id: int, req: LecturerReplyRequest):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE lecturer_messages
+                SET reply = %s, status = 'answered', replied_at = %s
+                WHERE id = %s
+                RETURNING id
+                """,
+                (req.reply, datetime.now(), message_id)
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Message not found")
+            conn.commit()
+            return {"status": "success", "message": "Reply sent to student"}
+    finally:
+        conn.close()
+
+@app.post("/contact/admin")
+def create_admin_support_ticket(req: AdminSupportRequest):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO admin_support_tickets
+                (user_id, user_role, category, priority, subject, description, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, 'open', %s)
+                RETURNING id
+                """,
+                (req.user_id, req.user_role, req.category, req.priority or "Normal", req.subject, req.description, datetime.now())
+            )
+            ticket_id = cur.fetchone()["id"]
+            conn.commit()
+            return {"status": "success", "message": "Technical support ticket submitted to Admin!", "ticket_id": ticket_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to submit support ticket: {str(e)}")
+    finally:
+        conn.close()
+
+@app.get("/contact/admin/user/{user_id}")
+def get_user_support_tickets(user_id: int):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, category, priority, subject, description, status, admin_response, created_at
+                FROM admin_support_tickets
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,)
+            )
+            tickets = cur.fetchall()
+            return {"status": "success", "tickets": tickets}
+    finally:
+        conn.close()
+
+@app.get("/contact/admin/all")
+def get_all_admin_support_tickets():
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT t.id, t.user_role, t.category, t.priority, t.subject, t.description,
+                       t.status, t.admin_response, t.created_at,
+                       u.full_name AS reporter_name, u.matrix_no, u.email AS reporter_email
+                FROM admin_support_tickets t
+                JOIN users u ON t.user_id = u.id
+                ORDER BY CASE WHEN t.status = 'open' THEN 0 ELSE 1 END, t.created_at DESC
+                """
+            )
+            tickets = cur.fetchall()
+            return {"status": "success", "tickets": tickets}
+    finally:
+        conn.close()
+
+@app.post("/contact/admin/{ticket_id}/resolve")
+def resolve_admin_ticket(ticket_id: int, req: AdminResolveRequest):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE admin_support_tickets
+                SET status = %s, admin_response = %s
+                WHERE id = %s
+                RETURNING id
+                """,
+                (req.status, req.admin_response, ticket_id)
+            )
+            conn.commit()
+            return {"status": "success", "message": "Support ticket updated"}
+    finally:
+        conn.close()
+
 

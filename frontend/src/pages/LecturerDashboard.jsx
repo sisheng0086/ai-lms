@@ -9,14 +9,14 @@ const LecturerDashboard = () => {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   // Upload states
   const [subjectCode, setSubjectCode] = useState('');
   const [title, setTitle] = useState('');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState({ type: '', text: '' });
-  
+
   // Notes state
   const [notesList, setNotesList] = useState([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
@@ -40,8 +40,21 @@ const LecturerDashboard = () => {
   const [feedbackInputs, setFeedbackInputs] = useState({});
   const [savingGradeId, setSavingGradeId] = useState(null);
 
-  // Student escalated questions queue
-  const [pendingQueue] = useState([]);
+  // Contact & Student Q&A Inbox + Admin Support state
+  const [contactSubTab, setContactSubTab] = useState('student_inbox'); // 'student_inbox' | 'admin_support'
+  const [studentInbox, setStudentInbox] = useState([]);
+  const [loadingInbox, setLoadingInbox] = useState(false);
+  const [replyInputs, setReplyInputs] = useState({});
+  const [sendingReplyId, setSendingReplyId] = useState(null);
+
+  // Admin Support Ticket states for Lecturer
+  const [adminCategory, setAdminCategory] = useState('System / Technical Error');
+  const [adminPriority, setAdminPriority] = useState('Normal');
+  const [adminSubject, setAdminSubject] = useState('');
+  const [adminDescription, setAdminDescription] = useState('');
+  const [sendingAdminTicket, setSendingAdminTicket] = useState(false);
+  const [adminTicketFeedback, setAdminTicketFeedback] = useState({ type: '', text: '' });
+  const [adminTicketsList, setAdminTicketsList] = useState([]);
 
   const fetchNotes = useCallback(async (lecturerId) => {
     setLoadingNotes(true);
@@ -71,6 +84,35 @@ const LecturerDashboard = () => {
       console.error('Failed to fetch lecturer assignments', err);
     } finally {
       setLoadingAssignments(false);
+    }
+  }, []);
+
+  const fetchContactInbox = useCallback(async (lecturerId) => {
+    if (!lecturerId) return;
+    setLoadingInbox(true);
+    try {
+      const [inboxRes, tickRes] = await Promise.all([
+        fetch(`${API_URL}/contact/lecturer/inbox/${lecturerId}`),
+        fetch(`${API_URL}/contact/admin/all`)
+      ]);
+      if (inboxRes.ok) {
+        const data = await inboxRes.json();
+        const msgs = data.messages || [];
+        setStudentInbox(msgs);
+        const initReplies = {};
+        msgs.forEach(m => {
+          initReplies[m.id] = m.reply || '';
+        });
+        setReplyInputs(prev => ({ ...prev, ...initReplies }));
+      }
+      if (tickRes.ok) {
+        const d = await tickRes.json();
+        setAdminTicketsList(d.tickets || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch contact inbox', err);
+    } finally {
+      setLoadingInbox(false);
     }
   }, []);
 
@@ -112,7 +154,8 @@ const LecturerDashboard = () => {
     setUser(parsedUser);
     fetchNotes(parsedUser.id);
     fetchAssignments(parsedUser.id);
-  }, [navigate, fetchNotes, fetchAssignments]);
+    fetchContactInbox(parsedUser.id);
+  }, [navigate, fetchNotes, fetchAssignments, fetchContactInbox]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -150,7 +193,7 @@ const LecturerDashboard = () => {
       const data = await response.json();
 
       if (response.ok && data.status === 'success') {
-        setUploadMessage({ type: 'success', text: 'Notes uploaded successfully!' });
+        setUploadMessage({ type: 'success', text: '✅ Notes uploaded successfully! Students can now study or download this chapter.' });
         setSubjectCode('');
         setTitle('');
         setFile(null);
@@ -158,7 +201,7 @@ const LecturerDashboard = () => {
       } else {
         setUploadMessage({ type: 'error', text: data.detail || data.message || 'Upload failed.' });
       }
-    } catch (err) {
+    } catch {
       setUploadMessage({ type: 'error', text: 'Network error. Upload failed.' });
     } finally {
       setUploading(false);
@@ -202,7 +245,7 @@ const LecturerDashboard = () => {
       } else {
         setAssignMessage({ type: 'error', text: data.detail || 'Failed to create assignment.' });
       }
-    } catch (err) {
+    } catch {
       setAssignMessage({ type: 'error', text: 'Network error while creating assignment.' });
     } finally {
       setCreatingAssign(false);
@@ -239,6 +282,65 @@ const LecturerDashboard = () => {
     }
   };
 
+  const handleReplyStudentQuestion = async (msgId) => {
+    const replyText = (replyInputs[msgId] || '').trim();
+    if (!replyText) return;
+    setSendingReplyId(msgId);
+    try {
+      const res = await fetch(`${API_URL}/contact/lecturer/${msgId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply: replyText })
+      });
+      if (res.ok) {
+        fetchContactInbox(user.id);
+      }
+    } catch (err) {
+      console.error('Failed to send reply', err);
+    } finally {
+      setSendingReplyId(null);
+    }
+  };
+
+  const handleSendAdminTicket = async (e) => {
+    e.preventDefault();
+    if (!adminSubject.trim() || !adminDescription.trim()) {
+      setAdminTicketFeedback({ type: 'error', text: 'Please enter both issue summary and details.' });
+      return;
+    }
+
+    setSendingAdminTicket(true);
+    setAdminTicketFeedback({ type: '', text: '' });
+
+    try {
+      const res = await fetch(`${API_URL}/contact/admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          user_role: user.role,
+          category: adminCategory,
+          priority: adminPriority,
+          subject: adminSubject.trim(),
+          description: adminDescription.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminTicketFeedback({ type: 'success', text: '🛠️ Technical support report submitted to Admin!' });
+        setAdminSubject('');
+        setAdminDescription('');
+        fetchContactInbox(user.id);
+      } else {
+        setAdminTicketFeedback({ type: 'error', text: data.detail || 'Failed to submit report.' });
+      }
+    } catch {
+      setAdminTicketFeedback({ type: 'error', text: 'Network error submitting support ticket.' });
+    } finally {
+      setSendingAdminTicket(false);
+    }
+  };
+
   if (!user) return null;
 
   const initials = (user.full_name || user.username || "LC")
@@ -248,12 +350,14 @@ const LecturerDashboard = () => {
     .slice(0, 2)
     .toUpperCase();
 
+  const pendingStudentQuestionsCount = studentInbox.filter(m => m.status === 'pending').length;
+
   const tabMeta = {
-    overview: { title: "Educator Portal", subtitle: "Course management, AI training materials, and student assignments" },
-    upload: { title: "Upload Lecture Notes", subtitle: "Upload PDF or text documents to train the student AI assistant" },
+    overview: { title: "Educator Portal", subtitle: "Course management, AI training materials, assignments, and student Q&A" },
+    upload: { title: "Upload Lecture Notes", subtitle: "Upload Chapter PDFs or text notes for students to study & download" },
     materials: { title: "Uploaded Course Materials", subtitle: "Manage and download your active course notes" },
     assignments: { title: "Assignments & Student Homework", subtitle: "Publish homework assignments and grade student file submissions" },
-    queue: { title: "Student Q&A Queue", subtitle: "Review questions escalated by students" },
+    contact: { title: "Contact & Student Questions", subtitle: "Answer questions from students (with Student Name, Matrix ID & Class) or contact Admin Support" },
     profile: { title: "Lecturer Profile", subtitle: "Your faculty account details" }
   };
 
@@ -261,10 +365,10 @@ const LecturerDashboard = () => {
     <div className="card">
       <div>
         <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          📤 Upload Lecture Notes
+          📤 Upload Lecture Notes / Chapters
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          Upload PDF or text files so students can download them and study with the AI Study Companion.
+          Tip: Include the chapter number in the title (e.g. <strong>"Chapter 1: Introduction"</strong> or <strong>"Chapter 1.1: Basics"</strong>) so students can ask the AI for it directly!
         </p>
       </div>
 
@@ -288,13 +392,13 @@ const LecturerDashboard = () => {
             />
           </div>
           <div>
-            <label className="form-label">Lecture Title</label>
+            <label className="form-label">Chapter / Lecture Title</label>
             <input 
               type="text" 
               className="form-input" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Chapter 1: Introduction to AI"
+              placeholder="e.g. Chapter 1 / Chapter 1.1: Introduction to AI"
               required
             />
           </div>
@@ -321,9 +425,9 @@ const LecturerDashboard = () => {
           type="submit" 
           className="btn-primary" 
           disabled={uploading}
-          style={{ width: 'fit-content', padding: '12px 28px' }}
+          style={{ width: 'fit-content', padding: '12px 28px', margin: 0 }}
         >
-          {uploading ? 'Uploading...' : 'Upload & Publish to AI'}
+          {uploading ? 'Uploading...' : '📤 Upload & Publish to AI'}
         </button>
       </form>
     </div>
@@ -331,7 +435,7 @@ const LecturerDashboard = () => {
 
   const renderMaterialsCard = () => (
     <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h2 style={{ fontSize: '1.25rem' }}>📚 Your Uploaded Notes</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -352,7 +456,7 @@ const LecturerDashboard = () => {
           <thead>
             <tr>
               <th>Subject</th>
-              <th>Title</th>
+              <th>Chapter / Title</th>
               <th>File Name</th>
               <th>Size</th>
               <th>AI Status</th>
@@ -668,53 +772,222 @@ const LecturerDashboard = () => {
     </>
   );
 
-  const renderQueueCard = () => (
+  const renderContactAndInboxCard = () => (
     <div className="card">
-      <div>
-        <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          ❓ Student Escalation Queue
-        </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          Questions that require direct lecturer verification.
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.25rem' }}>💬 Student Q&A Inbox & Admin Support</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>
+            View questions sent by students (with their Name, Matrix No & Class) or report technical/system issues to Admin.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '5px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+          <button
+            type="button"
+            onClick={() => setContactSubTab('student_inbox')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.84rem',
+              background: contactSubTab === 'student_inbox' ? 'var(--primary)' : 'transparent',
+              color: contactSubTab === 'student_inbox' ? '#fff' : 'var(--text-muted)'
+            }}
+          >
+            👨‍🎓 Student Questions ({studentInbox.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setContactSubTab('admin_support')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.84rem',
+              background: contactSubTab === 'admin_support' ? 'var(--primary)' : 'transparent',
+              color: contactSubTab === 'admin_support' ? '#fff' : 'var(--text-muted)'
+            }}
+          >
+            🛠️ Contact Admin (Tech Support)
+          </button>
+        </div>
       </div>
-      
-      <div className="data-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Student Question</th>
-              <th style={{ width: '120px' }}>Status</th>
-              <th style={{ width: '100px' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pendingQueue.length === 0 ? (
-              <tr>
-                <td colSpan="3" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
-                  No pending student questions in the queue.
-                </td>
-              </tr>
-            ) : (
-              pendingQueue.map((item, idx) => (
-                <tr key={idx}>
-                  <td>{item.question}</td>
-                  <td>
-                    <span style={{ background: 'rgba(251, 191, 36, 0.2)', color: 'var(--warning)', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>
-                      {item.status}
+
+      {contactSubTab === 'student_inbox' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              Showing all questions from students, including who asked and which class they belong to:
+            </span>
+            <button onClick={() => fetchContactInbox(user.id)} className="btn-secondary" disabled={loadingInbox} style={{ fontSize: '0.82rem' }}>
+              {loadingInbox ? 'Refreshing...' : '🔄 Refresh Inbox'}
+            </button>
+          </div>
+
+          {studentInbox.length === 0 ? (
+            <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: '10px' }}>
+              📭 No student questions in your inbox yet.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {studentInbox.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    padding: '16px 18px',
+                    borderRadius: '12px',
+                    border: m.status === 'pending' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.35)',
+                    background: m.status === 'pending' ? 'rgba(245, 158, 11, 0.05)' : 'rgba(16, 185, 129, 0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>
+                        👨‍🎓 {m.student_name}
+                      </span>
+                      <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '3px 9px', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem' }}>
+                        🪪 Matrix: {m.matrix_no || 'N/A'}
+                      </span>
+                      <span style={{ background: 'rgba(168, 85, 247, 0.18)', color: '#c084fc', padding: '3px 9px', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem' }}>
+                        🏫 Class: {m.class_name}
+                      </span>
+                      <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '3px 9px', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem' }}>
+                        📚 {m.subject_code || 'General'}
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      background: m.status === 'answered' ? 'rgba(16, 185, 129, 0.18)' : 'rgba(245, 158, 11, 0.18)',
+                      color: m.status === 'answered' ? '#10b981' : '#fbbf24'
+                    }}>
+                      {m.status === 'answered' ? '✅ Answered' : '⏳ Needs Reply'}
                     </span>
-                  </td>
-                  <td>
-                    <button className="btn-secondary" style={{ padding: '4px 12px', fontSize: '0.8rem' }}>
-                      Reply
+                  </div>
+
+                  <div style={{ fontSize: '0.94rem', color: 'var(--text-main)', background: 'rgba(0,0,0,0.18)', padding: '12px 14px', borderRadius: '8px' }}>
+                    <strong>Question:</strong> {m.question}
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      Asked on {new Date(m.created_at).toLocaleString()} {m.student_email ? `• ${m.student_email}` : ''}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Write your reply to this student..."
+                      value={replyInputs[m.id] ?? ''}
+                      onChange={(e) => setReplyInputs(prev => ({ ...prev, [m.id]: e.target.value }))}
+                      style={{ flex: 1, minWidth: '240px' }}
+                    />
+                    <button
+                      onClick={() => handleReplyStudentQuestion(m.id)}
+                      disabled={sendingReplyId === m.id}
+                      className="btn-primary"
+                      style={{ width: 'auto', margin: 0, padding: '10px 20px', fontSize: '0.85rem' }}
+                    >
+                      {sendingReplyId === m.id ? 'Sending...' : m.status === 'answered' ? '🔄 Update Reply' : '📤 Send Reply'}
                     </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '8px' }}>
+          <div style={{
+            padding: '14px 16px',
+            borderRadius: '10px',
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            fontSize: '0.86rem'
+          }}>
+            <strong>🛠️ System & Technical Error Support (Admin Helpdesk)</strong>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px' }}>
+              Report any technical error, server problem, or system bug to the System Administrator (`admin@pks.edu.my`).
+            </div>
+          </div>
+
+          {adminTicketFeedback.text && (
+            <div className={adminTicketFeedback.type === 'success' ? 'success-message' : 'error-message'} style={{ marginBottom: 0 }}>
+              {adminTicketFeedback.text}
+            </div>
+          )}
+
+          <form onSubmit={handleSendAdminTicket} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+              <div>
+                <label className="form-label">Error Category</label>
+                <select value={adminCategory} onChange={(e) => setAdminCategory(e.target.value)} className="form-select">
+                  <option value="System / Technical Error">System / Technical Error</option>
+                  <option value="Note Upload / AI Indexing Issue">Note Upload / AI Indexing Issue</option>
+                  <option value="Assignment / Grading System Bug">Assignment / Grading System Bug</option>
+                  <option value="Account / Permission Issue">Account / Permission Issue</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Priority</label>
+                <select value={adminPriority} onChange={(e) => setAdminPriority(e.target.value)} className="form-select">
+                  <option value="Normal">Normal</option>
+                  <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Short Summary *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Error uploading large PDF slide"
+                  value={adminSubject}
+                  onChange={(e) => setAdminSubject(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="form-label">Error Details *</label>
+              <textarea
+                rows={3}
+                className="form-input"
+                placeholder="Describe the technical error so the Admin can fix it..."
+                value={adminDescription}
+                onChange={(e) => setAdminDescription(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" disabled={sendingAdminTicket} className="btn-primary" style={{ width: 'fit-content', margin: 0, padding: '10px 24px' }}>
+              {sendingAdminTicket ? 'Submitting...' : '🛠️ Submit Error Report to Admin'}
+            </button>
+          </form>
+
+          {adminTicketsList.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+              <h4 style={{ fontSize: '0.95rem', marginBottom: '10px' }}>🎫 Recent System Support Tickets ({adminTicketsList.length})</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {adminTicketsList.slice(0, 5).map(t => (
+                  <div key={t.id} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.84rem' }}>
+                    <strong>[{t.category}] {t.subject}</strong> — <span style={{ color: 'var(--text-muted)' }}>by {t.reporter_name} ({t.user_role})</span>
+                    <div style={{ color: 'var(--text-muted)', marginTop: '3px' }}>{t.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -747,7 +1020,7 @@ const LecturerDashboard = () => {
           </div>
 
           <nav className="sidebar-nav">
-            <div className="nav-section-label">Management</div>
+            <div className="nav-section-label">Course Management</div>
             <button
               className={`sidebar-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
               onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
@@ -776,15 +1049,15 @@ const LecturerDashboard = () => {
               <span>📋</span>
               <span>Assignments ({assignmentsList.length})</span>
             </button>
-            <button
-              className={`sidebar-nav-item ${activeTab === 'queue' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('queue'); setSidebarOpen(false); }}
-            >
-              <span>❓</span>
-              <span>Student Q&A Queue</span>
-            </button>
 
-            <div className="nav-section-label" style={{ marginTop: '12px' }}>Account</div>
+            <div className="nav-section-label" style={{ marginTop: '12px' }}>Communication & Help</div>
+            <button
+              className={`sidebar-nav-item ${activeTab === 'contact' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('contact'); setSidebarOpen(false); }}
+            >
+              <span>💬</span>
+              <span>Contact & Student Q&A ({pendingStudentQuestionsCount})</span>
+            </button>
             <button
               className={`sidebar-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
               onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
@@ -821,6 +1094,13 @@ const LecturerDashboard = () => {
           </div>
 
           <div className="navbar-right">
+            <button
+              onClick={() => setActiveTab('contact')}
+              className="btn-secondary"
+              style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              💬 Student Q&A ({pendingStudentQuestionsCount})
+            </button>
             <div className="user-badge" style={{ background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', borderColor: 'rgba(251, 191, 36, 0.3)' }}>
               <span>{user.full_name}</span>
               <span style={{ background: 'rgba(251, 191, 36, 0.2)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
@@ -834,26 +1114,26 @@ const LecturerDashboard = () => {
         <main className="app-content">
           {activeTab === 'overview' && (
             <>
-              <div className="stats-grid">
-                <div className="stat-card">
+              <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+                <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('materials')}>
                   <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>📚</div>
                   <div className="stat-info">
                     <h3>{notesList.length}</h3>
                     <p>Published Notes</p>
                   </div>
                 </div>
-                <div className="stat-card">
+                <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('assignments')}>
                   <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>📋</div>
                   <div className="stat-info">
                     <h3>{assignmentsList.length}</h3>
                     <p>Active Assignments</p>
                   </div>
                 </div>
-                <div className="stat-card">
-                  <div className="stat-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>🤖</div>
+                <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('contact')}>
+                  <div className="stat-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>💬</div>
                   <div className="stat-info">
-                    <h3>Online</h3>
-                    <p>AI Clone Status</p>
+                    <h3>{studentInbox.length}</h3>
+                    <p>Student Questions</p>
                   </div>
                 </div>
               </div>
@@ -869,7 +1149,7 @@ const LecturerDashboard = () => {
 
           {activeTab === 'assignments' && renderAssignmentsSection()}
 
-          {activeTab === 'queue' && renderQueueCard()}
+          {activeTab === 'contact' && renderContactAndInboxCard()}
 
           {activeTab === 'profile' && (
             <div className="card" style={{ maxWidth: '600px' }}>
