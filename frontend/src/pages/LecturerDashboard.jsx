@@ -52,9 +52,20 @@ const LecturerDashboard = () => {
   const [adminPriority, setAdminPriority] = useState('Normal');
   const [adminSubject, setAdminSubject] = useState('');
   const [adminDescription, setAdminDescription] = useState('');
+  const [adminImageData, setAdminImageData] = useState('');
   const [sendingAdminTicket, setSendingAdminTicket] = useState(false);
   const [adminTicketFeedback, setAdminTicketFeedback] = useState({ type: '', text: '' });
   const [adminTicketsList, setAdminTicketsList] = useState([]);
+
+  // Notification Bell state for Lecturer
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('lecturer_read_notifs') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   const fetchNotes = useCallback(async (lecturerId) => {
     setLoadingNotes(true);
@@ -302,6 +313,51 @@ const LecturerDashboard = () => {
     }
   };
 
+  const handleSelectImage = (e, setter) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rawDataUrl = ev.target?.result;
+      if (!rawDataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDim = 900;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.82);
+          setter(compressed);
+        } catch {
+          setter(rawDataUrl);
+        }
+      };
+      img.onerror = () => setter(rawDataUrl);
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRefreshAll = () => {
+    if (!user) return;
+    fetchContactInbox(user.id);
+    fetchAssignments(user.id);
+    fetchNotes(user.id);
+  };
+
   const handleSendAdminTicket = async (e) => {
     e.preventDefault();
     if (!adminSubject.trim() || !adminDescription.trim()) {
@@ -322,7 +378,8 @@ const LecturerDashboard = () => {
           category: adminCategory,
           priority: adminPriority,
           subject: adminSubject.trim(),
-          description: adminDescription.trim()
+          description: adminDescription.trim(),
+          image_data: adminImageData || null
         })
       });
       const data = await res.json();
@@ -330,6 +387,7 @@ const LecturerDashboard = () => {
         setAdminTicketFeedback({ type: 'success', text: '🛠️ Technical support report submitted to Admin!' });
         setAdminSubject('');
         setAdminDescription('');
+        setAdminImageData('');
         fetchContactInbox(user.id);
       } else {
         setAdminTicketFeedback({ type: 'error', text: data.detail || 'Failed to submit report.' });
@@ -772,49 +830,121 @@ const LecturerDashboard = () => {
     </>
   );
 
+  // Build live notifications for Lecturer (student questions, student homework submissions, admin replies)
+  const lecturerNotificationsList = [
+    ...studentInbox
+      .filter(m => m.status === 'pending')
+      .map(m => ({
+        id: `stu-q-${m.id}`,
+        icon: '🙋‍♂️',
+        title: `New Student Question (${m.class_name} • ${m.subject_code || 'General'})`,
+        detail: `${m.student_name} (${m.matrix_no || 'Student'}): "${(m.question || '').slice(0, 70)}"`,
+        onClick: () => {
+          setActiveTab('contact');
+          setContactSubTab('student_inbox');
+          setNotifOpen(false);
+        }
+      })),
+    ...assignmentsList
+      .filter(a => Number(a.submission_count) > 0)
+      .map(a => ({
+        id: `sub-count-${a.id}-${a.submission_count}`,
+        icon: '📥',
+        title: `Homework Submissions: ${a.subject_code} - ${a.title}`,
+        detail: `${a.submission_count} student submission(s) ready for review and grading`,
+        onClick: () => {
+          setActiveTab('assignments');
+          setExpandedAssignId(a.id);
+          fetchSubmissionsForAssignment(a.id);
+          setNotifOpen(false);
+        }
+      })),
+    ...adminTicketsList
+      .filter(t => t.admin_response || t.status === 'resolved')
+      .map(t => ({
+        id: `lec-admin-${t.id}`,
+        icon: '🛠️',
+        title: `Admin Support Update: ${t.subject}`,
+        detail: t.admin_response || 'Marked as resolved',
+        onClick: () => {
+          setActiveTab('contact');
+          setContactSubTab('admin_support');
+          setNotifOpen(false);
+        }
+      }))
+  ];
+
+  const unreadLecturerNotifs = lecturerNotificationsList.filter(n => !readNotifIds.includes(n.id)).length;
+
+  const handleMarkNotifRead = (id) => {
+    if (!readNotifIds.includes(id)) {
+      const updated = [...readNotifIds, id];
+      setReadNotifIds(updated);
+      localStorage.setItem('lecturer_read_notifs', JSON.stringify(updated));
+    }
+  };
+
+  const handleMarkAllNotifsRead = () => {
+    const allIds = lecturerNotificationsList.map(n => n.id);
+    setReadNotifIds(allIds);
+    localStorage.setItem('lecturer_read_notifs', JSON.stringify(allIds));
+  };
+
   const renderContactAndInboxCard = () => (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h2 style={{ fontSize: '1.25rem' }}>💬 Student Q&A Inbox & Admin Support</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem' }}>
-            View questions sent by students (with their Name, Matrix No & Class) or report technical/system issues to Admin.
+            View questions sent by students (with their Name, Matrix No, Class & attached images) or report technical/system issues to Admin.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '5px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             type="button"
-            onClick={() => setContactSubTab('student_inbox')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.84rem',
-              background: contactSubTab === 'student_inbox' ? 'var(--primary)' : 'transparent',
-              color: contactSubTab === 'student_inbox' ? '#fff' : 'var(--text-muted)'
-            }}
+            onClick={() => fetchContactInbox(user.id)}
+            className="btn-secondary"
+            disabled={loadingInbox}
+            style={{ padding: '8px 14px', fontSize: '0.84rem', margin: 0 }}
           >
-            👨‍🎓 Student Questions ({studentInbox.length})
+            {loadingInbox ? '⏳ Refreshing...' : '🔄 Refresh'}
           </button>
-          <button
-            type="button"
-            onClick={() => setContactSubTab('admin_support')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.84rem',
-              background: contactSubTab === 'admin_support' ? 'var(--primary)' : 'transparent',
-              color: contactSubTab === 'admin_support' ? '#fff' : 'var(--text-muted)'
-            }}
-          >
-            🛠️ Contact Admin (Tech Support)
-          </button>
+
+          <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '5px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+            <button
+              type="button"
+              onClick={() => setContactSubTab('student_inbox')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.84rem',
+                background: contactSubTab === 'student_inbox' ? 'var(--primary)' : 'transparent',
+                color: contactSubTab === 'student_inbox' ? '#fff' : 'var(--text-muted)'
+              }}
+            >
+              👨‍🎓 Student Questions ({studentInbox.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setContactSubTab('admin_support')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.84rem',
+                background: contactSubTab === 'admin_support' ? 'var(--primary)' : 'transparent',
+                color: contactSubTab === 'admin_support' ? '#fff' : 'var(--text-muted)'
+              }}
+            >
+              🛠️ Contact Admin (Tech Support)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -822,7 +952,7 @@ const LecturerDashboard = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              Showing all questions from students, including who asked and which class they belong to:
+              Showing all questions from students, including who asked, their class, and any uploaded screenshot:
             </span>
             <button onClick={() => fetchContactInbox(user.id)} className="btn-secondary" disabled={loadingInbox} style={{ fontSize: '0.82rem' }}>
               {loadingInbox ? 'Refreshing...' : '🔄 Refresh Inbox'}
@@ -877,6 +1007,20 @@ const LecturerDashboard = () => {
 
                   <div style={{ fontSize: '0.94rem', color: 'var(--text-main)', background: 'rgba(0,0,0,0.18)', padding: '12px 14px', borderRadius: '8px' }}>
                     <strong>Question:</strong> {m.question}
+                    {m.image_data && (
+                      <div style={{ marginTop: '10px' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#38bdf8', marginBottom: '4px', fontWeight: 600 }}>
+                          📷 Attached Student Screenshot / Image (Click to enlarge):
+                        </div>
+                        <a href={m.image_data} target="_blank" rel="noreferrer">
+                          <img
+                            src={m.image_data}
+                            alt="Student uploaded screenshot"
+                            style={{ maxHeight: '240px', maxWidth: '100%', borderRadius: '8px', border: '1px solid var(--border)', objectFit: 'contain' }}
+                          />
+                        </a>
+                      </div>
+                    )}
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
                       Asked on {new Date(m.created_at).toLocaleString()} {m.student_email ? `• ${m.student_email}` : ''}
                     </div>
@@ -916,7 +1060,7 @@ const LecturerDashboard = () => {
           }}>
             <strong>🛠️ System & Technical Error Support (Admin Helpdesk)</strong>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px' }}>
-              Report any technical error, server problem, or system bug to the System Administrator (`admin@pks.edu.my`).
+              Report any technical error, server problem, or system bug with an optional screenshot to the System Administrator (`admin@pks.edu.my`).
             </div>
           </div>
 
@@ -968,6 +1112,48 @@ const LecturerDashboard = () => {
                 required
               />
             </div>
+
+            {/* Image Upload for Lecturer Admin Support */}
+            <div style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px dashed var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <label className="form-label" style={{ margin: 0 }}>
+                  📷 Upload Screenshot / Image (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleSelectImage(e, setAdminImageData)}
+                  className="form-input"
+                  style={{ width: 'auto', maxWidth: '280px', padding: '6px 10px', fontSize: '0.8rem' }}
+                />
+              </div>
+              {adminImageData && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <img
+                    src={adminImageData}
+                    alt="Admin report preview"
+                    style={{ maxHeight: '140px', maxWidth: '240px', borderRadius: '8px', border: '1px solid var(--border)', objectFit: 'contain' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAdminImageData('')}
+                    className="btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#f87171' }}
+                  >
+                    ✖ Remove Image
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button type="submit" disabled={sendingAdminTicket} className="btn-primary" style={{ width: 'fit-content', margin: 0, padding: '10px 24px' }}>
               {sendingAdminTicket ? 'Submitting...' : '🛠️ Submit Error Report to Admin'}
             </button>
@@ -981,6 +1167,17 @@ const LecturerDashboard = () => {
                   <div key={t.id} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.84rem' }}>
                     <strong>[{t.category}] {t.subject}</strong> — <span style={{ color: 'var(--text-muted)' }}>by {t.reporter_name} ({t.user_role})</span>
                     <div style={{ color: 'var(--text-muted)', marginTop: '3px' }}>{t.description}</div>
+                    {t.image_data && (
+                      <div style={{ marginTop: '6px' }}>
+                        <a href={t.image_data} target="_blank" rel="noreferrer">
+                          <img
+                            src={t.image_data}
+                            alt="Support ticket screenshot"
+                            style={{ maxHeight: '140px', borderRadius: '6px', border: '1px solid var(--border)', objectFit: 'contain' }}
+                          />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1093,7 +1290,115 @@ const LecturerDashboard = () => {
             </div>
           </div>
 
-          <div className="navbar-right">
+          <div className="navbar-right" style={{ position: 'relative' }}>
+            {/* NOTIFICATION BELL FOR LECTURER */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setNotifOpen(!notifOpen)}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span>🔔</span>
+                <span>Notifications</span>
+                {unreadLecturerNotifs > 0 && (
+                  <span style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    padding: '1px 6px',
+                    borderRadius: '999px'
+                  }}>
+                    {unreadLecturerNotifs}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 10px)',
+                  right: 0,
+                  width: '360px',
+                  maxWidth: '90vw',
+                  maxHeight: '420px',
+                  overflowY: 'auto',
+                  background: 'var(--bg-card, #1e293b)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '14px',
+                  boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
+                  zIndex: 1000,
+                  padding: '14px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>
+                      🔔 Activity Notifications ({lecturerNotificationsList.length})
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={handleRefreshAll}
+                        style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        🔄 Refresh
+                      </button>
+                      {unreadLecturerNotifs > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleMarkAllNotifsRead}
+                          style={{ background: 'transparent', border: 'none', color: '#10b981', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          ✓ Read All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {lecturerNotificationsList.length === 0 ? (
+                    <div style={{ padding: '20px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                      No pending notifications right now.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {lecturerNotificationsList.map(notif => {
+                        const isRead = readNotifIds.includes(notif.id);
+                        return (
+                          <div
+                            key={notif.id}
+                            onClick={() => {
+                              handleMarkNotifRead(notif.id);
+                              notif.onClick();
+                            }}
+                            style={{
+                              padding: '10px 12px',
+                              borderRadius: '10px',
+                              background: isRead ? 'rgba(255,255,255,0.02)' : 'rgba(56, 189, 248, 0.09)',
+                              border: isRead ? '1px solid var(--border)' : '1px solid rgba(56, 189, 248, 0.35)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              gap: '10px',
+                              alignItems: 'flex-start'
+                            }}
+                          >
+                            <span style={{ fontSize: '1.2rem' }}>{notif.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: isRead ? 600 : 700, color: isRead ? 'var(--text-main)' : '#38bdf8' }}>
+                                {notif.title}
+                              </div>
+                              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {notif.detail}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => setActiveTab('contact')}
               className="btn-secondary"
