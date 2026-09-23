@@ -387,20 +387,42 @@ async def upload_lecture_notes(
             # Get file size in KB
             file_size_kb = max(1, len(raw_bytes) // 1024)
             
-            # Insert into database (including file_data for Railway persistence)
+            # Check if a note with the same subject_code and title already exists for this lecturer
             cur.execute(
                 """
-                INSERT INTO lecture_notes 
-                (lecturer_id, subject_code, title, file_name, file_path, file_size_kb, file_data, is_indexed, uploaded_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
+                SELECT id FROM lecture_notes
+                WHERE lecturer_id = %s AND LOWER(subject_code) = LOWER(%s) AND LOWER(title) = LOWER(%s)
+                ORDER BY id ASC LIMIT 1
                 """,
-                (
-                    user_id, subject_code, title, file.filename, file_path, 
-                    file_size_kb, psycopg2.Binary(raw_bytes), False, datetime.now()
-                )
+                (user_id, subject_code.strip(), title.strip())
             )
-            note_id = cur.fetchone()["id"]
+            existing_note = cur.fetchone()
+
+            if existing_note:
+                note_id = existing_note["id"]
+                cur.execute(
+                    """
+                    UPDATE lecture_notes
+                    SET file_name = %s, file_path = %s, file_size_kb = %s, file_data = %s, uploaded_at = %s
+                    WHERE id = %s
+                    """,
+                    (file.filename, file_path, file_size_kb, psycopg2.Binary(raw_bytes), datetime.now(), note_id)
+                )
+            else:
+                # Insert into database (including file_data for Railway persistence)
+                cur.execute(
+                    """
+                    INSERT INTO lecture_notes 
+                    (lecturer_id, subject_code, title, file_name, file_path, file_size_kb, file_data, is_indexed, uploaded_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        user_id, subject_code, title, file.filename, file_path, 
+                        file_size_kb, psycopg2.Binary(raw_bytes), False, datetime.now()
+                    )
+                )
+                note_id = cur.fetchone()["id"]
             conn.commit()
             
             return {
@@ -559,7 +581,7 @@ def generate_valid_pdf_bytes(subject_code: str, title: str, file_name: str, body
 
 @app.get("/notes/{note_id}/download")
 def download_note(note_id: int):
-    """Downloads a lecture note file for students or lecturers (with auto-recovery for legacy notes)."""
+    """Downloads the exact original lecture note file uploaded by the lecturer without modifying it."""
     conn = get_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
@@ -575,50 +597,157 @@ def download_note(note_id: int):
                 raise HTTPException(status_code=404, detail="Note not found")
             
             file_name = note["file_name"] or f"note_{note_id}.pdf"
-            if not file_name.lower().endswith((".pdf", ".txt", ".md", ".docx")):
-                file_name += ".pdf"
+            media_type = "application/pdf" if file_name.lower().endswith(".pdf") else "application/octet-stream"
 
-            if note["file_path"] and os.path.exists(note["file_path"]):
+            # 1. If the original file exists on disk and is non-empty (and not the 2892-byte placeholder), serve it directly
+            if note["file_path"] and os.path.exists(note["file_path"]) and os.path.getsize(note["file_path"]) > 3500:
                 return FileResponse(
                     path=note["file_path"],
                     filename=file_name,
-                    media_type="application/pdf" if file_name.lower().endswith(".pdf") else "application/octet-stream"
+                    media_type=media_type
                 )
-            elif note.get("file_data"):
-                return Response(
-                    content=bytes(note["file_data"]),
-                    media_type="application/pdf" if file_name.lower().endswith(".pdf") else "application/octet-stream",
-                    headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
-                )
-            else:
-                # Auto-recover legacy note (uploaded before file_data column existed) by generating a valid PDF study guide
-                study_text = build_comprehensive_study_guide(
-                    note.get("subject_code") or "COURSE",
-                    note.get("title") or "Chapter 1",
-                    file_name
-                )
-                pdf_bytes = generate_valid_pdf_bytes(
-                    note.get("subject_code") or "COURSE",
-                    note.get("title") or "Chapter 1",
-                    file_name,
-                    study_text
-                )
-                try:
-                    cur.execute(
-                        "UPDATE lecture_notes SET file_data = %s WHERE id = %s",
-                        (psycopg2.Binary(pdf_bytes), note_id)
-                    )
-                    conn.commit()
-                except Exception:
-                    conn.rollback()
 
-                return Response(
-                    content=pdf_bytes,
-                    media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
-                )
+            # 2. If the original file bytes are stored in PostgreSQL (file_data), cache them to disk and stream via FileResponse
+            if note.get("file_data"):
+                raw_bytes = bytes(note["file_data"])
+                if len(raw_bytes) > 0:
+                    target_path = note["file_path"] or f"uploads/notes/restored_{note_id}_{file_name}"
+                    try:
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        with open(target_path, "wb") as f:
+                            f.write(raw_bytes)
+                        return FileResponse(
+                            path=target_path,
+                            filename=file_name,
+                            media_type=media_type
+                        )
+                    except Exception:
+                        return Response(
+                            content=raw_bytes,
+                            media_type=media_type,
+                            headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
+                        )
+
+            raise HTTPException(
+                status_code=404,
+                detail="Original file is being synced or needs re-upload by lecturer."
+            )
     finally:
         conn.close()
+
+
+@app.put("/notes/{note_id}/file")
+async def replace_note_original_file(
+    note_id: int,
+    file: UploadFile = File(...)
+):
+    """Replaces or restores the exact original binary file for an existing note."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
+        raw_bytes = await file.read()
+        file_size_kb = max(1, len(raw_bytes) // 1024)
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, file_path, file_name FROM lecture_notes WHERE id = %s", (note_id,))
+            note = cur.fetchone()
+            if not note:
+                raise HTTPException(status_code=404, detail="Note not found")
+
+            file_name = file.filename or note["file_name"]
+            file_path = note["file_path"] or f"uploads/notes/note_{note_id}_{file_name}"
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "wb") as f:
+                f.write(raw_bytes)
+
+            cur.execute(
+                """
+                UPDATE lecture_notes
+                SET file_name = %s, file_path = %s, file_size_kb = %s, file_data = %s, uploaded_at = %s
+                WHERE id = %s
+                """,
+                (file_name, file_path, file_size_kb, psycopg2.Binary(raw_bytes), datetime.now(), note_id)
+            )
+            conn.commit()
+            return {"status": "success", "note_id": note_id, "file_size_kb": file_size_kb, "file_name": file_name}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to replace note file: {str(e)}")
+    finally:
+        conn.close()
+
+
+@app.post("/notes/{note_id}/upload-chunk")
+async def upload_note_file_chunk(
+    note_id: int,
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    file_name: str = Form(""),
+    chunk: UploadFile = File(...)
+):
+    """Uploads a large original note file in binary chunks and commits the complete original file to disk and PostgreSQL."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
+        chunk_bytes = await chunk.read()
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, file_path, file_name FROM lecture_notes WHERE id = %s", (note_id,))
+            note = cur.fetchone()
+            if not note:
+                raise HTTPException(status_code=404, detail="Note not found")
+
+            final_name = file_name.strip() or note["file_name"] or f"note_{note_id}.pdf"
+            target_path = note["file_path"] or f"uploads/notes/note_{note_id}_{final_name}"
+            temp_path = f"{target_path}.part"
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+            mode = "wb" if chunk_index == 0 else "ab"
+            with open(temp_path, mode) as f:
+                f.write(chunk_bytes)
+
+            if chunk_index + 1 >= total_chunks:
+                # Final chunk received: move temp_path to target_path and store full original bytes in PostgreSQL
+                if os.path.exists(target_path):
+                    os.remove(target_path)
+                os.replace(temp_path, target_path)
+                with open(target_path, "rb") as full_f:
+                    all_bytes = full_f.read()
+                file_size_kb = max(1, len(all_bytes) // 1024)
+                cur.execute(
+                    """
+                    UPDATE lecture_notes
+                    SET file_name = %s, file_path = %s, file_size_kb = %s, file_data = %s
+                    WHERE id = %s
+                    """,
+                    (final_name, target_path, file_size_kb, psycopg2.Binary(all_bytes), note_id)
+                )
+                conn.commit()
+                return {
+                    "status": "completed",
+                    "note_id": note_id,
+                    "file_name": final_name,
+                    "bytes": len(all_bytes),
+                    "file_size_kb": file_size_kb
+                }
+
+            return {
+                "status": "chunk_received",
+                "chunk_index": chunk_index,
+                "total_chunks": total_chunks
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Chunk upload error: {str(e)}")
+    finally:
+        conn.close()
+
 
 
 @app.delete("/notes/{note_id}")

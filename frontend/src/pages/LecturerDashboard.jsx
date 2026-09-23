@@ -189,13 +189,71 @@ const LecturerDashboard = () => {
     setUploading(true);
     setUploadMessage({ type: '', text: '' });
 
-    const formData = new FormData();
-    formData.append('user_id', user.id);
-    formData.append('subject_code', subjectCode);
-    formData.append('title', title);
-    formData.append('file', file);
-
     try {
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB chunks for large files
+      if (file.size > 4 * 1024 * 1024) {
+        // First create/update the note metadata with a small initial slice
+        const initSlice = file.slice(0, Math.min(CHUNK_SIZE, file.size));
+        const initForm = new FormData();
+        initForm.append('user_id', user.id);
+        initForm.append('subject_code', subjectCode);
+        initForm.append('title', title);
+        initForm.append('file', new File([initSlice], file.name, { type: file.type }));
+
+        const initRes = await fetch(`${API_URL}/notes/upload`, {
+          method: 'POST',
+          body: initForm
+        });
+        const initData = await initRes.json();
+        if (!initRes.ok || initData.status !== 'success') {
+          setUploadMessage({ type: 'error', text: initData.detail || 'Upload failed.' });
+          setUploading(false);
+          return;
+        }
+
+        const noteId = initData.note_id;
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunkBlob = file.slice(start, end);
+          const chunkForm = new FormData();
+          chunkForm.append('chunk_index', String(i));
+          chunkForm.append('total_chunks', String(totalChunks));
+          chunkForm.append('file_name', file.name);
+          chunkForm.append('chunk', chunkBlob, file.name);
+
+          setUploadMessage({
+            type: 'success',
+            text: `⏳ Uploading original file (${Math.round(((i + 1) / totalChunks) * 100)}%)...`
+          });
+
+          const cRes = await fetch(`${API_URL}/notes/${noteId}/upload-chunk`, {
+            method: 'POST',
+            body: chunkForm
+          });
+          if (!cRes.ok) {
+            throw new Error(`Failed uploading chunk ${i + 1}`);
+          }
+        }
+
+        setUploadMessage({
+          type: 'success',
+          text: '✅ Original file uploaded 100% intact! Students can now download the exact original file.'
+        });
+        setSubjectCode('');
+        setTitle('');
+        setFile(null);
+        fetchNotes(user.id);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('user_id', user.id);
+      formData.append('subject_code', subjectCode);
+      formData.append('title', title);
+      formData.append('file', file);
+
       const response = await fetch(`${API_URL}/notes/upload`, {
         method: 'POST',
         body: formData,
@@ -204,7 +262,7 @@ const LecturerDashboard = () => {
       const data = await response.json();
 
       if (response.ok && data.status === 'success') {
-        setUploadMessage({ type: 'success', text: '✅ Notes uploaded successfully! Students can now study or download this chapter.' });
+        setUploadMessage({ type: 'success', text: '✅ Original file uploaded successfully! Students can now study or download this chapter.' });
         setSubjectCode('');
         setTitle('');
         setFile(null);
