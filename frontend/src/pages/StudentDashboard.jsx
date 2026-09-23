@@ -192,12 +192,29 @@ const StudentDashboard = () => {
     navigate('/');
   };
 
+  const triggerMobileSafeDownload = (url, fallbackFilename = '') => {
+    const link = document.createElement('a');
+    link.href = url;
+    if (fallbackFilename) {
+      link.setAttribute('download', fallbackFilename);
+    } else {
+      link.setAttribute('download', '');
+    }
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDownloadNote = (noteId) => {
-    window.open(`${API_URL}/notes/${noteId}/download`, '_blank');
+    const found = notesList.find(n => String(n.id) === String(noteId));
+    triggerMobileSafeDownload(`${API_URL}/notes/${noteId}/download`, found?.file_name || '');
   };
 
   const handleDownloadAssignmentFile = (assignmentId) => {
-    window.open(`${API_URL}/assignments/${assignmentId}/download`, '_blank');
+    const found = assignmentsList.find(a => String(a.id) === String(assignmentId));
+    triggerMobileSafeDownload(`${API_URL}/assignments/${assignmentId}/download`, found?.file_name || '');
   };
 
   const handleHomeworkSubmit = async (assignmentId) => {
@@ -1637,6 +1654,12 @@ const StudentDashboard = () => {
 
   return (
     <div className="app-layout">
+      {/* MOBILE SIDEBAR BACKDROP */}
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* LEFT SIDEBAR NAVIGATION */}
       <aside className={`app-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div>
@@ -1647,6 +1670,14 @@ const StudentDashboard = () => {
               <h2>AI-LMS Portal</h2>
               <span>Smart Learning System</span>
             </div>
+            <button
+              type="button"
+              className="sidebar-close-btn"
+              onClick={() => setSidebarOpen(false)}
+              title="Close Menu"
+            >
+              ✕
+            </button>
           </div>
 
           {/* Student Profile Card in Sidebar */}
@@ -1766,7 +1797,7 @@ const StudentDashboard = () => {
                 title="Activity Notifications (Assignments, Lecturer Replies, Grades & Notes)"
               >
                 <span>🔔</span>
-                <span>Notifications</span>
+                <span className="nav-btn-label">Notifications</span>
                 {unreadNotificationsCount > 0 && (
                   <span style={{
                     background: '#ef4444',
@@ -1783,26 +1814,12 @@ const StudentDashboard = () => {
               </button>
 
               {notifOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 10px)',
-                  right: 0,
-                  width: '360px',
-                  maxWidth: '90vw',
-                  maxHeight: '440px',
-                  overflowY: 'auto',
-                  background: 'var(--bg-card, #1e293b)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '14px',
-                  boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
-                  zIndex: 1000,
-                  padding: '14px'
-                }}>
+                <div className="notification-dropdown">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ fontWeight: 700, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       🔔 Activity Notifications ({notificationsList.length})
                     </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <button
                         type="button"
                         onClick={handleRefreshContact}
@@ -1819,6 +1836,13 @@ const StudentDashboard = () => {
                           ✓ Read All
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setNotifOpen(false)}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
 
@@ -1876,7 +1900,8 @@ const StudentDashboard = () => {
               style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               title="Contact Lecturer or Admin Support"
             >
-              💬 Contact Support
+              <span>💬</span>
+              <span className="nav-btn-label">Contact Support</span>
             </button>
             <div className="matrix-badge">
               <span>🪪</span>
@@ -2231,6 +2256,50 @@ const StudentDashboard = () => {
             </div>
           )}
         </main>
+
+        {/* MOBILE BOTTOM NAVIGATION BAR */}
+        <nav className="mobile-bottom-nav">
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            <span className="nav-icon">🏠</span>
+            <span>Home</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'chat' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            <span className="nav-icon">🤖</span>
+            <span>AI Chat</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'materials' ? 'active' : ''}`}
+            onClick={() => setActiveTab('materials')}
+          >
+            <span className="nav-icon">📚</span>
+            <span>Notes</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'assignments' ? 'active' : ''}`}
+            onClick={() => setActiveTab('assignments')}
+          >
+            <span className="nav-icon">✍️</span>
+            <span>Tasks</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'contact' ? 'active' : ''}`}
+            onClick={() => setActiveTab('contact')}
+          >
+            <span className="nav-icon">💬</span>
+            <span>Contact</span>
+          </button>
+        </nav>
       </div>
     </div>
   );

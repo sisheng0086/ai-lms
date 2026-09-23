@@ -582,6 +582,7 @@ def generate_valid_pdf_bytes(subject_code: str, title: str, file_name: str, body
 @app.get("/notes/{note_id}/download")
 def download_note(note_id: int):
     """Downloads the exact original lecture note file uploaded by the lecturer without modifying it."""
+    from urllib.parse import quote
     conn = get_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
@@ -598,13 +599,20 @@ def download_note(note_id: int):
             
             file_name = note["file_name"] or f"note_{note_id}.pdf"
             media_type = "application/pdf" if file_name.lower().endswith(".pdf") else "application/octet-stream"
+            encoded_name = quote(file_name)
+            dl_headers = {
+                "Content-Disposition": f"attachment; filename=\"{file_name}\"; filename*=UTF-8''{encoded_name}",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-cache"
+            }
 
             # 1. If the original file exists on disk and is non-empty (and not the 2892-byte placeholder), serve it directly
             if note["file_path"] and os.path.exists(note["file_path"]) and os.path.getsize(note["file_path"]) > 3500:
                 return FileResponse(
                     path=note["file_path"],
                     filename=file_name,
-                    media_type=media_type
+                    media_type=media_type,
+                    headers=dl_headers
                 )
 
             # 2. If the original file bytes are stored in PostgreSQL (file_data), cache them to disk and stream via FileResponse
@@ -619,13 +627,14 @@ def download_note(note_id: int):
                         return FileResponse(
                             path=target_path,
                             filename=file_name,
-                            media_type=media_type
+                            media_type=media_type,
+                            headers=dl_headers
                         )
                     except Exception:
                         return Response(
                             content=raw_bytes,
                             media_type=media_type,
-                            headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
+                            headers=dl_headers
                         )
 
             raise HTTPException(

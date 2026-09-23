@@ -1248,6 +1248,12 @@ const LecturerDashboard = () => {
 
   return (
     <div className="app-layout">
+      {/* MOBILE SIDEBAR BACKDROP */}
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* LEFT SIDEBAR */}
       <aside className={`app-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div>
@@ -1257,6 +1263,14 @@ const LecturerDashboard = () => {
               <h2>AI-LMS Portal</h2>
               <span>Educator Workspace</span>
             </div>
+            <button
+              type="button"
+              className="sidebar-close-btn"
+              onClick={() => setSidebarOpen(false)}
+              title="Close Menu"
+            >
+              ✕
+            </button>
           </div>
 
           <div className="sidebar-user-card">
@@ -1358,7 +1372,7 @@ const LecturerDashboard = () => {
                 style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
                 <span>🔔</span>
-                <span>Notifications</span>
+                <span className="nav-btn-label">Notifications</span>
                 {unreadLecturerNotifs > 0 && (
                   <span style={{
                     background: '#ef4444',
@@ -1374,26 +1388,12 @@ const LecturerDashboard = () => {
               </button>
 
               {notifOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 10px)',
-                  right: 0,
-                  width: '360px',
-                  maxWidth: '90vw',
-                  maxHeight: '420px',
-                  overflowY: 'auto',
-                  background: 'var(--bg-card, #1e293b)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '14px',
-                  boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
-                  zIndex: 1000,
-                  padding: '14px'
-                }}>
+                <div className="notification-dropdown">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>
                       🔔 Activity Notifications ({lecturerNotificationsList.length})
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <button
                         type="button"
                         onClick={handleRefreshAll}
@@ -1410,6 +1410,13 @@ const LecturerDashboard = () => {
                           ✓ Read All
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setNotifOpen(false)}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
 
@@ -1462,7 +1469,9 @@ const LecturerDashboard = () => {
               className="btn-secondary"
               style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              💬 Student Q&A ({pendingStudentQuestionsCount})
+              <span>💬</span>
+              <span className="nav-btn-label">Student Q&A</span>
+              <span>({pendingStudentQuestionsCount})</span>
             </button>
             <div className="user-badge" style={{ background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', borderColor: 'rgba(251, 191, 36, 0.3)' }}>
               <span>{user.full_name}</span>
@@ -1538,6 +1547,50 @@ const LecturerDashboard = () => {
             </div>
           )}
         </main>
+
+        {/* MOBILE BOTTOM NAVIGATION BAR FOR LECTURER */}
+        <nav className="mobile-bottom-nav">
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            <span className="nav-icon">📊</span>
+            <span>Home</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'upload' ? 'active' : ''}`}
+            onClick={() => setActiveTab('upload')}
+          >
+            <span className="nav-icon">📤</span>
+            <span>Upload</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'materials' ? 'active' : ''}`}
+            onClick={() => setActiveTab('materials')}
+          >
+            <span className="nav-icon">📚</span>
+            <span>Notes</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'assignments' ? 'active' : ''}`}
+            onClick={() => setActiveTab('assignments')}
+          >
+            <span className="nav-icon">📋</span>
+            <span>Tasks</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'contact' ? 'active' : ''}`}
+            onClick={() => setActiveTab('contact')}
+          >
+            <span className="nav-icon">💬</span>
+            <span>Q&A</span>
+          </button>
+        </nav>
       </div>
     </div>
   );
