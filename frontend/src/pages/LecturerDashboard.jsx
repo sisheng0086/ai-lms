@@ -190,8 +190,8 @@ const LecturerDashboard = () => {
     setUploadMessage({ type: '', text: '' });
 
     try {
-      const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB chunks for large files
-      if (file.size > 4 * 1024 * 1024) {
+      const CHUNK_SIZE = 512 * 1024; // 512 KB chunks for fast, reliable upload of large original files
+      if (file.size > 2 * 1024 * 1024) {
         // First create/update the note metadata with a small initial slice
         const initSlice = file.slice(0, Math.min(CHUNK_SIZE, file.size));
         const initForm = new FormData();
