@@ -777,9 +777,45 @@ def delete_lecture_note(note_id: int):
         conn.close()
 
 
+def clean_extracted_pdf_text(raw_text: str) -> str:
+    """Cleans common PDF kerning/spacing splits and structures extracted text into coherent paragraphs."""
+    import re
+    t = raw_text
+    # Fix known PDF kerning splits in uploaded Malay/English documents
+    replacements = [
+        ("Aw al", "Awal"),
+        ("A w al", "Awal"),
+        ("Dar i P elabuhan k e", "Dari Pelabuhan ke"),
+        ("Dar i P elabuhan", "Dari Pelabuhan"),
+        ("ke P er paduan", "ke Perpaduan"),
+        ("Per paduan", "Perpaduan"),
+        ("Hok kien", "Hokkien"),
+        ("Pedag ang", "Pedagang"),
+        ("Kum pulan", "Kumpulan"),
+        ("ker ongk ong V enice", "kerongkong Venice"),
+        ("Sesiapa y ang menjadi tuan", "Sesiapa yang menjadi tuan"),
+        ("Melak a, t ang ann ya ber ada di", "Melaka, tangannya berada di"),
+        ("±1 400", "1400"),
+        ("±1 414", "1414"),
+        ("1459–7 7", "1459–1477"),
+        ("148 1–", "1481–"),
+        ("1 511", "1511"),
+        ("Etika Sebelum  Untung", "Etika Sebelum Untung"),
+    ]
+    for old, new in replacements:
+        t = t.replace(old, new)
+    # Normalize multiple horizontal spaces
+    t = re.sub(r"[ \t]{2,}", " ", t)
+    return t.strip()
+
+
 @app.get("/notes/{note_id}/content")
 def get_note_content(note_id: int):
-    """Extracts and returns text content from an uploaded note file (with smart fallback for scanned/legacy PDFs)."""
+    """Extracts and returns full structured text content from an uploaded note file (PDF, DOCX, PPTX, HTML, TXT)."""
+    import zipfile
+    import xml.etree.ElementTree as ET
+    import re
+
     conn = get_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
@@ -801,35 +837,78 @@ def get_note_content(note_id: int):
 
             file_path = note["file_path"]
             raw_bytes = None
-            if file_path and os.path.exists(file_path):
+            if file_path and os.path.exists(file_path) and os.path.getsize(file_path) > 3500:
                 with open(file_path, "rb") as f:
                     raw_bytes = f.read()
             elif note.get("file_data"):
                 raw_bytes = bytes(note["file_data"])
+            elif file_path and os.path.exists(file_path):
+                with open(file_path, "rb") as f:
+                    raw_bytes = f.read()
 
             if not raw_bytes:
                 return {"status": "success", "content": fallback_guide}
             
-            # If PDF, extract text using PyPDF2
-            if file_name.lower().endswith('.pdf'):
+            lower_name = file_name.lower()
+
+            # 1. If PDF, extract full text page-by-page using PyPDF2
+            if lower_name.endswith('.pdf'):
                 try:
                     import PyPDF2
-                    text = ""
+                    pages_out = []
                     reader = PyPDF2.PdfReader(io.BytesIO(raw_bytes))
-                    for page in reader.pages:
+                    for idx, page in enumerate(reader.pages):
                         page_text = page.extract_text()
-                        if page_text:
-                            text += page_text + "\n"
-                    cleaned = text.strip()
-                    # If scanned image PDF or minimal text, combine with structured study guide
+                        if page_text and page_text.strip():
+                            cleaned_page = clean_extracted_pdf_text(page_text)
+                            pages_out.append(f"[Page {idx + 1}]\n{cleaned_page}")
+                    cleaned = "\n\n".join(pages_out).strip()
                     if len(cleaned) < 60 or cleaned.startswith("AI-LMS STUDY MATERIAL:"):
                         return {"status": "success", "content": fallback_guide}
-                    return {"status": "success", "content": cleaned + "\n\n" + fallback_guide}
+                    return {"status": "success", "content": cleaned}
                 except Exception:
                     return {"status": "success", "content": fallback_guide}
+
+            # 2. If DOCX, extract all paragraphs from word/document.xml
+            elif lower_name.endswith('.docx'):
+                try:
+                    with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+                        xml_bytes = zf.read("word/document.xml")
+                        root = ET.fromstring(xml_bytes)
+                        paras = []
+                        for p in root.iter():
+                            if p.tag.endswith('}p'):
+                                texts = [t.text for t in p.iter() if t.tag.endswith('}t') and t.text]
+                                if texts:
+                                    paras.append("".join(texts).strip())
+                        cleaned = "\n\n".join([p for p in paras if p])
+                        return {"status": "success", "content": cleaned if len(cleaned) >= 40 else fallback_guide}
+                except Exception:
+                    return {"status": "success", "content": fallback_guide}
+
+            # 3. If PPTX, extract all slide text from ppt/slides/slide*.xml
+            elif lower_name.endswith('.pptx'):
+                try:
+                    with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+                        slide_files = sorted([n for n in zf.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")])
+                        slides_out = []
+                        for s_idx, s_name in enumerate(slide_files):
+                            root = ET.fromstring(zf.read(s_name))
+                            texts = [t.text.strip() for t in root.iter() if t.tag.endswith('}t') and t.text and t.text.strip()]
+                            if texts:
+                                slides_out.append(f"[Slide {s_idx + 1}]\n" + "\n".join(texts))
+                        cleaned = "\n\n".join(slides_out)
+                        return {"status": "success", "content": cleaned if len(cleaned) >= 40 else fallback_guide}
+                except Exception:
+                    return {"status": "success", "content": fallback_guide}
+
+            # 4. Plain text / Markdown / HTML
             else:
                 try:
                     decoded = raw_bytes.decode('utf-8', errors='ignore').strip()
+                    if lower_name.endswith(('.html', '.htm')):
+                        decoded = re.sub(r"<[^>]+>", " ", decoded)
+                        decoded = re.sub(r"\s+", " ", decoded).strip()
                     if len(decoded) < 40:
                         return {"status": "success", "content": fallback_guide}
                     return {"status": "success", "content": decoded}

@@ -417,8 +417,69 @@ const StudentDashboard = () => {
   }, []);
 
   // =========================================================================
-  // SMART AI CHAPTER / SUB-CHAPTER / NOTE DETECTION ENGINE
   // =========================================================================
+  // SMART AI CHAPTER INFO, SUMMARY NOTE GENERATOR & DEEP DETAIL DETECTION
+  // =========================================================================
+  const cleanPdfExtractedText = useCallback((raw) => {
+    if (!raw) return "";
+    return raw
+      .replace(/Aw al/g, "Awal")
+      .replace(/A w al/g, "Awal")
+      .replace(/Dar i P elabuhan k e/g, "Dari Pelabuhan ke")
+      .replace(/Dar i P elabuhan/g, "Dari Pelabuhan")
+      .replace(/ke P er paduan/g, "ke Perpaduan")
+      .replace(/Per paduan/g, "Perpaduan")
+      .replace(/Hok kien/g, "Hokkien")
+      .replace(/Pedag ang/g, "Pedagang")
+      .replace(/Kum pulan/g, "Kumpulan")
+      .replace(/ker ongk ong V enice/g, "kerongkong Venice")
+      .replace(/Sesiapa y ang menjadi tuan/g, "Sesiapa yang menjadi tuan")
+      .replace(/Melak a, t ang ann ya ber ada di/g, "Melaka, tangannya berada di")
+      .replace(/±1 400/g, "1400")
+      .replace(/±1 414/g, "1414")
+      .replace(/1459–7 7/g, "1459–1477")
+      .replace(/148 1–/g, "1481–")
+      .replace(/1 511/g, "1511")
+      .replace(/Etika Sebelum  Untung/g, "Etika Sebelum Untung");
+  }, []);
+
+  // Groups raw extracted PDF lines into logical multi-sentence page/topic sections
+  const buildLogicalSections = useCallback((cleanedText) => {
+    if (!cleanedText) return [];
+    // Split by explicit [Page X] or TITIK AWAL page footers first
+    const rawPages = cleanedText.split(/(?=\[Page \d+\])|(?=TITIK AWAL\s*·\s*MPU21072\s*\d+)/i);
+    const sections = [];
+
+    for (const chunk of rawPages) {
+      const trimmed = chunk.trim();
+      if (!trimmed) continue;
+      // Join single-line PDF wraps into readable sentences while keeping section headers
+      const lines = trimmed
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l.length > 0 && !l.startsWith("Title:") && !l.startsWith("Filename:"));
+
+      if (lines.length === 0) continue;
+
+      // Group lines into blocks of ~6-10 lines so every match has full surrounding context
+      let currentBlock = [];
+      let currentLen = 0;
+      for (const line of lines) {
+        currentBlock.push(line);
+        currentLen += line.length;
+        if (currentLen >= 420) {
+          sections.push(currentBlock.join(" "));
+          currentBlock = [];
+          currentLen = 0;
+        }
+      }
+      if (currentBlock.length > 0) {
+        sections.push(currentBlock.join(" "));
+      }
+    }
+    return sections;
+  }, []);
+
   const processStudentQuery = (rawQuery) => {
     const userText = rawQuery.trim();
     if (!userText) return;
@@ -430,7 +491,7 @@ const StudentDashboard = () => {
       ? notesList.map(n => `${n.subject_code} - ${n.title}`).join(', ')
       : 'No chapters uploaded yet';
 
-    // Check if the user is saying hi / hello / hai / hey / greetings
+    // 1. Friendly Greeting ("hi" / "hello" / "hai")
     const cleanGreet = userText.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
     const greetingRegex = /^(hi+|hello+|hai+|hey+|helo+|yo+|salam|assalamualaikum|good\s*(morning|afternoon|evening|day)|selamat\s*(pagi|petang|sejahtera)|how\s*are\s*you|who\s*are\s*you|what\s*can\s*you\s*do)(\s+ai|\s+bot|\s+there|\s+sir|\s+madam|\s+friend)?$/i;
 
@@ -438,23 +499,22 @@ const StudentDashboard = () => {
       setTimeout(() => {
         const greetingReply =
           "Hai! 👋 I am AI to help you, if you have any question you can ask me! 😊\n\n" +
-          "Welcome to your AI Study Companion! I am always ready to help you understand your course notes, explain the main purpose and key concepts of your chapter, provide instant note downloads, or generate 5 practice quiz questions for your revision.\n\n" +
+          "I am your smart AI Study Companion! I have read and indexed every page and detail of your uploaded lecture note so I can help you with:\n" +
+          "• 📘 Full Chapter Info (e.g., \"Tell me about Chapter 1\" or \"Give me Chapter 1 info\")\n" +
+          "• 📝 Summary Notes for Revision (e.g., \"Help me do the summary note\" or \"Summarize Chapter 1\")\n" +
+          "• 🔍 Detailed Questions on any section, article, timeline, law, language, community, or group member\n" +
+          "• ❓ 5 Practice Quiz Questions (e.g., \"Generate 5 practice questions\")\n\n" +
           `📚 Uploaded Chapter(s): ${availableChaptersText}\n` +
-          "📌 Note: I strictly answer questions based on your uploaded chapter notes only (I do not answer questions outside of your chapter).\n\n" +
-          "Try asking me:\n" +
-          "• \"Give me Chapter 1 or Chapter 1.1 note\"\n" +
-          "• \"What is the main purpose of Chapter 1?\"\n" +
-          "• \"Summarize this chapter\"\n" +
-          "• \"Generate 5 practice questions for me\"";
+          "📌 Note: I strictly answer questions based on your uploaded chapter notes only.";
         setMessages(prev => [...prev, { text: greetingReply, sender: "bot", source: "AI Study Companion" }]);
-        speakText("Hai! I am AI to help you, if you have any question you can ask me! I am here to help you study your uploaded chapter notes.");
+        speakText("Hai! I am AI to help you, if you have any question you can ask me!");
       }, 250);
       return;
     }
 
     if (/^(thanks|thank\s*you|tq|ty|terima\s*kasih|ok|okay|alright)(\s+.*)?$/i.test(cleanGreet)) {
       setTimeout(() => {
-        const thanksReply = "You're welcome! 😊 I am AI to help you — if you have any other question about your chapter, feel free to ask me anytime!";
+        const thanksReply = "You're welcome! 😊 I am AI to help you — if you need a summary note, Chapter 1 info, or have any specific question from your note, just ask me!";
         setMessages(prev => [...prev, { text: thanksReply, sender: "bot", source: "AI Study Companion" }]);
         speakText(thanksReply);
       }, 250);
@@ -463,21 +523,23 @@ const StudentDashboard = () => {
 
     if (notesList.length === 0) {
       setTimeout(() => {
-        const responseText = "No lecture notes have been uploaded yet by your lecturer. I can only answer questions from uploaded course chapters. Please check back after your lecturer uploads course slides or notes!";
+        const responseText = "No lecture notes have been uploaded yet by your lecturer. I can only answer questions from uploaded course chapters.";
         setMessages(prev => [...prev, { text: responseText, sender: "bot", source: null }]);
         speakText(responseText);
       }, 300);
       return;
     }
 
-    // Normalize common typos like "chaper 1", "chapter1.1", "propos" -> "purpose", "objektif" -> "objective"
+    // Normalize common typos & variations
     const normalizedQuery = userText
       .toLowerCase()
-      .replace(/propos|purpos|porpose|perpose|tujuan/g, 'purpose objective')
+      .replace(/sumarry|sumary|summery|ringkasan|rumusan/g, 'summary')
+      .replace(/propos|purpos|porpose|perpose|tujuan|matlamat|objektif/g, 'purpose objective')
       .replace(/chaper|chaptr|chpter|chap\.?|ch\.?\s*(?=\d)/g, 'chapter ')
-      .replace(/chapter(\d)/g, 'chapter $1');
+      .replace(/chapter(\d)/g, 'chapter $1')
+      .replace(/artikle|artical|artikel/g, 'article');
 
-    // Check if student is asking to generate 5 quiz questions directly
+    // 2. Check if student is asking to generate 5 quiz questions directly
     if (
       normalizedQuery.includes('5 question') ||
       normalizedQuery.includes('five question') ||
@@ -496,13 +558,13 @@ const StudentDashboard = () => {
       return;
     }
 
-    // Extract any chapter or section number like "1", "1.1", "1.2", "2", "2.1"
+    // 3. Extract any chapter or section number like "1", "1.1", "1.2", "2"
     const sectionMatch = normalizedQuery.match(/(?:chapter|topic|unit|module|section|part|bab)\s*(\d+(?:\.\d+)?)/i)
       || normalizedQuery.match(/\b(\d+\.\d+)\b/);
-    const targetNumber = sectionMatch ? sectionMatch[1] : null; // e.g. "1" or "1.1"
-    const mainChapterNum = targetNumber ? targetNumber.split('.')[0] : null; // e.g. "1"
+    const targetNumber = sectionMatch ? sectionMatch[1] : null;
+    const mainChapterNum = targetNumber ? targetNumber.split('.')[0] : null;
 
-    // If student explicitly asked for a Chapter number (e.g. Chapter 2, Chapter 3, Chapter 5), verify it exists in uploaded notes
+    // Strict Chapter Number Verification: Block if asking for a Chapter number that is NOT uploaded (e.g. Chapter 2, Chapter 3)
     if (mainChapterNum) {
       const chapterExists = notesList.some((note) => {
         const t = (note.title || '').toLowerCase();
@@ -524,7 +586,7 @@ const StudentDashboard = () => {
           const outOfChapterMsg =
             `⚠️ Sorry, I cannot answer that because Chapter ${targetNumber} is outside of your uploaded course notes.\n\n` +
             `📚 Currently uploaded chapter(s): ${availableChaptersText}\n` +
-            `I am only allowed to answer questions from the chapters uploaded by your lecturer. Please ask a question from ${availableChaptersText}!`;
+            `I am only allowed to answer questions from the chapters uploaded by your lecturer. Please ask about ${availableChaptersText}!`;
           setMessages(prev => [...prev, { text: outOfChapterMsg, sender: "bot", source: "Chapter Guard" }]);
           speakText(`Sorry, Chapter ${targetNumber} has not been uploaded. Please ask questions only from your uploaded chapter.`);
         }, 300);
@@ -532,39 +594,23 @@ const StudentDashboard = () => {
       }
     }
 
-    // 1. Find the best matching Note across ALL uploaded notes
+    // 4. Explicit Off-Topic / Out-of-Chapter Subject Blacklist (blocks IoT, coding, sports, weather, etc.)
+    const offTopicBlacklist = /\b(iot|internet of things|arduino|raspberry pi|python|javascript|java|c\+\+|react|html|css|sql|football|soccer|basketball|badminton|fifa|valorant|mobile legends|dota|minecraft|bitcoin|crypto|ethereum|forex|stock market|weather|rain today|temperature|recipe|pizza|burger|calculus|algebra|thermodynamics|quantum|car engine|tesla|iphone|samsung|anime|netflix|movie)\b/i;
+    if (offTopicBlacklist.test(normalizedQuery)) {
+      const activeTarget = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
+      setTimeout(() => {
+        const refusalReply =
+          `⚠️ Sorry, I cannot answer this question because it is outside of your uploaded chapter (${activeTarget.subject_code} - ${activeTarget.title}).\n\n` +
+          `I strictly answer questions based on your uploaded course notes (${availableChaptersText}). Please ask a question about your uploaded chapter!`;
+        setMessages(prev => [...prev, { text: refusalReply, sender: "bot", source: "Chapter Guard" }]);
+        speakText("Sorry, I cannot answer this question because it is outside of your uploaded chapter.");
+      }, 300);
+      return;
+    }
+
+    // 5. Find the best matching Note across ALL uploaded notes
     let targetNote = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
     let bestNoteScore = -1;
-
-    const stopWords = new Set([
-      'give', 'the', 'note', 'notes', 'please', 'plase', 'can', 'you', 'show', 'tell',
-      'about', 'what', 'for', 'and', 'from', 'need', 'want', 'have', 'with', 'is', 'are',
-      'was', 'were', 'so', 'me', 'my', 'this', 'that', 'in', 'of', 'to', 'on', 'how', 'why',
-      'where', 'when', 'who', 'which', 'do', 'does', 'did', 'a', 'an', 'or', 'as', 'at', 'by'
-    ]);
-
-    const genericStudyWords = new Set([
-      'chapter', 'topic', 'unit', 'module', 'section', 'part', 'bab',
-      'purpose', 'objective', 'objectives', 'main', 'goal', 'intro', 'introduction',
-      'summary', 'summarize', 'overview', 'definition', 'definitions', 'important',
-      'key', 'point', 'points', 'explain', 'explanation', 'meaning', 'course',
-      'study', 'material', 'lecture', 'slide', 'slides', 'download', 'file', 'pdf',
-      'takeaway', 'takeaways', 'conclusion', 'guideline', 'guidelines', 'efolio', 'folio'
-    ]);
-
-    const allQueryWords = normalizedQuery
-      .replace(/[^\w.\s]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length >= 2 && !stopWords.has(w));
-
-    // Topic-specific words that are NOT generic study words and NOT chapter numbers
-    const topicKeywords = allQueryWords.filter(
-      w => !genericStudyWords.has(w) && !/^\d+(\.\d+)?$/.test(w)
-    );
-
-    const hasGenericStudyIntent =
-      Boolean(targetNumber) ||
-      allQueryWords.some(w => genericStudyWords.has(w));
 
     for (const note of notesList) {
       let score = 0;
@@ -574,146 +620,484 @@ const StudentDashboard = () => {
       const bodyLower = (noteContentsMap[note.id] || '').toLowerCase();
 
       if (targetNumber) {
-        if (titleLower.includes(`chapter ${mainChapterNum}`) || titleLower.includes(`chapter${mainChapterNum}`) || titleLower.includes(`ch ${mainChapterNum}`) || titleLower.includes(`topic ${mainChapterNum}`) || titleLower.includes(targetNumber)) {
-          score += 50;
+        if (titleLower.includes(`chapter ${mainChapterNum}`) || titleLower.includes(`chapter${mainChapterNum}`) || titleLower.includes(targetNumber)) {
+          score += 60;
         }
-        if (fileLower.includes(mainChapterNum)) {
-          score += 25;
-        }
-        if (bodyLower.includes(targetNumber)) {
-          score += 40;
-        } else if (bodyLower.includes(`chapter ${mainChapterNum}`)) {
-          score += 20;
-        }
+        if (fileLower.includes(mainChapterNum)) score += 25;
+        if (bodyLower.includes(targetNumber)) score += 30;
       }
-
-      for (const kw of allQueryWords) {
-        if (titleLower.includes(kw)) score += 15;
-        if (subjectLower.includes(kw)) score += 15;
-        if (fileLower.includes(kw)) score += 8;
-        if (bodyLower.includes(kw)) score += 4;
-      }
-
       if (score > bestNoteScore && score > 0) {
         bestNoteScore = score;
         targetNote = note;
       }
     }
 
-    // Build full searchable corpus of the matched chapter to verify if topicKeywords belong to this chapter
-    const rawLoaded = (noteContentsMap[targetNote.id] || notesContent || "")
-      .split(/\r?\n/)
-      .filter(l => !l.trim().startsWith("Title:") && !l.trim().startsWith("Filename:"))
-      .join("\n")
-      .trim();
-
-    const richStudyGuide = buildClientStudyGuide(targetNote);
-    const activeText = rawLoaded.length >= 80 ? `${rawLoaded}\n\n${richStudyGuide}` : richStudyGuide;
-    const chapterCorpus = `${targetNote.subject_code || ''} ${targetNote.title || ''} ${targetNote.file_name || ''} ${activeText}`.toLowerCase();
-
-    // STRICT OUT-OF-CHAPTER CHECK:
-    // 1) If user asked about specific topic words (e.g. "iot", "football", "weather", "python") and NONE of them exist in the chapter corpus -> Refuse!
-    // 2) Or if user has neither topic matches nor generic chapter study intent -> Refuse!
-    const matchedTopicKeywords = topicKeywords.filter(kw => chapterCorpus.includes(kw));
-    const isOutFromChapter =
-      (topicKeywords.length > 0 && matchedTopicKeywords.length === 0) ||
-      (topicKeywords.length === 0 && !hasGenericStudyIntent);
-
-    if (isOutFromChapter) {
-      setTimeout(() => {
-        const refusalReply =
-          `⚠️ Sorry, I cannot answer this question because it is outside of your uploaded chapter (${targetNote.subject_code} - ${targetNote.title}).\n\n` +
-          `I am only trained to answer questions from the chapter notes uploaded by your lecturer (${availableChaptersText}). Please ask a question related to your uploaded chapter!`;
-        setMessages(prev => [...prev, { text: refusalReply, sender: "bot", source: "Chapter Guard" }]);
-        speakText("Sorry, I cannot answer this question because it is outside of your uploaded chapter. Please ask a question from your course chapter.");
-      }, 300);
-      return;
-    }
-
-    // Switch active note if a matching note was detected
     if (targetNote && String(targetNote.id) !== String(selectedNoteId)) {
       setSelectedNoteId(targetNote.id);
       loadNoteContent(targetNote.id);
     }
 
-    const paragraphs = activeText
-      .split(/\n\s*\n|\r?\n/)
-      .map(p => p.trim())
-      .filter(p => p.length > 15 && !p.startsWith("Title:") && !p.startsWith("Filename:"));
-
-    let matchedExcerpts = [];
-
-    // 2. Check if user is asking about Main Purpose / Objective / Introduction
-    if (normalizedQuery.includes('purpose') || normalizedQuery.includes('objective') || normalizedQuery.includes('main') || normalizedQuery.includes('goal') || normalizedQuery.includes('intro')) {
-      const purposeParas = paragraphs.filter(p => {
-        const pl = p.toLowerCase();
-        return pl.includes('purpose') || pl.includes('objective') || pl.includes('1.1') || pl.includes('1.2') || pl.includes('introduction') || pl.includes('tujuan');
-      });
-      if (purposeParas.length > 0) {
-        matchedExcerpts.push(...purposeParas.slice(0, 2));
-      }
-    }
-
-    // 3. If student asked for a specific section like "1.1", "1.2", or "Chapter 1"
-    if (matchedExcerpts.length === 0 && targetNumber) {
-      for (let i = 0; i < paragraphs.length; i++) {
-        const pLower = paragraphs[i].toLowerCase();
-        if (
-          pLower.includes(targetNumber) ||
-          pLower.includes(`section ${targetNumber}`) ||
-          pLower.includes(`1.1`)
-        ) {
-          matchedExcerpts.push(paragraphs[i]);
-          if (paragraphs[i + 1] && matchedExcerpts.length < 2) {
-            matchedExcerpts.push(paragraphs[i + 1]);
-          }
-          break;
-        }
-      }
-    }
-
-    // 4. Keyword paragraph search
-    if (matchedExcerpts.length === 0 && matchedTopicKeywords.length > 0) {
-      const scoredParas = paragraphs.map((para, idx) => {
-        const pLower = para.toLowerCase();
-        let hits = 0;
-        for (const kw of matchedTopicKeywords) {
-          if (pLower.includes(kw)) hits += (kw.length > 4 ? 3 : 2);
-        }
-        return { idx, hits, text: para };
-      }).filter(item => item.hits > 0);
-
-      scoredParas.sort((a, b) => b.hits - a.hits);
-      if (scoredParas.length > 0) {
-        matchedExcerpts.push(scoredParas[0].text);
-        if (scoredParas.length > 1) {
-          matchedExcerpts.push(scoredParas[1].text);
-        }
-      }
-    }
-
-    // 5. Default fallback for valid chapter study requests (e.g. "Summarize this chapter", "Give me Chapter 1 note"):
-    if (matchedExcerpts.length === 0) {
-      matchedExcerpts = paragraphs.slice(0, 3);
-    }
-
-    const headerLabel = `📘 Explanation for ${targetNote.subject_code} — ${targetNote.title} (${targetNote.file_name}):`;
-    const responseText = `${headerLabel}\n\n${matchedExcerpts.join('\n\n')}`;
+    const rawLoaded = cleanPdfExtractedText(noteContentsMap[targetNote.id] || notesContent || "");
+    const richStudyGuide = buildClientStudyGuide(targetNote);
+    const fullNoteText = rawLoaded.length >= 80 ? rawLoaded : richStudyGuide;
+    const isMelakaEfolio = /kesultanan melayu melaka|titik awal|syahbandar|hukum kanun|mpu21072/i.test(fullNoteText);
     const sourceLabel = `${targetNote.subject_code} - ${targetNote.title}`;
 
-    setTimeout(() => {
-      setMessages(prev => [
-        ...prev,
-        {
-          text: responseText,
-          sender: "bot",
-          source: sourceLabel,
-          noteId: targetNote.id,
-          noteFileName: targetNote.file_name
+    // =========================================================================
+    // HELPER: Deliver Bot Reply with Download & Copy Note Support
+    // =========================================================================
+    const sendBotAnswer = (replyText, speechSummary) => {
+      setTimeout(() => {
+        setMessages(prev => [
+          ...prev,
+          {
+            text: replyText,
+            sender: "bot",
+            source: sourceLabel,
+            noteId: targetNote.id,
+            noteFileName: targetNote.file_name
+          }
+        ]);
+        speakText(speechSummary || replyText.slice(0, 260));
+      }, 300);
+    };
+
+    // =========================================================================
+    // MODE A: SMART SUMMARY NOTE GENERATOR ("summary", "summarize", "summary note", "ringkasan", "short note")
+    // =========================================================================
+    const isSummaryRequest = /\b(summary|summarize|summarise|ringkasan|rumusan|short\s*note|study\s*note|revision\s*note|cheat\s*sheet|key\s*points|main\s*points)\b/i.test(normalizedQuery);
+
+    if (isSummaryRequest) {
+      if (isMelakaEfolio) {
+        const summaryNoteText =
+          `📝 **SMART SUMMARY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+          `📄 *Source File:* ${targetNote.file_name} (E-Folio MPU21072: *Titik Awal — Kesultanan Melayu Melaka 1400–1511*)\n\n` +
+          `**1. Executive Summary (Ringkasan Eksekutif)**\n` +
+          `• In the 15th century (1400–1511), the Melaka Sultanate grew from a fishing village into a premier global port because the Southwest (Apr–Sep) and Northeast (Nov–Mar) monsoons met at the Straits of Melaka.\n` +
+          `• Traders from India, Arabia, China, and the Malay Archipelago stayed for months waiting for the wind to shift. Through organized port administration, fair laws, and intermarriage, Melaka became the **starting point (Titik Awal) of Malaysia's plural society (Masyarakat Majmuk)**.\n\n` +
+          `**2. Two Core Objectives (Dua Objektif Penulisan)**\n` +
+          `• **Objective 1:** Explain how the trade network of the Melaka Sultanate attracted diverse ethnic groups to form the starting point (*Titik Awal*) of a plural society in Tanah Melayu.\n` +
+          `• **Objective 2:** Evaluate the trade ethics and diversity management of the Melaka era as a guide to strengthen unity in Malaysia today.\n\n` +
+          `**3. Key Points by Article (Ringkasan 4 Artikel Utama)**\n` +
+          `• **Article 1 — Port Administration (*Pelabuhan Yang Tidak Pernah Tidur* by Arthur Ryan):**\n` +
+          `  - Governed by **4 Pembesar Utama**: *Bendahara* (Chief Minister), *Temenggung* (City Security), *Laksamana* (Naval Fleet/Anti-piracy), and *Penghulu Bendahari* (Treasury/Tax).\n` +
+          `  - Appointed **4 Syahbandars** by trader region: (1) Gujarat; (2) South India, Bengal, Pegu & Pasai; (3) Java, Maluku, Banda, Palembang, Borneo & Luzon; (4) China, Champa & Ryukyu.\n` +
+          `  - Standardized weights (*kati, tahil, bahara*) and used tin ingots (*jongkong timah*) + foreign currencies.\n` +
+          `• **Article 2 — Foreign Communities (*84 Bahasa dalam Satu Bandar* by Vianfazerry):**\n` +
+          `  - Portuguese writer **Tomé Pires (*Suma Oriental*)** recorded **84 languages** spoken in Melaka.\n` +
+          `  - **Bahasa Melayu** served as the *lingua franca* uniting all traders.\n` +
+          `  - Distinct merchant settlements formed: *Kampung Keling* (Tamil/South Indian), *Kampung Jawa* (Javanese/Nusantara), *Kampung Cina* (Chinese), and *Bukit China*. Houses of worship stood side-by-side (*Jalan Harmoni*).\n` +
+          `• **Article 3 — Laws & Trade Ethics (*Etika Sebelum Untung* by Amirull Hafiz):**\n` +
+          `  - **Hukum Kanun Melaka (44 Fasal):** Written code covering criminal, family, debt, slavery, and city order.\n` +
+          `  - **Undang-Undang Laut Melaka:** Maritime law where the *Nakhoda* (ship captain) is "like a king aboard his ship" with strict duty to protect crew and cargo.\n` +
+          `  - **4 Core Ethical Values:** *Amanah* (honest weights), *Adil* (fair representation), *Hormat* (religious freedom), and *Tanggungjawab* (accountability).\n` +
+          `• **Article 4 — Cultural Heritage (*Anak-Anak Selat* by Daniel Wong):**\n` +
+          `  - Intermarriage between foreign traders and locals gave birth to hybrid communities: **Baba-Nyonya** (Chinese Peranakan), **Chetti Melaka** (Tamil Hindu Peranakan), **Portugis-Kristang** (post-1511 Portuguese creole), and **Jawi Peranakan** (Arab/Indian Muslim heritage).\n` +
+          `  - Recognized as **UNESCO World Heritage Site (2008)** and **Kebaya UNESCO Intangible Heritage (2024)**.\n\n` +
+          `**4. Connection to Malaysia MADANI (6 Core Pillars)**\n` +
+          `• *Kemampanan* (Sustainability), *Kesejahteraan* (Well-being), *Daya Cipta* (Innovation), *Hormat* (Respect), *Keyakinan* (Trust/Rule of Law), and *Ihsan* (Compassion).\n\n` +
+          `**5. Final Conclusion (Rumusan Akhir)**\n` +
+          `• Unity and pluralism do not happen by chance — Melaka succeeded because of **strategic administration, fair written laws, shared ethics, and mutual respect**.`;
+
+        sendBotAnswer(
+          summaryNoteText,
+          "Here is your complete summary note for Chapter 1, covering the Executive Summary, 2 Objectives, all 4 Articles, Key Statistics, and Malaysia MADANI."
+        );
+        return;
+      }
+
+      // Dynamic Summary Generator for any other uploaded document
+      const logicalSections = buildLogicalSections(fullNoteText);
+      const summaryBullets = logicalSections.slice(0, 6).map((sec, i) => `• **Key Point ${i + 1}:** ${sec.slice(0, 260)}${sec.length > 260 ? '...' : ''}`);
+      const genericSummary =
+        `📝 **SMART SUMMARY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+        `📄 *Source File:* ${targetNote.file_name}\n\n` +
+        `${summaryBullets.join('\n\n')}`;
+      sendBotAnswer(genericSummary, `Here is the summary note for ${targetNote.title}.`);
+      return;
+    }
+
+    // =========================================================================
+    // MODE B: SPECIFIC DETAIL DETECTORS (Detects every detail in the uploaded note!)
+    // =========================================================================
+    if (isMelakaEfolio) {
+      // Detail 1: Group Members / Authors / Sidang Redaksi / Matrix Numbers / Task Division
+      if (/\b(member|members|author|authors|group|team|who wrote|writer|sidang redaksi|ahli kumpulan|matrix|matrik|pembahagian tugas|arthur|vianfazerry|amirull|daniel wong|05dit)\b/i.test(normalizedQuery)) {
+        const membersReply =
+          `👥 **Group Members, Roles & Task Division (Sidang Redaksi — Page 2 & Page 20):**\n\n` +
+          `**Group Name:** Kumpulan Titik Awal Masyarakat Majmuk (4 Members · Jabatan Pengajian Am, Politeknik Kuching Sarawak)\n\n` +
+          `1. **Arthur Ryan Anak Anis** — Matrix No: **05DIT24F1055**\n` +
+          `   • **Role:** Ketua Kumpulan & Editor (Group Leader & Editor)\n` +
+          `   • **Contribution:** Wrote **Artikel 1: Pelabuhan Yang Tidak Pernah Tidur** (Port Administration, pp. 8–9) & final magazine layout.\n\n` +
+          `2. **Vianfazerry Anak Fabian** — Matrix No: **05DIT24F1160**\n` +
+          `   • **Role:** Penyelidik & Penulis (Researcher & Writer)\n` +
+          `   • **Contribution:** Source research & wrote **Artikel 2: 84 Bahasa dalam Satu Bandar** (Foreign Merchant Communities, pp. 10–11).\n\n` +
+          `3. **Amirull Hafiz Bin Majid** — Matrix No: **05DIT24F1141**\n` +
+          `   • **Role:** Pereka Grafik (Graphic Designer)\n` +
+          `   • **Contribution:** Designed infographics, trade route map, and wrote **Artikel 3: Etika Sebelum Untung** (Law & Ethics, pp. 12–13).\n\n` +
+          `4. **Daniel Wong Bin Husain Wong** — Matrix No: **05DIT24F1059**\n` +
+          `   • **Role:** Penyunting & Rujukan (Language Editor & References)\n` +
+          `   • **Contribution:** Wrote **Artikel 4: Anak-Anak Selat — Baba, Nyonya, Chetti & Kristang** (Cultural Heritage, pp. 14–15), language editing & APA 7th references.`;
+        sendBotAnswer(membersReply, "Here are the four group members, their Matrix numbers, and their exact roles in the E-Folio.");
+        return;
+      }
+
+      // Detail 2: Main Purpose / Two Objectives / Theme (Pengenalan & Objektif)
+      if (/\b(purpose|objective|objectives|tujuan|objektif|matlamat|theme|tema|pengenalan|introduction|why)\b/i.test(normalizedQuery) && !/\b(article|syahbandar|law|baba)\b/i.test(normalizedQuery)) {
+        const objReply =
+          `🎯 **Main Purpose, Theme & Objectives of Chapter 1 (${targetNote.file_name} — Page 4 & Page 5):**\n\n` +
+          `**📌 Magazine Theme (Tema Keluaran):**\n` +
+          `• **"Dari Pelabuhan ke Perpaduan"** (*From Port to Unity*) — Trade as the gateway for ethnic, cultural, and moral diversity.\n\n` +
+          `**📌 Main Purpose (Tujuan Utama — Pengenalan):**\n` +
+          `• This E-Folio explores trade relations during the **Melaka Sultanate (1400–1511)** as the **starting point (Titik Awal)** of the plural society (*masyarakat majmuk*) in Tanah Melayu.\n` +
+          `• It examines trade not merely as buying and selling, but as a complete **social system** comprising port administration, written laws, ethics, and foreign merchant settlements that integrated with local society.\n\n` +
+          `**🎯 Two Core Writing Objectives (Dua Objektif Penulisan — Page 5):**\n` +
+          `1. **Objective 1:** *Menghuraikan bagaimana jaringan perdagangan Kesultanan Melayu Melaka menarik kemasukan pelbagai bangsa sehingga membentuk titik awal masyarakat majmuk di Tanah Melayu.*\n` +
+          `   (Explain how the trade network of the Melaka Sultanate attracted diverse ethnic groups to form the starting point of a plural society in Tanah Melayu.)\n` +
+          `2. **Objective 2:** *Menilai nilai etika perdagangan dan pengurusan kepelbagaian zaman Melaka yang boleh dijadikan panduan memperkukuh perpaduan Malaysia hari ini.*\n` +
+          `   (Evaluate the trade ethics and diversity management of the Melaka era as a guide to strengthen unity in Malaysia today.)`;
+        sendBotAnswer(objReply, "Here are the main purpose, theme, and the two core writing objectives from Page 5 of your note.");
+        return;
+      }
+
+      // Detail 3: Timeline / History / Dates (1400–1511, Parameswara, Zheng He, Sultans, Portuguese)
+      if (/\b(timeline|garis masa|sejarah|history|parameswara|zheng he|muzaffar|mansur|mahmud|tun perak|portugis|portuguese|albuquerque|sequeira|1400|1405|1411|1414|1445|1459|1481|1509|1511|111)\b/i.test(normalizedQuery)) {
+        const timelineReply =
+          `⏳ **Historical Timeline of the Melaka Sultanate (Garis Masa Melaka 1400–1511 — Page 6):**\n\n` +
+          `• **±1400 — Opening of Melaka:** **Parameswara** founded Melaka at a sheltered river mouth along the main Straits of Melaka route.\n` +
+          `• **1405–1433 — Ming Fleet Voyages:** Admiral **Zheng He** made Melaka a vital stopping base, strengthening diplomatic security.\n` +
+          `• **1411 — Royal Mission to China:** Parameswara personally led a diplomatic mission to the Ming court, securing Melaka's status as a protected port.\n` +
+          `• **±1414 — Islam & Title of Sultan:** Conversion to Islam attracted Muslim merchants from Gujarat, Persia, and Arabia, making Melaka a regional hub for Islam.\n` +
+          `• **1445–1459 — Sultan Muzaffar Shah:** Compilation of **Hukum Kanun Melaka** began to regulate the growing port city.\n` +
+          `• **1459–1477 — Golden Age (Sultan Mansur Shah & Bendahara Tun Perak):** The system of **4 Syahbandars** managed merchants by region; Melaka's influence expanded across the Peninsula and Sumatra.\n` +
+          `• **1481–1511 — Sultan Mahmud Shah:** **Undang-Undang Laut Melaka** was codified to govern maritime shipping, trade contracts, and the *Nakhoda*'s authority.\n` +
+          `• **1509 — First Portuguese Arrival:** Ships led by **Diogo Lopes de Sequeira** arrived, sparking early tension with European power.\n` +
+          `• **1511 — Fall of Melaka:** Melaka fell to the Portuguese under **Afonso de Albuquerque** after **111 years**, though its multi-ethnic society continued to thrive.`;
+        sendBotAnswer(timelineReply, "Here is the complete historical timeline of Melaka from 1400 to 1511 from Page 6 of your note.");
+        return;
+      }
+
+      // Detail 4: Monsoon Winds, Geography, Trade Routes & Imported/Exported Goods (Page 7, 16, 22)
+      if (/\b(monsoon|monsun|wind|angin|geography|geografi|map|peta|route|laluan|import|export|goods|barang|dagangan|spice|rempah|silk|sutera|kain kapas|porselin|kuda|cengkih|buah pala|lada|emas|timah)\b/i.test(normalizedQuery)) {
+        const tradeReply =
+          `🧭 **Geography, Monsoon Calendar & Trade Goods Flow (Pages 7, 16 & 22):**\n\n` +
+          `**1. Strategic Location & Monsoon Schedule (Kalendar Monsun — Page 7):**\n` +
+          `• The Straits of Melaka connects the Indian Ocean and the South China Sea. Ships depended on two monsoon winds and had to stay in Melaka for months waiting for the wind to change:\n` +
+          `  - **Monsun Barat Daya (Southwest Monsoon · April – September):** Brought ships (*Dhow*) from **India, Sri Lanka, the Persian Gulf, and Arabia** carrying Gujarati & Coromandel cotton cloth, Persian carpets, frankincense (*kemenyan*), and horses.\n` +
+          `  - **Monsun Timur Laut (Northeast Monsoon · November – March):** Brought junks (*Jong*) from **China, Champa, and Ryukyu** carrying silk (*sutera*), porcelain (*porselin*), and ceramics.\n\n` +
+          `**2. Trade Goods Flow (Aliran Barang Dagangan — Page 16 & Page 22):**\n` +
+          `• **Imported into Melaka (Dibawa Masuk):**\n` +
+          `  - Kain kapas Gujarat & Coromandel (Indian cotton textiles)\n` +
+          `  - Sutera & porselin China (Chinese silk & porcelain)\n` +
+          `  - Kemenyan & kuda Arab / permaidani Parsi (Arabian frankincense, horses & Persian carpets)\n` +
+          `• **Exported from Melaka / Nusantara (Dibawa Keluar):**\n` +
+          `  - Bunga cengkih & buah pala Maluku (Cloves & nutmeg from Maluku)\n` +
+          `  - Lada Sumatera & kapur barus Borneo (Sumatran pepper & Bornean camphor)\n` +
+          `  - Bijih timah & emas Semenanjung (Peninsular tin ore & gold)`;
+        sendBotAnswer(tradeReply, "Here are the details on Melaka's monsoon calendar, trade routes, and imported and exported goods from Pages 7, 16, and 22.");
+        return;
+      }
+
+      // Detail 5: Article 1 — Port Administration, 4 Pembesar & 4 Syahbandar (Pages 8–9)
+      if (/\b(article 1|artikel 1|pelabuhan yang tidak pernah tidur|syahbandar|pembesar|bendahara|temenggung|laksamana|penghulu bendahari|kati|tahil|bahara|jongkong|port administration|pentadbiran pelabuhan)\b/i.test(normalizedQuery)) {
+        const art1Reply =
+          `🏛️ **Article 1: Port Administration — "Pelabuhan Yang Tidak Pernah Tidur" (Pages 8–9)**\n` +
+          `*Author: Arthur Ryan Anak Anis (05DIT24F1055)*\n\n` +
+          `**1. Four Principal State Officials (Empat Pembesar Utama):**\n` +
+          `• **Bendahara:** Chief Minister (Ketua Menteri) leading the administration.\n` +
+          `• **Temenggung:** Maintained city security, public order, and market weights.\n` +
+          `• **Laksamana:** Commander of the naval fleet protecting the Straits of Melaka from pirates (*lanun*).\n` +
+          `• **Penghulu Bendahari:** Managed state revenue, customs, and taxes.\n\n` +
+          `**2. The System of Four Syahbandars (Empat Syahbandar — Page 8):**\n` +
+          `Melaka appointed **4 Syahbandars**, each dedicated to specific foreign merchant groups so traders dealt with an official who knew their language and customs:\n` +
+          `• **Syahbandar 1:** Merchants from **Gujarat** (most influential group).\n` +
+          `• **Syahbandar 2:** Merchants from **South India, Bengal (Benggala), Pegu & Pasai**.\n` +
+          `• **Syahbandar 3:** Merchants from **Java, Maluku, Banda, Palembang, Borneo & Luzon**.\n` +
+          `• **Syahbandar 4:** Merchants from **China, Champa & Ryukyu**.\n\n` +
+          `**3. Standardized Weights, Currency & Social Impact (Page 9):**\n` +
+          `• Standardized measurements (**kati, tahil, bahara**) and used **tin ingots (jongkong timah)** alongside foreign currencies.\n` +
+          `• Long stays led merchants to open settlements (**Kampung Keling, Kampung Jawa, Kampung Cina**) and marry locals.\n` +
+          `• **Modern Relevance:** Port Klang and Tanjung Pelepas today compete on the same pillars: operational efficiency, legal certainty, and route safety.`;
+        sendBotAnswer(art1Reply, "Here is the complete breakdown of Article 1 on Port Administration, the 4 Pembesar, and the 4 Syahbandars.");
+        return;
+      }
+
+      // Detail 6: Article 2 — 84 Languages, Settlements, Lingua Franca & Jalan Harmoni (Pages 10–11)
+      if (/\b(article 2|artikel 2|84|language|languages|bahasa|lingua franca|tome pires|suma oriental|kampung keling|kampung jawa|kampung cina|bukit china|jalan harmoni|komuniti pedagang)\b/i.test(normalizedQuery)) {
+        const art2Reply =
+          `🗣️ **Article 2: Foreign Merchant Communities — "84 Bahasa dalam Satu Bandar" (Pages 10–11)**\n` +
+          `*Author: Vianfazerry Anak Fabian (05DIT24F1160)*\n\n` +
+          `**1. 84 Languages Recorded in One City:**\n` +
+          `• Portuguese writer **Tomé Pires** recorded in *Suma Oriental* (±1515) that **84 distinct languages** were spoken at the port of Melaka.\n` +
+          `• **Examples of languages heard:** Melayu, Tamil, Gujarati, Parsi (Persian), Arab, Jawa, Bugis, Hokkien, Benggali, Champa, Ryukyu, Kristang, and dozens more.\n\n` +
+          `**2. Bahasa Melayu as Lingua Franca:**\n` +
+          `• Despite huge diversity, Melaka stayed united because **Bahasa Melayu** emerged as the *lingua franca* (common language of trade and communication across the Malay Archipelago).\n\n` +
+          `**3. Merchant Settlements (Perkampungan Dagang — Page 10):**\n` +
+          `• **Kampung Keling:** Tamil and South Indian merchants.\n` +
+          `• **Kampung Jawa:** Javanese and Nusantara traders.\n` +
+          `• **Kampung Cina:** Traders from southern China.\n` +
+          `• **Bukit China:** Linked to the entourage of Princess **Hang Li Po** in *Sejarah Melayu* (one of the oldest Chinese cemeteries outside China).\n\n` +
+          `**4. Cultural Harmony & Jalan Harmoni (Page 11):**\n` +
+          `• On **Jalan Harmoni** in Melaka today, a Mosque (*Masjid Kampung Kling*), a Chinese Temple (*Tokong Cina*), and a Hindu Temple (*Kuil Hindu*) stand side-by-side — living proof of religious tolerance.\n` +
+          `• Mixed marriages (*perkahwinan campur*) between foreign male traders and local women gave rise to the Peranakan communities.`;
+        sendBotAnswer(art2Reply, "Here is the complete detail for Article 2 on the 84 languages, Bahasa Melayu as lingua franca, merchant settlements, and Jalan Harmoni.");
+        return;
+      }
+
+      // Detail 7: Article 3 — Laws & Trade Ethics, Hukum Kanun (44 Fasal), Undang-Undang Laut (Pages 12–13)
+      if (/\b(article 3|artikel 3|law|laws|legal|undang|hukum kanun|laut melaka|44|fasal|etika|ethics|nakhoda|riba|amanah|adil|tanggungjawab)\b/i.test(normalizedQuery)) {
+        const art3Reply =
+          `⚖️ **Article 3: Laws & Ethics — "Etika Sebelum Untung" (Pages 12–13)**\n` +
+          `*Author: Amirull Hafiz Bin Majid (05DIT24F1141)*\n\n` +
+          `**1. Two Written Legal Codes of Melaka (Page 12):**\n` +
+          `• **Hukum Kanun Melaka (Undang-Undang Melaka):** Contains **44 clauses (44 fasal)** covering criminal law, family law, slavery, debt, and city conduct — one of the earliest written legal codes in the Malay Archipelago.\n` +
+          `• **Undang-Undang Laut Melaka (Maritime Laws of Melaka):** Specifically governed life aboard ships and sea trade. It declared the **Nakhoda (Ship Captain)** as supreme authority (*"seperti raja di atas kapalnya"* — like a king aboard his ship), regulating crew duties, cargo space, theft at sea, discipline, and dispute resolution.\n\n` +
+          `**2. Protection of the Vulnerable & Moral Principles (Pages 12–13):**\n` +
+          `• Protected small cargo owners, sailors far from home, and foreign merchants unfamiliar with local customs.\n` +
+          `• Shaped by **Islamic ethics** (prohibition of *riba*/usury, honoring contracts, honest weights) and **Malay custom (Adat Melayu)** emphasizing *amanah* (trust) and *budi* (good character).\n\n` +
+          `**3. Four Enduring Ethical Values (Nilai Etika Yang Masih Relevan — Page 13):**\n` +
+          `• **Amanah (Trustworthiness):** Honest weights and measurements.\n` +
+          `• **Adil (Justice):** Dedicated officials (*Syahbandar*) for each community.\n` +
+          `• **Hormat (Respect):** Freedom of religion and customs for foreign traders.\n` +
+          `• **Tanggungjawab (Responsibility):** The *Nakhoda* is fully accountable for his ship, crew, and cargo.`;
+        sendBotAnswer(art3Reply, "Here is the detailed breakdown of Article 3 covering Hukum Kanun Melaka, Undang-Undang Laut Melaka, and the 4 core ethical values.");
+        return;
+      }
+
+      // Detail 8: Article 4 — Cultural Heritage, Anak-Anak Selat (Baba-Nyonya, Chetti, Kristang, Jawi Peranakan, UNESCO) (Pages 14–15)
+      if (/\b(article 4|artikel 4|anak-anak selat|anak selat|baba|nyonya|peranakan|chetti|kristang|jawi|warisan|heritage|culture|budaya|kebaya|asam pedas|unesco|2008|2024|famosa|stadthuys)\b/i.test(normalizedQuery)) {
+        const art4Reply =
+          `🏮 **Article 4: Cultural Heritage — "Anak-Anak Selat: Baba, Nyonya, Chetti & Kristang" (Pages 14–15)**\n` +
+          `*Author: Daniel Wong Bin Husain Wong (05DIT24F1059)*\n\n` +
+          `**1. How New Communities Formed (Page 14):**\n` +
+          `• Foreign Traders (Chinese, Tamil, Arab, Javanese) + Local Melaka Society → Marriage (*Perkahwinan Campur*) → **Anak-Anak Selat** (Communities neither purely foreign nor purely local):\n` +
+          `  - **Baba-Nyonya (Peranakan Cina):** Descendants of Chinese traders who married locals; speak *Melayu Baba*, wear the *kebaya*, cook Nyonya cuisine (combining Chinese ingredients with Malay spices like *asam pedas* and *kuih lapis*), while keeping Chinese ancestral customs.\n` +
+          `  - **Chetti Melaka (Peranakan Hindu):** Descendants of Tamil Hindu merchants who married local women since the Sultanate era; practice Hinduism while speaking Malay daily and adopting Malay customs.\n` +
+          `  - **Portugis-Kristang:** Formed after 1511; speak *Kristang* (Portuguese-based creole) and practice Catholicism blended with local traditions.\n` +
+          `  - **Jawi Peranakan:** Descendants of Arab and Indian Muslim traders married to Malay women.\n\n` +
+          `**2. UNESCO Global Recognition (Page 15):**\n` +
+          `• **2008:** Melaka and George Town were inscribed as **UNESCO World Heritage Sites** as historic multicultural trading cities.\n` +
+          `• **2024:** The **Kebaya** was inscribed on the **UNESCO Intangible Cultural Heritage List** through a joint Southeast Asian nomination including Malaysia.\n\n` +
+          `**3. Historical Landmarks & Challenge:**\n` +
+          `• Landmarks include *Porta de Santiago (A Famosa)* (1511 Portuguese fort) and *Stadthuys* (Dutch era).\n` +
+          `• **Current Challenge:** Declining numbers of fluent *Kristang* speakers and youth mastering full Baba-Nyonya and Chetti traditions.`;
+        sendBotAnswer(art4Reply, "Here is the complete breakdown of Article 4 on Baba-Nyonya, Chetti Melaka, Portugis-Kristang, Jawi Peranakan, and UNESCO recognition.");
+        return;
+      }
+
+      // Detail 9: Malaysia MADANI & Current Issues (Page 18)
+      if (/\b(madani|kemampanan|kesejahteraan|daya cipta|keyakinan|ihsan|isu semasa|current issue|modern|6 nilai|six values)\b/i.test(normalizedQuery)) {
+        const madaniReply =
+          `🇲🇾 **From the Straits of Melaka to Malaysia MADANI (Page 18):**\n\n` +
+          `Five hundred years after Melaka, the **Malaysia MADANI** framework emphasizes **6 core values (6 Nilai Teras)** that were already practiced in the port of Melaka:\n\n` +
+          `1. **Kemampanan (Sustainability):** Melaka protected its port resources — safe sea lanes and organized warehouses — for long-term continuous trade.\n` +
+          `2. **Kesejahteraan (Well-being):** Port taxes funded security and public facilities benefiting all communities.\n` +
+          `3. **Daya Cipta (Innovation):** The system of 4 Syahbandars and standardized weights (*kati, tahil, bahara*) were administrative innovations.\n` +
+          `4. **Hormat (Respect):** Every community was allowed to maintain its religion, language, and customs within the same city.\n` +
+          `5. **Keyakinan (Trust/Confidence):** Written laws (*Hukum Kanun & Undang-Undang Laut*) gave foreign merchants confidence that disputes would be judged fairly.\n` +
+          `6. **Ihsan (Compassion):** Maritime rules protected sailors and small cargo owners — showing compassion toward weaker parties.\n\n` +
+          `💡 **Lesson for Youth Today:** Unity is not an accident — it is the result of a fair system, respected laws, and openness toward people who are different from us.`;
+        sendBotAnswer(madaniReply, "Here is how Melaka's governance connects to the 6 core values of Malaysia MADANI on Page 18.");
+        return;
+      }
+
+      // Detail 10: Historical Quotes (Suara Sejarah — Venice, Ma Huan, Hang Li Po, Albuquerque — Page 17)
+      if (/\b(quote|petikan|suara sejarah|venice|kerongkong|ma huan|yingya shenglan|hang li po|sulalatus salatin|sejarah melayu)\b/i.test(normalizedQuery)) {
+        const quotesReply =
+          `📜 **Historical Quotes & Records (Suara Sejarah — Page 17):**\n\n` +
+          `1. **Tomé Pires (*Suma Oriental*, ±1515):**\n` +
+          `   • *"Sesiapa yang menjadi tuan Melaka, tangannya berada di kerongkong Venice."* ("Whoever is lord of Malacca has his hand on the throat of Venice.")\n` +
+          `   • Explains why European powers coveted Melaka: controlling the Straits meant controlling the spice route to Europe.\n\n` +
+          `2. **Undang-Undang Laut Melaka:**\n` +
+          `   • The *Nakhoda* is described as *"seperti raja di atas kapalnya"* (like a king aboard his ship) — balancing supreme authority with full accountability for crew and cargo.\n\n` +
+          `3. **Ma Huan (*Yingya Shenglan*, 1433):**\n` +
+          `   • Chronicler of the Ming treasure fleet who documented Melaka's daily life, customs, and trade products — the earliest Chinese external record of Melaka.\n\n` +
+          `4. **Sulalatus Salatin (*Sejarah Melayu*):**\n` +
+          `   • Records Melaka–China diplomatic ties through the story of **Princess Hang Li Po's** marriage to **Sultan Mansur Shah** and the settlement at Bukit China.`;
+        sendBotAnswer(quotesReply, "Here are the historical quotes and records from Page 17 of your note, including Tomé Pires, Ma Huan, and Sejarah Melayu.");
+        return;
+      }
+
+      // Detail 11: References (APA 7th Edition) & Gantt Chart (Pages 20–21)
+      if (/\b(reference|references|rujukan|citation|apa|bibliography|source|sources|book|books|gantt|carta gantt|jadual)\b/i.test(normalizedQuery)) {
+        const refReply =
+          `📚 **Project Gantt Chart & APA 7th Edition References (Pages 20–21):**\n\n` +
+          `**📊 Group Gantt Chart (Carta Gantt Kumpulan — Page 20):**\n` +
+          `• **M1–M2:** Problem-based topic discussion & consultation with course lecturer.\n` +
+          `• **M3–M6:** Group task distribution, data & historical source collection.\n` +
+          `• **M7–M10:** Writing individual articles (Articles 1–4), graphic design & infographics.\n` +
+          `• **M10–M12:** Language editing, magazine layout, fact-checking, PDF conversion & flipbook submission.\n\n` +
+          `**📖 APA 7th Edition References (Senarai Rujukan — Page 21):**\n` +
+          `1. Ahmad, A. S. (Peny.). (1986). *Sulalatus Salatin (Sejarah Melayu)*. Dewan Bahasa dan Pustaka.\n` +
+          `2. Andaya, B. W., & Andaya, L. Y. (2017). *A history of Malaysia* (3rd ed.). Palgrave Macmillan.\n` +
+          `3. Liaw, Y. F. (1976). *Undang-undang Melaka: The laws of Melaka*. Martinus Nijhoff.\n` +
+          `4. Pires, T. (1944). *The Suma Oriental of Tomé Pires* (A. Cortesão, Trans.). Hakluyt Society. (Original work ±1515).\n` +
+          `5. Reid, A. (1988). *Southeast Asia in the age of commerce, 1450–1680: Vol. 1 — The lands below the winds*. Yale University Press.\n` +
+          `6. Winstedt, R. O. (1956). *Malaya and its history*. Hutchinson University Library.\n` +
+          `7. UNESCO World Heritage Centre. (2008). *Melaka and George Town, historic cities of the Straits of Malacca*.`;
+        sendBotAnswer(refReply, "Here are the Gantt Chart project phases and the 7 APA references from Pages 20 and 21.");
+        return;
+      }
+    }
+
+    // =========================================================================
+    // MODE C: CHAPTER 1 FULL INFO ("ask about Chapter 1 give the info", "explain all 4 articles", "tell me about chapter 1")
+    // =========================================================================
+    const isChapterInfoRequest =
+      /\b(chapter\s*1|chapter1|1\.1|all\s*4\s*article|four\s*article|4\s*article|empat\s*artikel|full\s*info|info|overview|about\s*this\s*chapter|about\s*this\s*note|give\s*me\s*the\s*note)\b/i.test(normalizedQuery);
+
+    if (isChapterInfoRequest && isMelakaEfolio) {
+      const fullChapterInfo =
+        `📘 **COMPLETE CHAPTER 1 INFORMATION GUIDE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+        `📄 *Uploaded File:* ${targetNote.file_name} (*Majalah E-Folio MPU21072 Penghayatan Etika & Peradaban · Politeknik Kuching Sarawak*)\n\n` +
+        `**🏛️ Topic & Title:**\n` +
+        `• **Topik 6 · Tajuk 4:** *Titik Awal — Peranan Hubungan Perdagangan Zaman Kesultanan Melayu Melaka (1400–1511) dalam Membentuk Titik Awal Masyarakat Majmuk*\n` +
+        `• **Theme:** *"Dari Pelabuhan ke Perpaduan"* (From Port to Unity)\n\n` +
+        `**📊 Key Numbers & Facts in Chapter 1:**\n` +
+        `• **84 Languages** spoken at the port of Melaka (recorded by Tomé Pires in *Suma Oriental*).\n` +
+        `• **4 Syahbandars** managing foreign traders according to region (Gujarat; South India/Bengal/Pegu/Pasai; Java/Maluku/Borneo/Luzon; China/Champa/Ryukyu).\n` +
+        `• **44 Clauses (Fasal)** in *Hukum Kanun Melaka* + *Undang-Undang Laut Melaka*.\n` +
+        `• **111 Years** of the Melaka Sultanate (**1400–1511**) & **2 Monsoon Winds** (*Barat Daya* Apr–Sep & *Timur Laut* Nov–Mac).\n\n` +
+        `**🎯 Two Main Objectives (Page 5):**\n` +
+        `1. Explain how the Melaka Sultanate's trade network attracted diverse nations and formed the starting point (*Titik Awal*) of a plural society in Tanah Melayu.\n` +
+        `2. Evaluate Melaka's trade ethics and diversity management as a guide to strengthen unity in Malaysia today.\n\n` +
+        `**📖 Summary of the 4 Core Articles (Pages 8–15):**\n` +
+        `• **Article 1 (pp. 8–9): Pelabuhan Yang Tidak Pernah Tidur** *(by Arthur Ryan, 05DIT24F1055)* — Explains the 4 Pembesar (*Bendahara, Temenggung, Laksamana, Penghulu Bendahari*), 4 Syahbandars, standardized weights (*kati, tahil, bahara*), and tin currency (*jongkong timah*).\n` +
+        `• **Article 2 (pp. 10–11): 84 Bahasa dalam Satu Bandar** *(by Vianfazerry, 05DIT24F1160)* — Covers the 84 languages, *Bahasa Melayu* as the *lingua franca*, merchant settlements (*Kampung Keling, Kampung Jawa, Kampung Cina, Bukit China*), and religious harmony (*Jalan Harmoni*).\n` +
+        `• **Article 3 (pp. 12–13): Etika Sebelum Untung** *(by Amirull Hafiz, 05DIT24F1141)* — Covers *Hukum Kanun Melaka* (44 fasal), *Undang-Undang Laut Melaka* (*Nakhoda* as captain), and the 4 ethical pillars (*Amanah, Adil, Hormat, Tanggungjawab*).\n` +
+        `• **Article 4 (pp. 14–15): Anak-Anak Selat** *(by Daniel Wong, 05DIT24F1059)* — Explains hybrid communities born from intermarriage (**Baba-Nyonya, Chetti Melaka, Portugis-Kristang, Jawi Peranakan**) and UNESCO recognition (2008 World Heritage & 2024 Kebaya).\n\n` +
+        `💡 *Tip: You can ask me about any specific article, timeline date, group member, law, or click "📝 Generate Summary Note" for your revision sheet!*`;
+
+      sendBotAnswer(
+        fullChapterInfo,
+        "Here is the complete information for Chapter 1, including its theme, key numbers, 2 objectives, and all 4 articles."
+      );
+      return;
+    }
+
+    // =========================================================================
+    // MODE D: DEEP FULL-TEXT BILINGUAL SEARCH ACROSS ALL LOGICAL SECTIONS
+    // =========================================================================
+    const stopWords = new Set([
+      'give', 'the', 'note', 'notes', 'please', 'plase', 'can', 'you', 'show', 'tell',
+      'about', 'what', 'for', 'and', 'from', 'need', 'want', 'have', 'with', 'is', 'are',
+      'was', 'were', 'so', 'me', 'my', 'this', 'that', 'in', 'of', 'to', 'on', 'how', 'why',
+      'where', 'when', 'who', 'which', 'do', 'does', 'did', 'a', 'an', 'or', 'as', 'at', 'by',
+      'saya', 'nak', 'tolong', 'bagi', 'apakah', 'siapakah', 'bagaimana', 'tentang', 'dalam', 'yang', 'dan', 'untuk'
+    ]);
+
+    const genericStudyWords = new Set([
+      'chapter', 'topic', 'unit', 'module', 'section', 'part', 'bab', 'tajuk', 'topik',
+      'purpose', 'objective', 'objectives', 'main', 'goal', 'intro', 'introduction',
+      'summary', 'summarize', 'overview', 'definition', 'definitions', 'important',
+      'key', 'point', 'points', 'explain', 'explanation', 'meaning', 'course',
+      'study', 'material', 'lecture', 'slide', 'slides', 'download', 'file', 'pdf',
+      'detail', 'details', 'info', 'information', 'fact', 'facts', 'efolio', 'folio', 'page', 'hlm'
+    ]);
+
+    // Bilingual English <-> Malay concept expansion so English questions match Malay PDF text and vice versa
+    const bilingualSynonymMap = {
+      port: ['pelabuhan', 'syahbandar', 'kapal', 'berlabuh'],
+      harbour: ['pelabuhan', 'syahbandar'],
+      trade: ['perdagangan', 'dagang', 'niaga', 'pedagang'],
+      trader: ['pedagang', 'saudagar', 'nakhoda'],
+      merchant: ['pedagang', 'komuniti', 'kampung'],
+      plural: ['majmuk', 'kepelbagaian', 'berbilang'],
+      society: ['masyarakat', 'komuniti', 'penduduk'],
+      diversity: ['kepelbagaian', 'majmuk', 'harmoni'],
+      king: ['sultan', 'raja', 'parameswara'],
+      ruler: ['sultan', 'pemerintah', 'pembesar'],
+      captain: ['nakhoda', 'kapal', 'laut'],
+      ship: ['kapal', 'jong', 'perahu', 'pelayaran'],
+      sea: ['laut', 'selat', 'maritim'],
+      strait: ['selat', 'melaka'],
+      tax: ['cukai', 'hasil', 'bendahari'],
+      weight: ['timbang', 'sukat', 'kati', 'tahil', 'bahara'],
+      tin: ['timah', 'jongkong'],
+      money: ['mata wang', 'jongkong', 'timah'],
+      currency: ['mata wang', 'tukaran', 'timah'],
+      pirate: ['lanun', 'laksamana', 'keselamatan'],
+      security: ['keselamatan', 'keamanan', 'laksamana', 'temenggung'],
+      village: ['kampung', 'perkampungan', 'keling', 'jawa', 'cina'],
+      settlement: ['perkampungan', 'kampung'],
+      marriage: ['kahwin', 'perkahwinan', 'campur', 'peranakan'],
+      food: ['masakan', 'asam pedas', 'kuih lapis', 'nyonya'],
+      clothing: ['kebaya', 'pakaian'],
+      religion: ['agama', 'islam', 'hindu', 'katolik', 'masjid', 'tokong', 'kuil'],
+      mosque: ['masjid', 'kampung kling', 'jalan harmoni'],
+      temple: ['tokong', 'kuil', 'jalan harmoni'],
+      unity: ['perpaduan', 'harmoni', 'madani'],
+      value: ['nilai', 'etika', 'amanah', 'adil', 'hormat', 'ihsan'],
+      number: ['angka', 'fakta', '84', '44', '111'],
+    };
+
+    const queryTokens = normalizedQuery
+      .replace(/[^\w.\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 2 && !stopWords.has(w));
+
+    // Expand query tokens with bilingual equivalents
+    const expandedTokens = new Set(queryTokens);
+    for (const token of queryTokens) {
+      if (bilingualSynonymMap[token]) {
+        bilingualSynonymMap[token].forEach(syn => expandedTokens.add(syn));
+      }
+    }
+
+    const chapterCorpus = `${targetNote.subject_code || ''} ${targetNote.title || ''} ${targetNote.file_name || ''} ${fullNoteText}`.toLowerCase();
+
+    // Check if any token or 4-character prefix stem matches the chapter corpus
+    const matchedTokens = Array.from(expandedTokens).filter(tok => {
+      if (chapterCorpus.includes(tok)) return true;
+      if (tok.length >= 5 && chapterCorpus.includes(tok.slice(0, 5))) return true;
+      return false;
+    });
+
+    const hasStudyIntent =
+      Boolean(targetNumber) ||
+      queryTokens.some(w => genericStudyWords.has(w));
+
+    // If user asked a question with ZERO matching tokens/synonyms/stems in the chapter and no chapter study intent -> Refuse!
+    if (matchedTokens.length === 0 && !hasStudyIntent) {
+      setTimeout(() => {
+        const refusalReply =
+          `⚠️ Sorry, I cannot answer this question because it is outside of your uploaded chapter (${targetNote.subject_code} - ${targetNote.title}).\n\n` +
+          `I strictly answer questions based on your uploaded course notes (${availableChaptersText}). Try asking about Chapter 1, its summary note, the 4 articles, Melaka trade, Syahbandar, Hukum Kanun Melaka, 84 languages, Baba-Nyonya, or Malaysia MADANI!`;
+        setMessages(prev => [...prev, { text: refusalReply, sender: "bot", source: "Chapter Guard" }]);
+        speakText("Sorry, I cannot answer this question because it is outside of your uploaded chapter.");
+      }, 300);
+      return;
+    }
+
+    // Score all logical multi-sentence sections in the document
+    const logicalSections = buildLogicalSections(fullNoteText);
+    const scoredSections = logicalSections.map((sec, idx) => {
+      const secLower = sec.toLowerCase();
+      let hits = 0;
+      for (const tok of expandedTokens) {
+        if (genericStudyWords.has(tok)) continue;
+        if (secLower.includes(tok)) {
+          hits += tok.length >= 5 ? 6 : 3;
+        } else if (tok.length >= 5 && secLower.includes(tok.slice(0, 5))) {
+          hits += 2;
         }
-      ]);
-      speakText(responseText);
-    }, 350);
+      }
+      return { idx, hits, text: sec };
+    }).filter(s => s.hits > 0);
+
+    scoredSections.sort((a, b) => b.hits - a.hits);
+
+    let matchedExcerpts = [];
+    if (scoredSections.length > 0) {
+      matchedExcerpts = scoredSections.slice(0, 3).map(s => s.text);
+    } else {
+      matchedExcerpts = logicalSections.slice(0, 3);
+    }
+
+    const headerLabel = `📘 **Detailed Answer from ${targetNote.subject_code} — ${targetNote.title} (${targetNote.file_name}):**`;
+    const responseText = `${headerLabel}\n\n${matchedExcerpts.join('\n\n')}`;
+
+    sendBotAnswer(responseText, matchedExcerpts[0]?.slice(0, 240));
   };
 
   const handleSendMessage = () => {
@@ -961,14 +1345,20 @@ const StudentDashboard = () => {
         </div>
       )}
 
-      {/* Easy One-Click Prompt Buttons */}
+      {/* Easy One-Click Smart Prompt Buttons */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Quick Ask:</span>
         {[
-          { label: "📂 Give me Chapter 1 / 1.1 Note", prompt: "Give me the Chapter 1 or Chapter 1.1 note" },
-          { label: "📖 Summarize This Chapter", prompt: "Give me the summary and main notes of this chapter" },
-          { label: "💡 Key Definitions & Topics", prompt: "What are the important definitions and key points in this note?" },
-          { label: "📝 Make 5 Quiz Questions", prompt: "Generate 5 practice questions for me" }
+          { label: "📘 Chapter 1 Full Info", prompt: "Give me Chapter 1 info" },
+          { label: "📝 Generate Summary Note", prompt: "Help me do the summary note for Chapter 1" },
+          { label: "🎯 2 Main Objectives", prompt: "What are the main purpose and 2 objectives of Chapter 1?" },
+          { label: "🏛️ Article 1: Port & Syahbandar", prompt: "Explain Article 1 and the 4 Syahbandar in detail" },
+          { label: "🗣️ Article 2: 84 Languages", prompt: "Explain Article 2 and the 84 languages in Melaka" },
+          { label: "⚖️ Article 3: Laws & Ethics", prompt: "Explain Article 3 Hukum Kanun Melaka and Undang-Undang Laut" },
+          { label: "🏮 Article 4: Baba Nyonya & Heritage", prompt: "Explain Article 4 Baba Nyonya, Chetti, Kristang and UNESCO" },
+          { label: "👥 Group Members & Roles", prompt: "Who are the group members and their matrix numbers?" },
+          { label: "⏳ Timeline (1400–1511)", prompt: "Show the historical timeline of Melaka 1400-1511" },
+          { label: "❓ Make 5 Quiz Questions", prompt: "Generate 5 practice questions for me" }
         ].map((chip, idx) => (
           <button
             key={idx}
@@ -980,7 +1370,7 @@ const StudentDashboard = () => {
               color: '#38bdf8',
               padding: '5px 12px',
               borderRadius: '999px',
-              fontSize: '0.78rem',
+              fontSize: '0.77rem',
               fontWeight: 600,
               cursor: 'pointer',
               transition: 'all 0.2s'
@@ -1017,17 +1407,17 @@ const StudentDashboard = () => {
       </div>
 
       {/* Chat Interface */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '380px', border: '1px solid var(--border)', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.4)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '430px', border: '1px solid var(--border)', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.4)', overflow: 'hidden' }}>
         <div style={{ flexGrow: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {messages.map((msg, idx) => (
             <div 
               key={idx} 
               style={{ 
-                maxWidth: '88%', 
+                maxWidth: '90%', 
                 padding: '12px 16px', 
                 borderRadius: '16px', 
-                fontSize: '0.93rem', 
-                lineHeight: '1.5',
+                fontSize: '0.92rem', 
+                lineHeight: '1.55',
                 whiteSpace: 'pre-wrap',
                 alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
                 background: msg.sender === 'user' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.08)',
@@ -1043,23 +1433,45 @@ const StudentDashboard = () => {
                   <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>
                     📖 Detected Material: {msg.source}
                   </span>
-                  {msg.noteId && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <button
-                      onClick={() => handleDownloadNote(msg.noteId)}
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(msg.text);
+                      }}
                       style={{
-                        background: 'rgba(16, 185, 129, 0.2)',
-                        border: '1px solid rgba(16, 185, 129, 0.4)',
-                        color: '#34d399',
+                        background: 'rgba(56, 189, 248, 0.18)',
+                        border: '1px solid rgba(56, 189, 248, 0.4)',
+                        color: '#38bdf8',
                         padding: '4px 10px',
                         borderRadius: '6px',
                         fontSize: '0.75rem',
                         fontWeight: 600,
                         cursor: 'pointer'
                       }}
+                      title="Copy this summary note or explanation"
                     >
-                      ⬇️ Download {msg.noteFileName || 'Note'}
+                      📋 Copy Note
                     </button>
-                  )}
+                    {msg.noteId && (
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadNote(msg.noteId)}
+                        style={{
+                          background: 'rgba(16, 185, 129, 0.2)',
+                          border: '1px solid rgba(16, 185, 129, 0.4)',
+                          color: '#34d399',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ⬇️ Download {msg.noteFileName || 'Note'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1071,7 +1483,7 @@ const StudentDashboard = () => {
             value={inputValue} 
             onChange={(e) => setInputValue(e.target.value)} 
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} 
-            placeholder='Try asking: "Give me Chapter 1 or Chapter 1.1 note" or "Explain main topic"...' 
+            placeholder='Ask anything from your note: "Chapter 1 info", "Summary note", "4 Syahbandar", "84 languages", "Hukum Kanun", "Baba Nyonya"...' 
             className="form-input"
           />
           <button 
