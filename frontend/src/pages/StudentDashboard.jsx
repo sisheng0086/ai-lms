@@ -62,7 +62,7 @@ const StudentDashboard = () => {
   // AI chat states
   const [messages, setMessages] = useState([
     {
-      text: "Hello! 👋 I am your AI Study Companion. You can ask me for any chapter or sub-topic (for example: \"Give me Chapter 1 or Chapter 1.1 note\"), ask for a summary, or generate 5 practice quiz questions!",
+      text: "Hai! 👋 I am AI to help you, if you have any question you can ask me! You can ask for any chapter (e.g. \"Give me Chapter 1 or Chapter 1.1 note\"), a chapter summary, or 5 practice quiz questions.",
       sender: "bot"
     }
   ]);
@@ -425,6 +425,34 @@ const StudentDashboard = () => {
 
     setMessages(prev => [...prev, { text: userText, sender: "user" }]);
     setInputValue("");
+
+    // Check if the user is saying hi / hello / hai / hey / greetings
+    const cleanGreet = userText.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const greetingRegex = /^(hi+|hello+|hai+|hey+|helo+|yo+|salam|assalamualaikum|good\s*(morning|afternoon|evening|day)|selamat\s*(pagi|petang|sejahtera)|how\s*are\s*you|who\s*are\s*you|what\s*can\s*you\s*do)(\s+ai|\s+bot|\s+there|\s+sir|\s+madam)?$/i;
+
+    if (greetingRegex.test(cleanGreet)) {
+      setTimeout(() => {
+        const greetingReply =
+          "Hai! 👋 I am AI to help you, if you have any question you can ask me!\n\n" +
+          "Here are some things you can ask me:\n" +
+          "• \"Give me Chapter 1 or Chapter 1.1 note\"\n" +
+          "• \"What is the main purpose of Chapter 1?\"\n" +
+          "• \"Summarize this chapter\"\n" +
+          "• \"Generate 5 practice questions for me\"";
+        setMessages(prev => [...prev, { text: greetingReply, sender: "bot", source: "AI Study Companion" }]);
+        speakText("Hai! I am AI to help you, if you have any question you can ask me!");
+      }, 250);
+      return;
+    }
+
+    if (/^(thanks|thank\s*you|tq|ty|terima\s*kasih)(\s+.*)?$/i.test(cleanGreet)) {
+      setTimeout(() => {
+        const thanksReply = "You're welcome! 😊 I am AI to help you — if you have any other question, you can ask me anytime!";
+        setMessages(prev => [...prev, { text: thanksReply, sender: "bot", source: "AI Study Companion" }]);
+        speakText(thanksReply);
+      }, 250);
+      return;
+    }
 
     if (notesList.length === 0) {
       setTimeout(() => {
