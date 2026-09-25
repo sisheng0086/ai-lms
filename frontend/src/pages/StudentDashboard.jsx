@@ -426,28 +426,35 @@ const StudentDashboard = () => {
     setMessages(prev => [...prev, { text: userText, sender: "user" }]);
     setInputValue("");
 
+    const availableChaptersText = notesList.length > 0
+      ? notesList.map(n => `${n.subject_code} - ${n.title}`).join(', ')
+      : 'No chapters uploaded yet';
+
     // Check if the user is saying hi / hello / hai / hey / greetings
     const cleanGreet = userText.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-    const greetingRegex = /^(hi+|hello+|hai+|hey+|helo+|yo+|salam|assalamualaikum|good\s*(morning|afternoon|evening|day)|selamat\s*(pagi|petang|sejahtera)|how\s*are\s*you|who\s*are\s*you|what\s*can\s*you\s*do)(\s+ai|\s+bot|\s+there|\s+sir|\s+madam)?$/i;
+    const greetingRegex = /^(hi+|hello+|hai+|hey+|helo+|yo+|salam|assalamualaikum|good\s*(morning|afternoon|evening|day)|selamat\s*(pagi|petang|sejahtera)|how\s*are\s*you|who\s*are\s*you|what\s*can\s*you\s*do)(\s+ai|\s+bot|\s+there|\s+sir|\s+madam|\s+friend)?$/i;
 
     if (greetingRegex.test(cleanGreet)) {
       setTimeout(() => {
         const greetingReply =
-          "Hai! 👋 I am AI to help you, if you have any question you can ask me!\n\n" +
-          "Here are some things you can ask me:\n" +
+          "Hai! 👋 I am AI to help you, if you have any question you can ask me! 😊\n\n" +
+          "Welcome to your AI Study Companion! I am always ready to help you understand your course notes, explain the main purpose and key concepts of your chapter, provide instant note downloads, or generate 5 practice quiz questions for your revision.\n\n" +
+          `📚 Uploaded Chapter(s): ${availableChaptersText}\n` +
+          "📌 Note: I strictly answer questions based on your uploaded chapter notes only (I do not answer questions outside of your chapter).\n\n" +
+          "Try asking me:\n" +
           "• \"Give me Chapter 1 or Chapter 1.1 note\"\n" +
           "• \"What is the main purpose of Chapter 1?\"\n" +
           "• \"Summarize this chapter\"\n" +
           "• \"Generate 5 practice questions for me\"";
         setMessages(prev => [...prev, { text: greetingReply, sender: "bot", source: "AI Study Companion" }]);
-        speakText("Hai! I am AI to help you, if you have any question you can ask me!");
+        speakText("Hai! I am AI to help you, if you have any question you can ask me! I am here to help you study your uploaded chapter notes.");
       }, 250);
       return;
     }
 
-    if (/^(thanks|thank\s*you|tq|ty|terima\s*kasih)(\s+.*)?$/i.test(cleanGreet)) {
+    if (/^(thanks|thank\s*you|tq|ty|terima\s*kasih|ok|okay|alright)(\s+.*)?$/i.test(cleanGreet)) {
       setTimeout(() => {
-        const thanksReply = "You're welcome! 😊 I am AI to help you — if you have any other question, you can ask me anytime!";
+        const thanksReply = "You're welcome! 😊 I am AI to help you — if you have any other question about your chapter, feel free to ask me anytime!";
         setMessages(prev => [...prev, { text: thanksReply, sender: "bot", source: "AI Study Companion" }]);
         speakText(thanksReply);
       }, 250);
@@ -456,7 +463,7 @@ const StudentDashboard = () => {
 
     if (notesList.length === 0) {
       setTimeout(() => {
-        const responseText = "No lecture notes have been uploaded yet by your lecturer. Please check back after your lecturer uploads course slides or notes in the Lecturer Dashboard!";
+        const responseText = "No lecture notes have been uploaded yet by your lecturer. I can only answer questions from uploaded course chapters. Please check back after your lecturer uploads course slides or notes!";
         setMessages(prev => [...prev, { text: responseText, sender: "bot", source: null }]);
         speakText(responseText);
       }, 300);
@@ -490,20 +497,74 @@ const StudentDashboard = () => {
     }
 
     // Extract any chapter or section number like "1", "1.1", "1.2", "2", "2.1"
-    const sectionMatch = normalizedQuery.match(/(?:chapter|topic|unit|module|section|part)\s*(\d+(?:\.\d+)?)/i)
+    const sectionMatch = normalizedQuery.match(/(?:chapter|topic|unit|module|section|part|bab)\s*(\d+(?:\.\d+)?)/i)
       || normalizedQuery.match(/\b(\d+\.\d+)\b/);
     const targetNumber = sectionMatch ? sectionMatch[1] : null; // e.g. "1" or "1.1"
     const mainChapterNum = targetNumber ? targetNumber.split('.')[0] : null; // e.g. "1"
+
+    // If student explicitly asked for a Chapter number (e.g. Chapter 2, Chapter 3, Chapter 5), verify it exists in uploaded notes
+    if (mainChapterNum) {
+      const chapterExists = notesList.some((note) => {
+        const t = (note.title || '').toLowerCase();
+        const f = (note.file_name || '').toLowerCase();
+        return (
+          t.includes(`chapter ${mainChapterNum}`) ||
+          t.includes(`chapter${mainChapterNum}`) ||
+          t.includes(`ch ${mainChapterNum}`) ||
+          t.includes(`topic ${mainChapterNum}`) ||
+          t.includes(`bab ${mainChapterNum}`) ||
+          t === mainChapterNum ||
+          f.includes(`chapter ${mainChapterNum}`) ||
+          f.includes(`topic${mainChapterNum}`)
+        );
+      });
+
+      if (!chapterExists) {
+        setTimeout(() => {
+          const outOfChapterMsg =
+            `⚠️ Sorry, I cannot answer that because Chapter ${targetNumber} is outside of your uploaded course notes.\n\n` +
+            `📚 Currently uploaded chapter(s): ${availableChaptersText}\n` +
+            `I am only allowed to answer questions from the chapters uploaded by your lecturer. Please ask a question from ${availableChaptersText}!`;
+          setMessages(prev => [...prev, { text: outOfChapterMsg, sender: "bot", source: "Chapter Guard" }]);
+          speakText(`Sorry, Chapter ${targetNumber} has not been uploaded. Please ask questions only from your uploaded chapter.`);
+        }, 300);
+        return;
+      }
+    }
 
     // 1. Find the best matching Note across ALL uploaded notes
     let targetNote = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
     let bestNoteScore = -1;
 
-    const stopWords = new Set(['give', 'the', 'note', 'notes', 'please', 'plase', 'can', 'you', 'show', 'tell', 'about', 'what', 'for', 'and', 'from', 'need', 'want', 'have', 'with', 'is', 'so']);
-    const searchKeywords = normalizedQuery
+    const stopWords = new Set([
+      'give', 'the', 'note', 'notes', 'please', 'plase', 'can', 'you', 'show', 'tell',
+      'about', 'what', 'for', 'and', 'from', 'need', 'want', 'have', 'with', 'is', 'are',
+      'was', 'were', 'so', 'me', 'my', 'this', 'that', 'in', 'of', 'to', 'on', 'how', 'why',
+      'where', 'when', 'who', 'which', 'do', 'does', 'did', 'a', 'an', 'or', 'as', 'at', 'by'
+    ]);
+
+    const genericStudyWords = new Set([
+      'chapter', 'topic', 'unit', 'module', 'section', 'part', 'bab',
+      'purpose', 'objective', 'objectives', 'main', 'goal', 'intro', 'introduction',
+      'summary', 'summarize', 'overview', 'definition', 'definitions', 'important',
+      'key', 'point', 'points', 'explain', 'explanation', 'meaning', 'course',
+      'study', 'material', 'lecture', 'slide', 'slides', 'download', 'file', 'pdf',
+      'takeaway', 'takeaways', 'conclusion', 'guideline', 'guidelines', 'efolio', 'folio'
+    ]);
+
+    const allQueryWords = normalizedQuery
       .replace(/[^\w.\s]/g, ' ')
       .split(/\s+/)
       .filter(w => w.length >= 2 && !stopWords.has(w));
+
+    // Topic-specific words that are NOT generic study words and NOT chapter numbers
+    const topicKeywords = allQueryWords.filter(
+      w => !genericStudyWords.has(w) && !/^\d+(\.\d+)?$/.test(w)
+    );
+
+    const hasGenericStudyIntent =
+      Boolean(targetNumber) ||
+      allQueryWords.some(w => genericStudyWords.has(w));
 
     for (const note of notesList) {
       let score = 0;
@@ -526,7 +587,7 @@ const StudentDashboard = () => {
         }
       }
 
-      for (const kw of searchKeywords) {
+      for (const kw of allQueryWords) {
         if (titleLower.includes(kw)) score += 15;
         if (subjectLower.includes(kw)) score += 15;
         if (fileLower.includes(kw)) score += 8;
@@ -539,13 +600,7 @@ const StudentDashboard = () => {
       }
     }
 
-    // Switch active note if a matching note was detected
-    if (targetNote && String(targetNote.id) !== String(selectedNoteId)) {
-      setSelectedNoteId(targetNote.id);
-      loadNoteContent(targetNote.id);
-    }
-
-    // Clean raw text and strip out any legacy "Title: ... Filename: ..." placeholder strings
+    // Build full searchable corpus of the matched chapter to verify if topicKeywords belong to this chapter
     const rawLoaded = (noteContentsMap[targetNote.id] || notesContent || "")
       .split(/\r?\n/)
       .filter(l => !l.trim().startsWith("Title:") && !l.trim().startsWith("Filename:"))
@@ -554,6 +609,32 @@ const StudentDashboard = () => {
 
     const richStudyGuide = buildClientStudyGuide(targetNote);
     const activeText = rawLoaded.length >= 80 ? `${rawLoaded}\n\n${richStudyGuide}` : richStudyGuide;
+    const chapterCorpus = `${targetNote.subject_code || ''} ${targetNote.title || ''} ${targetNote.file_name || ''} ${activeText}`.toLowerCase();
+
+    // STRICT OUT-OF-CHAPTER CHECK:
+    // 1) If user asked about specific topic words (e.g. "iot", "football", "weather", "python") and NONE of them exist in the chapter corpus -> Refuse!
+    // 2) Or if user has neither topic matches nor generic chapter study intent -> Refuse!
+    const matchedTopicKeywords = topicKeywords.filter(kw => chapterCorpus.includes(kw));
+    const isOutFromChapter =
+      (topicKeywords.length > 0 && matchedTopicKeywords.length === 0) ||
+      (topicKeywords.length === 0 && !hasGenericStudyIntent);
+
+    if (isOutFromChapter) {
+      setTimeout(() => {
+        const refusalReply =
+          `⚠️ Sorry, I cannot answer this question because it is outside of your uploaded chapter (${targetNote.subject_code} - ${targetNote.title}).\n\n` +
+          `I am only trained to answer questions from the chapter notes uploaded by your lecturer (${availableChaptersText}). Please ask a question related to your uploaded chapter!`;
+        setMessages(prev => [...prev, { text: refusalReply, sender: "bot", source: "Chapter Guard" }]);
+        speakText("Sorry, I cannot answer this question because it is outside of your uploaded chapter. Please ask a question from your course chapter.");
+      }, 300);
+      return;
+    }
+
+    // Switch active note if a matching note was detected
+    if (targetNote && String(targetNote.id) !== String(selectedNoteId)) {
+      setSelectedNoteId(targetNote.id);
+      loadNoteContent(targetNote.id);
+    }
 
     const paragraphs = activeText
       .split(/\n\s*\n|\r?\n/)
@@ -592,11 +673,11 @@ const StudentDashboard = () => {
     }
 
     // 4. Keyword paragraph search
-    if (matchedExcerpts.length === 0 && searchKeywords.length > 0) {
+    if (matchedExcerpts.length === 0 && matchedTopicKeywords.length > 0) {
       const scoredParas = paragraphs.map((para, idx) => {
         const pLower = para.toLowerCase();
         let hits = 0;
-        for (const kw of searchKeywords) {
+        for (const kw of matchedTopicKeywords) {
           if (pLower.includes(kw)) hits += (kw.length > 4 ? 3 : 2);
         }
         return { idx, hits, text: para };
@@ -611,7 +692,7 @@ const StudentDashboard = () => {
       }
     }
 
-    // 5. Default fallback: show the structured overview (1.1 Main Purpose & 1.2 Objectives)
+    // 5. Default fallback for valid chapter study requests (e.g. "Summarize this chapter", "Give me Chapter 1 note"):
     if (matchedExcerpts.length === 0) {
       matchedExcerpts = paragraphs.slice(0, 3);
     }
