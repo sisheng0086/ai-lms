@@ -67,6 +67,20 @@ const LecturerDashboard = () => {
     }
   });
 
+  // In-browser Lecture Note Preview state
+  const [previewNote, setPreviewNote] = useState(null);
+  const [previewNoteContent, setPreviewNoteContent] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Class Announcements state
+  const [announcementsList, setAnnouncementsList] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [annTitle, setAnnTitle] = useState('');
+  const [annContent, setAnnContent] = useState('');
+  const [annSubjectCode, setAnnSubjectCode] = useState('');
+  const [creatingAnn, setCreatingAnn] = useState(false);
+  const [annMessage, setAnnMessage] = useState({ type: '', text: '' });
+
   const fetchNotes = useCallback(async (lecturerId) => {
     setLoadingNotes(true);
     try {
@@ -127,6 +141,21 @@ const LecturerDashboard = () => {
     }
   }, []);
 
+  const fetchAnnouncements = useCallback(async () => {
+    setLoadingAnnouncements(true);
+    try {
+      const res = await fetch(`${API_URL}/announcements`);
+      if (res.ok) {
+        const data = await res.json();
+        setAnnouncementsList(data.announcements || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch announcements', err);
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  }, []);
+
   const fetchSubmissionsForAssignment = async (assignmentId) => {
     setLoadingSubmissionsId(assignmentId);
     try {
@@ -166,7 +195,8 @@ const LecturerDashboard = () => {
     fetchNotes(parsedUser.id);
     fetchAssignments(parsedUser.id);
     fetchContactInbox(parsedUser.id);
-  }, [navigate, fetchNotes, fetchAssignments, fetchContactInbox]);
+    fetchAnnouncements();
+  }, [navigate, fetchNotes, fetchAssignments, fetchContactInbox, fetchAnnouncements]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -348,6 +378,103 @@ const LecturerDashboard = () => {
       console.error('Failed to save grade', err);
     } finally {
       setSavingGradeId(null);
+    }
+  };
+
+  const handleOpenPreviewNote = async (noteId, noteTitle) => {
+    setPreviewNote({ id: noteId, title: noteTitle });
+    setLoadingPreview(true);
+    setPreviewNoteContent('');
+    try {
+      const res = await fetch(`${API_URL}/notes/content/${noteId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewNoteContent(data.content || 'No text extracted for this lecture note.');
+      } else {
+        setPreviewNoteContent('Failed to load note content for preview.');
+      }
+    } catch (err) {
+      setPreviewNoteContent('Error connecting to server to load note preview.');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const handleExportGradesCSV = (assignment) => {
+    const subs = submissionsMap[assignment.id] || [];
+    if (subs.length === 0) {
+      alert('No student submissions found yet for this assignment to export.');
+      return;
+    }
+    const headers = ['Assignment Code', 'Assignment Title', 'Student Name', 'Matrix No', 'Submitted Date', 'File Name', 'Grade', 'Lecturer Feedback'];
+    const rows = subs.map(s => [
+      `"${assignment.subject_code}"`,
+      `"${(assignment.title || '').replace(/"/g, '""')}"`,
+      `"${(s.student_name || 'Student').replace(/"/g, '""')}"`,
+      `"${s.matrix_no || '-'}"`,
+      `"${new Date(s.submitted_at).toLocaleString()}"`,
+      `"${(s.file_name || '').replace(/"/g, '""')}"`,
+      `"${(gradeInputs[s.id] ?? s.grade ?? '').replace(/"/g, '""')}"`,
+      `"${(feedbackInputs[s.id] ?? s.feedback ?? '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Grades_${assignment.subject_code}_${(assignment.title || 'Assignment').replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!annTitle.trim() || !annContent.trim()) {
+      setAnnMessage({ type: 'error', text: 'Please enter both announcement title and message content.' });
+      return;
+    }
+    setCreatingAnn(true);
+    setAnnMessage({ type: '', text: '' });
+    try {
+      const res = await fetch(`${API_URL}/announcements/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: annTitle.trim(),
+          content: annContent.trim(),
+          author_id: user.id,
+          author_name: user.full_name,
+          author_role: 'lecturer',
+          subject_code: annSubjectCode.trim().toUpperCase() || 'ALL'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setAnnMessage({ type: 'success', text: '🎉 Class announcement published successfully!' });
+        setAnnTitle('');
+        setAnnContent('');
+        setAnnSubjectCode('');
+        fetchAnnouncements();
+      } else {
+        setAnnMessage({ type: 'error', text: data.detail || 'Failed to publish announcement.' });
+      }
+    } catch (err) {
+      setAnnMessage({ type: 'error', text: 'Network error publishing announcement.' });
+    } finally {
+      setCreatingAnn(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    if (!window.confirm('Are you sure you want to remove this announcement?')) return;
+    try {
+      const res = await fetch(`${API_URL}/announcements/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchAnnouncements();
+      }
+    } catch (err) {
+      console.error('Failed to delete announcement', err);
     }
   };
 
@@ -614,13 +741,24 @@ const LecturerDashboard = () => {
                     {new Date(note.uploaded_at).toLocaleDateString()}
                   </td>
                   <td>
-                    <button
-                      onClick={() => window.open(`${API_URL}/notes/${note.id}/download`, '_blank')}
-                      className="btn-secondary"
-                      style={{ padding: '5px 12px', fontSize: '0.8rem' }}
-                    >
-                      ⬇️ Download
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPreviewNote(note.id, `${note.subject_code} - ${note.title}`)}
+                        className="btn-secondary"
+                        style={{ padding: '5px 12px', fontSize: '0.8rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                        title="Preview text in browser"
+                      >
+                        👁️ Preview
+                      </button>
+                      <button
+                        onClick={() => window.open(`${API_URL}/notes/${note.id}/download`, '_blank')}
+                        className="btn-secondary"
+                        style={{ padding: '5px 12px', fontSize: '0.8rem' }}
+                      >
+                        ⬇️ Download
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -797,9 +935,22 @@ const LecturerDashboard = () => {
 
                   {isExpanded && (
                     <div style={{ marginTop: '8px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                      <h4 style={{ fontSize: '0.95rem', marginBottom: '10px', color: '#38bdf8' }}>
-                        👨‍🎓 Submitted Student Homework ({subs.length})
-                      </h4>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <h4 style={{ fontSize: '0.95rem', margin: 0, color: '#38bdf8' }}>
+                          👨‍🎓 Submitted Student Homework ({subs.length})
+                        </h4>
+                        {subs.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleExportGradesCSV(a)}
+                            className="btn-secondary"
+                            style={{ fontSize: '0.78rem', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' }}
+                            title="Export student grades and feedback to CSV/Excel"
+                          >
+                            📊 Export Grades to CSV / Excel
+                          </button>
+                        )}
+                      </div>
                       {loadingSubmissionsId === a.id ? (
                         <div style={{ padding: '16px', color: 'var(--text-muted)' }}>Loading student submissions...</div>
                       ) : subs.length === 0 ? (
@@ -1246,6 +1397,151 @@ const LecturerDashboard = () => {
     </div>
   );
 
+  const renderAnnouncementsCard = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Create Announcement Form */}
+      <div className="card">
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          📢 Post Class Announcement
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '16px' }}>
+          Publish official notices, quiz dates, or class reminders directly to your students' dashboard.
+        </p>
+
+        {annMessage.text && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            fontSize: '0.9rem',
+            background: annMessage.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: annMessage.type === 'success' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
+            color: annMessage.type === 'success' ? '#10b981' : '#f87171'
+          }}>
+            {annMessage.text}
+          </div>
+        )}
+
+        <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+            <div>
+              <label className="form-label">Subject Code (or "ALL"):</label>
+              <input
+                type="text"
+                placeholder="e.g. MPU21032 or ALL"
+                value={annSubjectCode}
+                onChange={(e) => setAnnSubjectCode(e.target.value)}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Announcement Title *:</label>
+              <input
+                type="text"
+                placeholder="e.g. Reminder: Quiz 1 Next Monday"
+                value={annTitle}
+                onChange={(e) => setAnnTitle(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">Announcement Details / Message *:</label>
+            <textarea
+              rows={4}
+              placeholder="Write the full announcement message for students..."
+              value={annContent}
+              onChange={(e) => setAnnContent(e.target.value)}
+              className="form-input"
+              style={{ resize: 'vertical' }}
+              required
+            />
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={creatingAnn}
+              className="btn-primary"
+              style={{ width: 'auto', padding: '10px 24px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            >
+              {creatingAnn ? 'Publishing...' : '🚀 Publish Announcement'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Published Announcements List */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.15rem', margin: 0 }}>📋 Active Class Announcements</h3>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Currently visible to students on their portal</span>
+          </div>
+          <button onClick={fetchAnnouncements} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '6px 12px' }}>
+            🔄 Refresh List
+          </button>
+        </div>
+
+        {loadingAnnouncements ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading announcements...</div>
+        ) : announcementsList.length === 0 ? (
+          <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px dashed var(--border)' }}>
+            No announcements published yet. Fill out the form above to post one!
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {announcementsList.map((ann) => (
+              <div
+                key={ann.id}
+                style={{
+                  padding: '16px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                  background: 'rgba(255,255,255,0.02)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: '14px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ flex: 1, minWidth: '260px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                    <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', padding: '2px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 700 }}>
+                      {ann.subject_code || 'ALL'}
+                    </span>
+                    <strong style={{ fontSize: '1.02rem', color: 'var(--text-main)' }}>{ann.title}</strong>
+                  </div>
+                  <p style={{ margin: '6px 0', fontSize: '0.88rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                    {ann.content}
+                  </p>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Posted by: <strong>{ann.author_name}</strong> ({ann.author_role}) • {new Date(ann.created_at).toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAnnouncement(ann.id)}
+                    className="btn-secondary"
+                    style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', padding: '5px 12px', fontSize: '0.8rem' }}
+                    title="Remove this announcement"
+                  >
+                    🗑️ Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="app-layout">
       {/* MOBILE SIDEBAR BACKDROP */}
@@ -1317,6 +1613,13 @@ const LecturerDashboard = () => {
             >
               <span>📋</span>
               <span>Assignments ({assignmentsList.length})</span>
+            </button>
+            <button
+              className={`sidebar-nav-item ${activeTab === 'announcements' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('announcements'); setSidebarOpen(false); }}
+            >
+              <span>📢</span>
+              <span>Announcements ({announcementsList.length})</span>
             </button>
 
             <div className="nav-section-label" style={{ marginTop: '12px' }}>Communication & Help</div>
@@ -1521,6 +1824,8 @@ const LecturerDashboard = () => {
 
           {activeTab === 'assignments' && renderAssignmentsSection()}
 
+          {activeTab === 'announcements' && renderAnnouncementsCard()}
+
           {activeTab === 'contact' && renderContactAndInboxCard()}
 
           {activeTab === 'profile' && (
@@ -1592,6 +1897,110 @@ const LecturerDashboard = () => {
           </button>
         </nav>
       </div>
+
+      {/* In-Browser Lecture Note Preview Modal */}
+      {previewNote && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--card-bg, #1e293b)',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '850px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+          }}>
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📖 {previewNote.title}
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>In-browser lecture note preview</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  onClick={() => window.open(`${API_URL}/notes/${previewNote.id}/download`, '_blank')}
+                  className="btn-primary"
+                  style={{ padding: '6px 14px', fontSize: '0.82rem', margin: 0 }}
+                >
+                  ⬇️ Download Note
+                </button>
+                <button
+                  onClick={() => setPreviewNote(null)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '1.3rem',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '4px 8px'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div style={{
+              flex: 1,
+              padding: '20px',
+              overflowY: 'auto',
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'inherit',
+              lineHeight: '1.6',
+              fontSize: '0.9rem',
+              color: 'var(--text-main)'
+            }}>
+              {loadingPreview ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  ⏳ Loading note preview...
+                </div>
+              ) : (
+                previewNoteContent || 'No text content available to preview for this note.'
+              )}
+            </div>
+            
+            <div style={{
+              padding: '12px 20px',
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              background: 'rgba(0,0,0,0.15)'
+            }}>
+              <button
+                onClick={() => setPreviewNote(null)}
+                className="btn-secondary"
+                style={{ width: 'auto', margin: 0, padding: '6px 18px' }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

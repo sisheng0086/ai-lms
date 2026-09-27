@@ -72,6 +72,27 @@ class AdminResolveRequest(BaseModel):
     status: str = "resolved"
     admin_response: str
 
+class GradeSubmissionRequest(BaseModel):
+    grade: str
+    feedback: Optional[str] = ""
+
+class AnnouncementCreateRequest(BaseModel):
+    lecturer_id: int
+    lecturer_name: Optional[str] = "Lecturer"
+    subject_code: Optional[str] = "ALL"
+    title: str
+    content: str
+
+class UserStatusRequest(BaseModel):
+    is_active: bool
+
+class UserResetPasswordRequest(BaseModel):
+    new_password: str
+
+class SystemSettingRequest(BaseModel):
+    key: str
+    value: str
+
 # -----------------
 # Database Auto-Migration
 # -----------------
@@ -82,8 +103,12 @@ def ensure_db_columns():
         try:
             with conn.cursor() as cur:
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_name VARCHAR(80);")
                 cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS file_data BYTEA;")
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS file_size_kb INT;")
+                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS grade VARCHAR(30);")
+                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS feedback TEXT;")
                 cur.execute(
                     """
                     CREATE TABLE IF NOT EXISTS assignments (
@@ -151,8 +176,45 @@ def ensure_db_columns():
                     );
                     """
                 )
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS announcements (
+                        id SERIAL PRIMARY KEY,
+                        lecturer_id INT REFERENCES users(id) ON DELETE SET NULL,
+                        lecturer_name VARCHAR(100),
+                        subject_code VARCHAR(30) DEFAULT 'ALL',
+                        title VARCHAR(200) NOT NULL,
+                        content TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                )
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS system_settings (
+                        key VARCHAR(80) PRIMARY KEY,
+                        value TEXT,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                )
+                cur.execute("INSERT INTO system_settings (key, value) VALUES ('LECTURER_SECRET_KEY', 'STAFF2026') ON CONFLICT (key) DO NOTHING;")
                 cur.execute("ALTER TABLE lecturer_messages ADD COLUMN IF NOT EXISTS image_data TEXT;")
                 cur.execute("ALTER TABLE admin_support_tickets ADD COLUMN IF NOT EXISTS image_data TEXT;")
+
+                # Seed default Administrator account if not already present
+                cur.execute("SELECT id FROM users WHERE role = 'admin' OR username = 'admin' LIMIT 1;")
+                admin_user = cur.fetchone()
+                if not admin_user:
+                    admin_hash = auth.hash_password("Admin@2026")
+                    cur.execute(
+                        """
+                        INSERT INTO users (username, password_hash, full_name, role, email, is_active, created_at)
+                        VALUES ('admin', %s, 'System Administrator', 'admin', 'admin@politeknik.edu.my', TRUE, CURRENT_TIMESTAMP)
+                        ON CONFLICT DO NOTHING;
+                        """,
+                        (admin_hash,)
+                    )
                 conn.commit()
         except Exception as e:
             print(f"[DB] Auto-migration note: {e}")
@@ -175,45 +237,48 @@ def register_user(request: RegisterRequest):
     if request.role not in ["student", "lecturer"]:
         raise HTTPException(status_code=400, detail="Role must be student or lecturer")
 
-    # Validate staff secret code for lecturers
-    if request.role == "lecturer":
-        expected_code = os.getenv("LECTURER_SECRET_KEY", "STAFF2026")
-        if not request.staff_code or request.staff_code.strip() != expected_code:
-            raise HTTPException(
-                status_code=403,
-                detail="Invalid Lecturer Secret Passcode. Contact faculty administration for the access key."
-            )
-
-    # Validate matrix_no for students
-    clean_matrix_no = None
-    if request.role == "student":
-        if not request.matrix_no or not request.matrix_no.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Matrix No is required for student registration."
-            )
-        clean_matrix_no = request.matrix_no.strip().upper()
-
-    # Validate password requirements
-    if len(request.password) < 8 or len(request.password) > 12:
-        raise HTTPException(status_code=400, detail="Password must be between 8 and 12 characters")
-    if not any(c.isupper() for c in request.password):
-        raise HTTPException(status_code=400, detail="Password must include at least one uppercase letter (A-Z)")
-    if not any(c.islower() for c in request.password):
-        raise HTTPException(status_code=400, detail="Password must include at least one lowercase letter (a-z)")
-    if not any(c.isdigit() for c in request.password):
-        raise HTTPException(status_code=400, detail="Password must include at least one number (0-9)")
-    if not any(not c.isalnum() for c in request.password):
-        raise HTTPException(status_code=400, detail="Password must include at least one special character (!@#$%^&*)")
-
     conn = get_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
-    
+
     try:
         with conn.cursor() as cur:
-            # Ensure matrix_no column exists
+            # Validate staff secret code for lecturers (check system_settings or env)
+            if request.role == "lecturer":
+                cur.execute("SELECT value FROM system_settings WHERE key = 'LECTURER_SECRET_KEY' LIMIT 1;")
+                setting_row = cur.fetchone()
+                expected_code = (setting_row["value"] if setting_row and setting_row["value"] else os.getenv("LECTURER_SECRET_KEY", "STAFF2026")).strip()
+                if not request.staff_code or request.staff_code.strip() != expected_code:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Invalid Lecturer Secret Passcode. Contact faculty administration for the access key."
+                    )
+
+            # Validate matrix_no for students
+            clean_matrix_no = None
+            if request.role == "student":
+                if not request.matrix_no or not request.matrix_no.strip():
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Matrix No is required for student registration."
+                    )
+                clean_matrix_no = request.matrix_no.strip().upper()
+
+            # Validate password requirements
+            if len(request.password) < 8 or len(request.password) > 12:
+                raise HTTPException(status_code=400, detail="Password must be between 8 and 12 characters")
+            if not any(c.isupper() for c in request.password):
+                raise HTTPException(status_code=400, detail="Password must include at least one uppercase letter (A-Z)")
+            if not any(c.islower() for c in request.password):
+                raise HTTPException(status_code=400, detail="Password must include at least one lowercase letter (a-z)")
+            if not any(c.isdigit() for c in request.password):
+                raise HTTPException(status_code=400, detail="Password must include at least one number (0-9)")
+            if not any(not c.isalnum() for c in request.password):
+                raise HTTPException(status_code=400, detail="Password must include at least one special character (!@#$%^&*)")
+
+            # Ensure matrix_no and is_active columns exist
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
             conn.commit()
 
             # Check if username or email already exists
@@ -274,8 +339,8 @@ def verify_email(request: VerifyEmailRequest):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO users (username, password_hash, full_name, role, email, matrix_no, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO users (username, password_hash, full_name, role, email, matrix_no, is_active, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, TRUE, %s)
                 RETURNING id, username, full_name, role, email, matrix_no
                 """,
                 (
@@ -310,15 +375,19 @@ def login_user(request: LoginRequest):
     try:
         with conn.cursor() as cur:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
             conn.commit()
             cur.execute(
-                "SELECT id, username, password_hash, full_name, role, email, matrix_no FROM users WHERE username = %s", 
+                "SELECT id, username, password_hash, full_name, role, email, matrix_no, is_active FROM users WHERE username = %s", 
                 (request.username,)
             )
             user = cur.fetchone()
             
             if not user or not auth.verify_password(request.password, user["password_hash"]):
                 raise HTTPException(status_code=401, detail="Invalid username or password")
+            
+            if user.get("is_active") is False:
+                raise HTTPException(status_code=403, detail="Your account has been deactivated by the Administrator. Please contact technical support.")
             
             # Remove password hash from response
             del user["password_hash"]
@@ -1389,6 +1458,7 @@ def get_all_admin_support_tickets():
         conn.close()
 
 @app.post("/contact/admin/{ticket_id}/resolve")
+@app.put("/contact/admin/{ticket_id}/resolve")
 def resolve_admin_ticket(ticket_id: int, req: AdminResolveRequest):
     conn = get_connection()
     if not conn:
@@ -1408,5 +1478,258 @@ def resolve_admin_ticket(ticket_id: int, req: AdminResolveRequest):
             return {"status": "success", "message": "Support ticket updated"}
     finally:
         conn.close()
+
+# Also support PUT for grading submission
+@app.put("/submissions/{submission_id}/grade")
+def grade_submission_put(submission_id: int, req: GradeSubmissionRequest):
+    return grade_submission(submission_id, req)
+
+# -----------------
+# Course Announcements Endpoints
+# -----------------
+@app.post("/announcements/create")
+def create_announcement(req: AnnouncementCreateRequest):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO announcements (lecturer_id, lecturer_name, subject_code, title, content, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (req.lecturer_id, req.lecturer_name or "Course Lecturer", req.subject_code or "ALL", req.title, req.content, datetime.now())
+            )
+            ann_id = cur.fetchone()["id"]
+            conn.commit()
+            return {"status": "success", "message": "Announcement published!", "id": ann_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create announcement: {str(e)}")
+    finally:
+        conn.close()
+
+@app.get("/announcements")
+def get_announcements():
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, lecturer_id, lecturer_name, subject_code, title, content, created_at
+                FROM announcements
+                ORDER BY created_at DESC
+                LIMIT 50
+                """
+            )
+            announcements = cur.fetchall()
+            return {"status": "success", "announcements": announcements}
+    finally:
+        conn.close()
+
+@app.delete("/announcements/{announcement_id}")
+def delete_announcement(announcement_id: int):
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM announcements WHERE id = %s RETURNING id", (announcement_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Announcement not found")
+            conn.commit()
+            return {"status": "success", "message": "Announcement removed"}
+    finally:
+        conn.close()
+
+# -----------------
+# Dedicated Admin Control API Endpoints
+# -----------------
+@app.get("/admin/stats")
+def get_admin_dashboard_stats():
+    """Returns real-time LMS system KPI stats and storage usage for Admin Overview."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS count FROM users WHERE role = 'student'")
+            total_students = cur.fetchone()["count"]
+
+            cur.execute("SELECT COUNT(*) AS count FROM users WHERE role = 'lecturer'")
+            total_lecturers = cur.fetchone()["count"]
+
+            cur.execute("SELECT COUNT(*) AS count, COALESCE(SUM(file_size_kb), 0) AS total_kb FROM lecture_notes")
+            note_stats = cur.fetchone()
+            total_notes = note_stats["count"]
+            total_notes_kb = note_stats["total_kb"]
+
+            cur.execute("SELECT COUNT(*) AS count FROM assignments")
+            total_assignments = cur.fetchone()["count"]
+
+            cur.execute("SELECT COUNT(*) AS count, COALESCE(SUM(file_size_kb), 0) AS total_kb FROM assignment_submissions")
+            sub_stats = cur.fetchone()
+            total_submissions = sub_stats["count"]
+            total_subs_kb = sub_stats["total_kb"]
+
+            cur.execute("SELECT COUNT(*) AS count FROM admin_support_tickets WHERE status = 'open'")
+            open_tickets = cur.fetchone()["count"]
+
+            cur.execute("SELECT COUNT(*) AS count FROM admin_support_tickets WHERE status = 'resolved'")
+            resolved_tickets = cur.fetchone()["count"]
+
+            cur.execute("SELECT COUNT(*) AS count FROM lecturer_messages WHERE status = 'pending'")
+            pending_lecturer_messages = cur.fetchone()["count"]
+
+            return {
+                "status": "success",
+                "stats": {
+                    "total_students": total_students,
+                    "total_lecturers": total_lecturers,
+                    "total_notes": total_notes,
+                    "total_assignments": total_assignments,
+                    "total_submissions": total_submissions,
+                    "open_tickets": open_tickets,
+                    "resolved_tickets": resolved_tickets,
+                    "pending_lecturer_messages": pending_lecturer_messages,
+                    "storage_notes_kb": total_notes_kb,
+                    "storage_subs_kb": total_subs_kb,
+                    "total_storage_mb": round((total_notes_kb + total_subs_kb) / 1024, 2)
+                }
+            }
+    finally:
+        conn.close()
+
+@app.get("/admin/users")
+def get_admin_users_list():
+    """Returns all registered users with role, matrix number, active status and registration date."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, username, full_name, email, role, matrix_no, is_active, created_at
+                FROM users
+                ORDER BY created_at DESC
+                """
+            )
+            users = cur.fetchall()
+            return {"status": "success", "users": users}
+    finally:
+        conn.close()
+
+@app.put("/admin/users/{user_id}/status")
+def toggle_user_status(user_id: int, req: UserStatusRequest):
+    """Activates or deactivates a user account."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET is_active = %s WHERE id = %s RETURNING id, username, is_active",
+                (req.is_active, user_id)
+            )
+            updated = cur.fetchone()
+            if not updated:
+                raise HTTPException(status_code=404, detail="User not found")
+            conn.commit()
+            status_text = "activated" if req.is_active else "deactivated"
+            return {"status": "success", "message": f"User {updated['username']} {status_text} successfully"}
+    finally:
+        conn.close()
+
+@app.put("/admin/users/{user_id}/reset-password")
+def reset_user_password(user_id: int, req: UserResetPasswordRequest):
+    """Resets a user's password directly from the Admin control panel."""
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            hashed = auth.hash_password(req.new_password)
+            cur.execute(
+                "UPDATE users SET password_hash = %s WHERE id = %s RETURNING id, username",
+                (hashed, user_id)
+            )
+            updated = cur.fetchone()
+            if not updated:
+                raise HTTPException(status_code=404, detail="User not found")
+            conn.commit()
+            return {"status": "success", "message": f"Password reset for {updated['username']} successfully"}
+    finally:
+        conn.close()
+
+@app.get("/admin/settings")
+def get_admin_settings():
+    """Returns platform system settings like LECTURER_SECRET_KEY."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT key, value, updated_at FROM system_settings")
+            rows = cur.fetchall()
+            settings_dict = {r["key"]: r["value"] for r in rows}
+            if "LECTURER_SECRET_KEY" not in settings_dict:
+                settings_dict["LECTURER_SECRET_KEY"] = os.getenv("LECTURER_SECRET_KEY", "STAFF2026")
+            return {"status": "success", "settings": settings_dict}
+    finally:
+        conn.close()
+
+@app.put("/admin/settings")
+def update_admin_setting(req: SystemSettingRequest):
+    """Updates a system setting such as the Lecturer Secret Passcode."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO system_settings (key, value, updated_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (key) DO UPDATE
+                SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+                RETURNING key, value
+                """,
+                (req.key.strip(), req.value.strip(), datetime.now())
+            )
+            conn.commit()
+            return {"status": "success", "message": f"Setting '{req.key}' updated successfully!"}
+    finally:
+        conn.close()
+
+@app.get("/admin/notes")
+def get_admin_notes():
+    """Returns all lecture notes across all lecturers for admin content oversight."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ln.id, ln.subject_code, ln.title, ln.file_name, ln.file_size_kb, ln.uploaded_at,
+                       u.full_name AS lecturer_name, u.email AS lecturer_email
+                FROM lecture_notes ln
+                LEFT JOIN users u ON ln.lecturer_id = u.id
+                ORDER BY ln.uploaded_at DESC
+                """
+            )
+            notes = cur.fetchall()
+            return {"status": "success", "notes": notes}
+    finally:
+        conn.close()
+
 
 

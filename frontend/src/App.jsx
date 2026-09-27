@@ -5,6 +5,7 @@ import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import StudentDashboard from './pages/StudentDashboard';
 import LecturerDashboard from './pages/LecturerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import ServerDownPage from './pages/ServerDownPage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -47,6 +48,7 @@ function App() {
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/student" element={<StudentDashboard />} />
         <Route path="/lecturer" element={<LecturerDashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         {/* Fallback route */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

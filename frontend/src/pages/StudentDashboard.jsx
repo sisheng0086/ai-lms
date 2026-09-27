@@ -26,6 +26,15 @@ const StudentDashboard = () => {
   const [submittingId, setSubmittingId] = useState(null);
   const [submitMessage, setSubmitMessage] = useState({});
 
+  // Announcements state
+  const [announcements, setAnnouncements] = useState([]);
+
+  // In-Browser Note / PDF Previewer state
+  const [previewNote, setPreviewNote] = useState(null);
+  const [previewNoteContent, setPreviewNoteContent] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [chatFontSize, setChatFontSize] = useState('0.92rem');
+
   // Contact & Support state (Lecturer Q&A + Admin Tech Support)
   const [contactSubTab, setContactSubTab] = useState('lecturer'); // 'lecturer' | 'admin'
   const [lecturersList, setLecturersList] = useState([]);
@@ -166,6 +175,83 @@ const StudentDashboard = () => {
     }
   }, []);
 
+  const fetchAnnouncements = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/announcements`);
+      if (res.ok) {
+        const d = await res.json();
+        setAnnouncements(d.announcements || []);
+      }
+    } catch (err) {
+      console.error("Failed to load announcements:", err);
+    }
+  }, []);
+
+  const handleClearChat = () => {
+    setMessages([
+      {
+        text: "Hai! 👋 I am AI to help you, if you have any question you can ask me! Your chat history has been cleared.",
+        sender: "bot"
+      }
+    ]);
+  };
+
+  const handleExportStudyNotes = () => {
+    const activeNote = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
+    const header = `========================================================================\nAI-LMS STUDY COMPANION - EXPORTED REVISION NOTES\nSubject: ${activeNote?.subject_code || 'General'} - ${activeNote?.title || 'Lecture Notes'}\nDate: ${new Date().toLocaleString()}\nStudent: ${user?.full_name || 'Student'} (Matrix No: ${user?.matrix_no || 'N/A'})\n========================================================================\n\n`;
+    const body = messages.map(m => `[${m.sender === 'user' ? 'STUDENT QUESTION' : 'AI STUDY COMPANION'}]\n${m.text}\n------------------------------------------------------------------------\n`).join('\n');
+    const blob = new Blob([header + body], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Study_Notes_${activeNote?.subject_code || 'AI'}_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleOpenPreviewNote = async (note) => {
+    setPreviewNote(note);
+    setLoadingPreview(true);
+    setPreviewNoteContent('');
+    try {
+      const res = await fetch(`${API_URL}/notes/${note.id}/content`);
+      if (res.ok) {
+        const d = await res.json();
+        setPreviewNoteContent(d.content || 'No text content available for this note.');
+      }
+    } catch {
+      setPreviewNoteContent('Error loading note content.');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const getDeadlineBadge = (dueDate, isSubmitted) => {
+    if (isSubmitted) {
+      return { text: '✓ Submitted', color: '#10b981', bg: 'rgba(16, 185, 129, 0.18)' };
+    }
+    if (!dueDate) {
+      return { text: '⏳ Pending Submission', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)' };
+    }
+    const dueTime = new Date(dueDate).getTime();
+    if (isNaN(dueTime)) {
+      return { text: `📅 Due: ${dueDate}`, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.18)' };
+    }
+    const diffDays = Math.ceil((dueTime - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) {
+      return { text: `🔴 Overdue (${Math.abs(diffDays)}d ago)`, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' };
+    }
+    if (diffDays === 0) {
+      return { text: '⚠️ Due Today!', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' };
+    }
+    if (diffDays <= 3) {
+      return { text: `⏳ Due in ${diffDays} day${diffDays > 1 ? 's' : ''}`, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.2)' };
+    }
+    return { text: `📅 Due in ${diffDays} days`, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)' };
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -181,11 +267,12 @@ const StudentDashboard = () => {
     fetchNotes();
     fetchAssignments(parsedUser.id);
     fetchContactData(parsedUser.id);
+    fetchAnnouncements();
 
     return () => {
       window.speechSynthesis.cancel();
     };
-  }, [navigate, fetchNotes, fetchAssignments, fetchContactData]);
+  }, [navigate, fetchNotes, fetchAssignments, fetchContactData, fetchAnnouncements]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -1332,14 +1419,26 @@ const StudentDashboard = () => {
               ))}
             </select>
             {selectedNote && (
-              <button
-                onClick={() => handleDownloadNote(selectedNote.id)}
-                className="btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                title="Download this lecture note"
-              >
-                ⬇️ Download Note
-              </button>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleOpenPreviewNote(selectedNote.id, `${selectedNote.subject_code} - ${selectedNote.title}`)}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                  title="Preview note in browser"
+                >
+                  👁️ Preview Note
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadNote(selectedNote.id)}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  title="Download this lecture note"
+                >
+                  ⬇️ Download Note
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -1381,7 +1480,7 @@ const StudentDashboard = () => {
         ))}
       </div>
 
-      {/* Voice Controls */}
+      {/* Voice Controls & Chat Toolbar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px' }}>
         <div>
           <label className="form-label" style={{ marginBottom: '4px', fontSize: '0.8rem' }}>AI Voice Profile:</label>
@@ -1407,7 +1506,100 @@ const StudentDashboard = () => {
       </div>
 
       {/* Chat Interface */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '430px', border: '1px solid var(--border)', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.4)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '450px', border: '1px solid var(--border)', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.4)', overflow: 'hidden' }}>
+        {/* Chat Utility Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'rgba(30, 41, 59, 0.9)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Font Size:</span>
+            <button
+              type="button"
+              onClick={() => setChatFontSize('small')}
+              style={{
+                background: chatFontSize === 'small' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border)',
+                color: '#fff',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '0.72rem',
+                cursor: 'pointer'
+              }}
+            >
+              A-
+            </button>
+            <button
+              type="button"
+              onClick={() => setChatFontSize('normal')}
+              style={{
+                background: chatFontSize === 'normal' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border)',
+                color: '#fff',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '0.78rem',
+                cursor: 'pointer'
+              }}
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setChatFontSize('large')}
+              style={{
+                background: chatFontSize === 'large' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border)',
+                color: '#fff',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '0.84rem',
+                cursor: 'pointer'
+              }}
+            >
+              A+
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={handleExportStudyNotes}
+              style={{
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                color: '#38bdf8',
+                padding: '3px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Download chat notes as .txt"
+            >
+              💾 Export Notes (.txt)
+            </button>
+            <button
+              type="button"
+              onClick={handleClearChat}
+              style={{
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#f87171',
+                padding: '3px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Clear chat messages"
+            >
+              🗑️ Clear Chat
+            </button>
+          </div>
+        </div>
+
         <div style={{ flexGrow: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {messages.map((msg, idx) => (
             <div 
@@ -1416,7 +1608,7 @@ const StudentDashboard = () => {
                 maxWidth: '90%', 
                 padding: '12px 16px', 
                 borderRadius: '16px', 
-                fontSize: '0.92rem', 
+                fontSize: chatFontSize === 'large' ? '1.05rem' : chatFontSize === 'small' ? '0.82rem' : '0.92rem', 
                 lineHeight: '1.55',
                 whiteSpace: 'pre-wrap',
                 alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
@@ -1454,22 +1646,41 @@ const StudentDashboard = () => {
                       📋 Copy Note
                     </button>
                     {msg.noteId && (
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadNote(msg.noteId)}
-                        style={{
-                          background: 'rgba(16, 185, 129, 0.2)',
-                          border: '1px solid rgba(16, 185, 129, 0.4)',
-                          color: '#34d399',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ⬇️ Download {msg.noteFileName || 'Note'}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPreviewNote(msg.noteId, msg.source)}
+                          style={{
+                            background: 'rgba(56, 189, 248, 0.2)',
+                            border: '1px solid rgba(56, 189, 248, 0.4)',
+                            color: '#38bdf8',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                          title="Preview full note"
+                        >
+                          👁️ Preview
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadNote(msg.noteId)}
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.2)',
+                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                            color: '#34d399',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ⬇️ Download {msg.noteFileName || 'Note'}
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1602,6 +1813,42 @@ const StudentDashboard = () => {
               </div>
             );
           })}
+
+          {/* Completion Celebration Card */}
+          {quizQuestions.length > 0 && totalAnswered === quizQuestions.length && (
+            <div style={{
+              background: totalCorrect >= 4 
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)'
+                : 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%)',
+              border: '1px solid ' + (totalCorrect >= 4 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)'),
+              borderRadius: '12px',
+              padding: '24px 20px',
+              textAlign: 'center',
+              marginTop: '10px'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>
+                {totalCorrect === 5 ? '🏆 Outstanding!' : totalCorrect >= 3 ? '👏 Well Done!' : '💪 Keep Practicing!'}
+              </div>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: '6px', color: totalCorrect >= 4 ? '#6ee7b7' : '#fcd34d' }}>
+                Quiz Completed! Score: {totalCorrect} / {quizQuestions.length} ({Math.round((totalCorrect / quizQuestions.length) * 100)}%)
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '600px', margin: '0 auto 16px', lineHeight: '1.5' }}>
+                {totalCorrect === 5
+                  ? '🌟 Perfect score! You have completely mastered all concepts tested from this chapter note.'
+                  : totalCorrect >= 3
+                  ? '💡 Good job! Review the questions above or ask the AI Study Companion in the chat tab to explain the topics you missed.'
+                  : '📚 Recommended Revision: Ask the AI "Help me do the summary note for Chapter 1" to strengthen your understanding before retrying!'}
+              </p>
+              <button
+                type="button"
+                onClick={generateFiveQuestions}
+                className="btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', margin: 0 }}
+              >
+                🔄 Practice with 5 New Questions
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--text-muted)', fontSize: '0.9rem', background: 'rgba(56, 189, 248, 0.04)', borderRadius: '10px', border: '1px dashed rgba(56, 189, 248, 0.25)' }}>
@@ -2493,6 +2740,41 @@ const StudentDashboard = () => {
                 </div>
               </div>
 
+              {/* Pinned Class Announcements Banner */}
+              {announcements.length > 0 && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.08) 100%)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: '12px',
+                  padding: '16px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.98rem' }}>
+                      📢 Important Class Announcements ({announcements.length})
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Latest updates from faculty</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {announcements.map((ann) => (
+                      <div key={ann.id} style={{ background: 'rgba(0,0,0,0.22)', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
+                          <strong style={{ fontSize: '0.92rem', color: '#fef3c7' }}>{ann.title}</strong>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {new Date(ann.created_at).toLocaleDateString()} • {ann.author_name} ({ann.author_role})
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                          {ann.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {renderChatCard()}
               {renderQuizCard()}
             </>
@@ -2561,6 +2843,14 @@ const StudentDashboard = () => {
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <button
+                                className="btn-secondary"
+                                style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', margin: 0, color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                                onClick={() => handleOpenPreviewNote(note.id, `${note.subject_code} - ${note.title}`)}
+                                title="Preview Note in Browser"
+                              >
+                                👁️ Preview
+                              </button>
                               <button
                                 className="btn-secondary"
                                 style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', margin: 0 }}
@@ -2643,7 +2933,8 @@ const StudentDashboard = () => {
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            {getDeadlineBadge(a.due_date, isSubmitted)}
                             {isSubmitted ? (
                               <span style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
                                 ✅ Submitted
@@ -2750,28 +3041,105 @@ const StudentDashboard = () => {
           {activeTab === 'contact' && renderContactSection()}
 
           {activeTab === 'profile' && (
-            <div className="card" style={{ maxWidth: '600px' }}>
-              <h2 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>👤 Student Academic Profile</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Full Name</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.full_name}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', maxWidth: '900px' }}>
+              {/* Digital Student Matric Card */}
+              <div style={{
+                background: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.4)',
+                borderRadius: '16px',
+                padding: '24px',
+                color: '#ffffff',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', background: 'rgba(59, 130, 246, 0.15)', borderRadius: '50%', filter: 'blur(30px)' }} />
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '14px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
+                      🎓
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.88rem', letterSpacing: '0.05em' }}>POLITEKNIK KUCHING SARAWAK</div>
+                      <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Jabatan Teknologi Maklumat & Komunikasi</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.68rem', background: 'rgba(16, 185, 129, 0.25)', color: '#6ee7b7', padding: '3px 8px', borderRadius: '999px', fontWeight: 700, border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+                    ACTIVE STUDENT
+                  </span>
                 </div>
-                <div style={{ padding: '12px 16px', background: 'rgba(56, 189, 248, 0.08)', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>Matrix No / Student ID</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#38bdf8' }}>{user.matrix_no || 'Not Specified'}</div>
+
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{
+                    width: '68px',
+                    height: '68px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.8rem',
+                    fontWeight: 700,
+                    color: '#fff',
+                    flexShrink: 0,
+                    border: '2px solid rgba(255,255,255,0.2)'
+                  }}>
+                    {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'S'}
+                  </div>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {user.full_name}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#93c5fd', fontFamily: 'monospace', fontWeight: 700 }}>
+                      MATRIC: {user.matrix_no || '05DIT24F1055'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '2px' }}>
+                      Program: Diploma Teknologi Maklumat
+                    </div>
+                  </div>
                 </div>
-                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Username</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.username}</div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: '10px', fontSize: '0.78rem' }}>
+                  <div>
+                    <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>CLASS / GROUP</span>
+                    <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{user.class_name || 'DIT 4B'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>SESSION</span>
+                    <span style={{ fontWeight: 600, color: '#f1f5f9' }}>I : 2026/2027</span>
+                  </div>
                 </div>
-                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Email Address</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.email}</div>
+
+                <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '0.68rem', color: '#94a3b8', letterSpacing: '0.04em' }}>
+                  POLITEKNIK AI LEARNING MANAGEMENT SYSTEM (FINAL YEAR PROJECT)
                 </div>
-                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Account Role</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize' }}>{user.role}</div>
+              </div>
+
+              {/* Account Details Card */}
+              <div className="card" style={{ margin: 0 }}>
+                <h2 style={{ fontSize: '1.15rem', marginBottom: '14px' }}>👤 Account Details</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Full Name</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>{user.full_name}</div>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: 'rgba(56, 189, 248, 0.08)', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>Matrix No / Student ID</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#38bdf8' }}>{user.matrix_no || 'Not Specified'}</div>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Username</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>{user.username}</div>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Email Address</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>{user.email}</div>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Account Role</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, textTransform: 'capitalize' }}>{user.role}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2822,6 +3190,110 @@ const StudentDashboard = () => {
           </button>
         </nav>
       </div>
+
+      {/* In-Browser Lecture Note Preview Modal */}
+      {previewNote && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--card-bg, #1e293b)',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '850px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+          }}>
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📖 {previewNote.title}
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>In-browser lecture note preview</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  onClick={() => handleDownloadNote(previewNote.id)}
+                  className="btn-primary"
+                  style={{ padding: '6px 14px', fontSize: '0.82rem', margin: 0 }}
+                >
+                  ⬇️ Download Note
+                </button>
+                <button
+                  onClick={() => setPreviewNote(null)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '1.3rem',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '4px 8px'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div style={{
+              flex: 1,
+              padding: '20px',
+              overflowY: 'auto',
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'inherit',
+              lineHeight: '1.6',
+              fontSize: '0.9rem',
+              color: 'var(--text-main)'
+            }}>
+              {loadingPreview ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  ⏳ Loading note preview...
+                </div>
+              ) : (
+                previewNoteContent || 'No text content available to preview for this note.'
+              )}
+            </div>
+            
+            <div style={{
+              padding: '12px 20px',
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              background: 'rgba(0,0,0,0.15)'
+            }}>
+              <button
+                onClick={() => setPreviewNote(null)}
+                className="btn-secondary"
+                style={{ width: 'auto', margin: 0, padding: '6px 18px' }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

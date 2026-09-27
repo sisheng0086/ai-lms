@@ -37,9 +37,11 @@ const LoginPage = () => {
           navigate('/student');
         } else if (data.user.role === 'lecturer') {
           navigate('/lecturer');
+        } else if (data.user.role === 'admin') {
+          navigate('/admin');
         }
       } else {
-        setError(data.message || 'Login failed. Please try again.');
+        setError(data.detail || data.message || 'Login failed. Please try again.');
       }
     } catch (err) {
       setError('Network error. Please try again later.');
