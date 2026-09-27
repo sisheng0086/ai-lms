@@ -296,6 +296,39 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleClearAllNotes = async () => {
+    if (!window.confirm("Are you sure you want to CLEAR ALL lecture notes across the system? This action cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_URL}/notes/all/clear`, { method: 'DELETE' });
+      const d = await res.json();
+      if (res.ok) {
+        fetchNotes();
+        fetchStats();
+        alert(d.message || "All notes cleared.");
+      } else {
+        alert(d.detail || "Failed to clear notes.");
+      }
+    } catch {
+      alert("Network error.");
+    }
+  };
+
+  const handleClearAllQuestions = async () => {
+    if (!window.confirm("Are you sure you want to CLEAR ALL student questions and lecturer replies?")) return;
+    try {
+      const res = await fetch(`${API_URL}/contact/lecturer/all/clear`, { method: 'DELETE' });
+      const d = await res.json();
+      if (res.ok) {
+        fetchStats();
+        alert(d.message || "All student questions and replies cleared.");
+      } else {
+        alert(d.detail || "Failed to clear questions.");
+      }
+    } catch {
+      alert("Network error.");
+    }
+  };
+
   const filteredUsers = usersList.filter(u => {
     const q = userSearch.toLowerCase();
     const matchSearch =
@@ -919,6 +952,28 @@ const AdminDashboard = () => {
                   Audit all uploaded lecture notes across all lecturers. Preview content or verify download links.
                 </p>
               </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {notesList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllNotes}
+                    className="btn-secondary"
+                    style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', padding: '6px 14px', fontSize: '0.82rem' }}
+                    title="Clear all lecture notes across system"
+                  >
+                    🗑️ Clear All Notes
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={fetchNotes}
+                  className="btn-secondary"
+                  disabled={loadingNotes}
+                  style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+                >
+                  {loadingNotes ? 'Refreshing...' : '🔄 Refresh'}
+                </button>
+              </div>
             </div>
 
             {loadingNotes ? (
@@ -1036,6 +1091,33 @@ const AdminDashboard = () => {
                 <strong>Role:</strong> {adminUser.role.toUpperCase()}<br />
                 <strong>Platform:</strong> Politeknik Kuching Sarawak LMS Final Year Project
               </p>
+            </div>
+
+            <div className="card" style={{ maxWidth: '640px', border: '1px solid rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.03)' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '6px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ⚠️ Course Data Maintenance & Cleanup
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '14px' }}>
+                Use these tools when preparing for a new semester or resetting course materials and Q&A threads.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleClearAllNotes}
+                  className="btn-secondary"
+                  style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', padding: '8px 16px', fontSize: '0.82rem' }}
+                >
+                  🗑️ Clear All Lecture Notes
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllQuestions}
+                  className="btn-secondary"
+                  style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', padding: '8px 16px', fontSize: '0.82rem' }}
+                >
+                  🗑️ Clear All Student Q&A Messages
+                </button>
+              </div>
             </div>
           </div>
         )}

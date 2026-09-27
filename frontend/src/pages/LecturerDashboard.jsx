@@ -426,6 +426,49 @@ const LecturerDashboard = () => {
     }
   };
 
+  const handleClearAllNotes = async () => {
+    const confirmClear = window.confirm(
+      "Are you sure you want to CLEAR ALL lecture notes?\n\nThis will permanently remove all uploaded notes from the AI LMS database and AI Study Companion so you can upload fresh notes."
+    );
+    if (!confirmClear) return;
+
+    try {
+      const res = await fetch(`${API_URL}/notes/all/clear`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setNotesList([]);
+        if (previewNote) setPreviewNote(null);
+        alert(data.message || 'All lecture notes cleared successfully. You can now upload your fresh notes!');
+      } else {
+        alert(data.detail || 'Failed to clear lecture notes.');
+      }
+    } catch (err) {
+      console.error('Error clearing notes:', err);
+      alert('Network error while clearing lecture notes.');
+    }
+  };
+
+  const handleClearAllQuestions = async () => {
+    const confirmClear = window.confirm(
+      "Are you sure you want to CLEAR ALL student questions and lecturer replies?\n\nThis will completely reset the Q&A inbox for a clean start."
+    );
+    if (!confirmClear) return;
+
+    try {
+      const res = await fetch(`${API_URL}/contact/lecturer/all/clear`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setStudentInbox([]);
+        alert(data.message || 'All student questions and replies have been cleared successfully!');
+      } else {
+        alert(data.detail || 'Failed to clear questions and replies.');
+      }
+    } catch (err) {
+      console.error('Error clearing questions:', err);
+      alert('Network error while clearing student questions.');
+    }
+  };
+
   const handleExportGradesCSV = (assignment) => {
     const subs = submissionsMap[assignment.id] || [];
     if (subs.length === 0) {
@@ -711,13 +754,26 @@ const LecturerDashboard = () => {
             Materials currently available to students for download and in the AI Study Companion.
           </p>
         </div>
-        <button 
-          onClick={() => fetchNotes(user.id)} 
-          className="btn-secondary"
-          disabled={loadingNotes}
-        >
-          {loadingNotes ? 'Refreshing...' : '🔄 Refresh'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {notesList.length > 0 && (
+            <button 
+              type="button"
+              onClick={handleClearAllNotes}
+              className="btn-secondary"
+              style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', padding: '6px 14px', fontSize: '0.82rem' }}
+              title="Clear all lecture notes so you can upload fresh notes"
+            >
+              🗑️ Clear All Notes
+            </button>
+          )}
+          <button 
+            onClick={() => fetchNotes(user.id)} 
+            className="btn-secondary"
+            disabled={loadingNotes}
+          >
+            {loadingNotes ? 'Refreshing...' : '🔄 Refresh'}
+          </button>
+        </div>
       </div>
 
       <div className="data-table-container">
@@ -1198,9 +1254,22 @@ const LecturerDashboard = () => {
             <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
               Showing all questions from students, including who asked, their class, and any uploaded screenshot:
             </span>
-            <button onClick={() => fetchContactInbox(user.id)} className="btn-secondary" disabled={loadingInbox} style={{ fontSize: '0.82rem' }}>
-              {loadingInbox ? 'Refreshing...' : '🔄 Refresh Inbox'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {studentInbox.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAllQuestions}
+                  className="btn-secondary"
+                  style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', fontSize: '0.82rem', padding: '6px 12px' }}
+                  title="Clear all student questions and lecturer replies"
+                >
+                  🗑️ Clear All Questions & Replies
+                </button>
+              )}
+              <button onClick={() => fetchContactInbox(user.id)} className="btn-secondary" disabled={loadingInbox} style={{ fontSize: '0.82rem' }}>
+                {loadingInbox ? 'Refreshing...' : '🔄 Refresh Inbox'}
+              </button>
+            </div>
           </div>
 
           {studentInbox.length === 0 ? (

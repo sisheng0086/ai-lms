@@ -102,13 +102,7 @@ def ensure_db_columns():
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
-                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_name VARCHAR(80);")
-                cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS file_data BYTEA;")
-                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS file_size_kb INT;")
-                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS grade VARCHAR(30);")
-                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS feedback TEXT;")
+                # 1. Create tables first
                 cur.execute(
                     """
                     CREATE TABLE IF NOT EXISTS assignments (
@@ -198,9 +192,20 @@ def ensure_db_columns():
                     );
                     """
                 )
-                cur.execute("INSERT INTO system_settings (key, value) VALUES ('LECTURER_SECRET_KEY', 'STAFF2026') ON CONFLICT (key) DO NOTHING;")
+                conn.commit()
+
+            with conn.cursor() as cur:
+                # 2. Add columns safely
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
+                cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_name VARCHAR(80);")
+                cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS file_data BYTEA;")
+                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS file_size_kb INT;")
+                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS grade VARCHAR(30);")
+                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS feedback TEXT;")
                 cur.execute("ALTER TABLE lecturer_messages ADD COLUMN IF NOT EXISTS image_data TEXT;")
                 cur.execute("ALTER TABLE admin_support_tickets ADD COLUMN IF NOT EXISTS image_data TEXT;")
+                cur.execute("INSERT INTO system_settings (key, value) VALUES ('LECTURER_SECRET_KEY', 'STAFF2026') ON CONFLICT (key) DO NOTHING;")
 
                 # Seed default Administrator account if not already present
                 cur.execute("SELECT id FROM users WHERE role = 'admin' OR username = 'admin' LIMIT 1;")
@@ -846,6 +851,23 @@ def delete_lecture_note(note_id: int):
         conn.close()
 
 
+@app.delete("/notes/all/clear")
+@app.post("/notes/clear-all")
+def clear_all_lecture_notes():
+    """Clears all uploaded lecture notes from the database."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM lecture_notes RETURNING id")
+            deleted = cur.fetchall()
+            conn.commit()
+            return {"status": "success", "message": f"Successfully cleared {len(deleted)} lecture notes."}
+    finally:
+        conn.close()
+
+
 def clean_extracted_pdf_text(raw_text: str) -> str:
     """Cleans common PDF kerning/spacing splits and structures extracted text into coherent paragraphs."""
     import re
@@ -1389,6 +1411,48 @@ def reply_lecturer_message(message_id: int, req: LecturerReplyRequest):
             return {"status": "success", "message": "Reply sent to student"}
     finally:
         conn.close()
+
+
+@app.delete("/contact/lecturer/all/clear")
+@app.post("/contact/lecturer/clear-all")
+def clear_all_lecturer_messages():
+    """Clears all student questions and lecturer replies from the database."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM lecturer_messages RETURNING id")
+            deleted = cur.fetchall()
+            cur.execute("DELETE FROM qa_history")
+            conn.commit()
+            return {"status": "success", "message": f"Successfully cleared {len(deleted)} student questions and lecturer replies."}
+    finally:
+        conn.close()
+
+
+@app.post("/admin/database/clear-notes-and-qa")
+@app.delete("/admin/database/clear-notes-and-qa")
+def clear_notes_and_qa_combined():
+    """Admin endpoint to clear both all lecture notes and all student questions & lecturer replies."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM lecture_notes RETURNING id")
+            notes_deleted = cur.fetchall()
+            cur.execute("DELETE FROM lecturer_messages RETURNING id")
+            qa_deleted = cur.fetchall()
+            cur.execute("DELETE FROM qa_history")
+            conn.commit()
+            return {
+                "status": "success",
+                "message": f"Cleared {len(notes_deleted)} lecture notes and {len(qa_deleted)} student questions & lecturer replies."
+            }
+    finally:
+        conn.close()
+
 
 @app.post("/contact/admin")
 def create_admin_support_ticket(req: AdminSupportRequest):
