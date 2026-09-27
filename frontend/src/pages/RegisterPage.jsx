@@ -158,8 +158,21 @@ const RegisterPage = () => {
     <div className="auth-container">
       <ThemeToggle />
       <div className="auth-card">
-        <h2 className="auth-title">Join LMS</h2>
-        <p className="auth-subtitle">Create an account to get started</p>
+        <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+          <img
+            src="/logo.png"
+            alt="AI-LMS Logo"
+            style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              display: 'inline-block',
+              boxShadow: '0 8px 24px rgba(37, 99, 235, 0.28)'
+            }}
+          />
+        </div>
+        <h2 className="auth-title" style={{ letterSpacing: '-0.02em', fontSize: '1.75rem' }}>Join AI-LMS</h2>
+        <p className="auth-subtitle">Create an account to access the intelligent learning portal</p>
 
         {error && <div className="error-message">{error}</div>}
 

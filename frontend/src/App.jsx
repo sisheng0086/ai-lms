@@ -38,7 +38,11 @@ function App() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#94a3b8', fontFamily: 'Inter, system-ui, sans-serif' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-          <div style={{ fontSize: '2.2rem' }}>🎓</div>
+          <img
+            src="/logo.png"
+            alt="AI-LMS Logo"
+            style={{ width: '68px', height: '68px', borderRadius: '50%', boxShadow: '0 4px 20px rgba(37, 99, 235, 0.35)' }}
+          />
           <div style={{ fontSize: '0.92rem', fontWeight: 600, color: '#f8fafc' }}>Loading AI-LMS Portal...</div>
         </div>
       </div>

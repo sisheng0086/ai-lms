@@ -2559,7 +2559,18 @@ const StudentDashboard = () => {
         <div>
           {/* Brand Logo */}
           <div className="sidebar-brand">
-            <div className="brand-logo">🎓</div>
+            <img
+              src="/logo.png"
+              alt="AI-LMS Logo"
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                boxShadow: '0 2px 10px rgba(37, 99, 235, 0.3)',
+                flexShrink: 0
+              }}
+            />
             <div className="brand-text">
               <h2>AI-LMS Portal</h2>
               <span>Smart Learning System</span>
@@ -3221,9 +3232,11 @@ const StudentDashboard = () => {
                 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '14px', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
-                      🎓
-                    </div>
+                    <img
+                      src="/logo.png"
+                      alt="Politeknik AI-LMS Emblem"
+                      style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                    />
                     <div>
                       <div style={{ fontWeight: 800, fontSize: '0.88rem', letterSpacing: '0.05em' }}>POLITEKNIK KUCHING SARAWAK</div>
                       <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Jabatan Teknologi Maklumat & Komunikasi</div>

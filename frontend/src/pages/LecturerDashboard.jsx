@@ -1806,7 +1806,18 @@ const LecturerDashboard = () => {
       <aside className={`app-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div>
           <div className="sidebar-brand">
-            <div className="brand-logo">🎓</div>
+            <img
+              src="/logo.png"
+              alt="AI-LMS Logo"
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                boxShadow: '0 2px 10px rgba(37, 99, 235, 0.3)',
+                flexShrink: 0
+              }}
+            />
             <div className="brand-text">
               <h2>AI-LMS Portal</h2>
               <span>Educator Workspace</span>

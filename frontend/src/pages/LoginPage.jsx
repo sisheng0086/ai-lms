@@ -54,8 +54,21 @@ const LoginPage = () => {
     <div className="auth-container">
       <ThemeToggle />
       <div className="auth-card">
-        <h2 className="auth-title">LMS</h2>
-        <p className="auth-subtitle">Welcome back to your smart dashboard</p>
+        <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+          <img
+            src="/logo.png"
+            alt="AI-LMS Logo"
+            style={{
+              width: '84px',
+              height: '84px',
+              borderRadius: '50%',
+              display: 'inline-block',
+              boxShadow: '0 8px 24px rgba(37, 99, 235, 0.28)'
+            }}
+          />
+        </div>
+        <h2 className="auth-title" style={{ letterSpacing: '-0.02em', fontSize: '1.75rem' }}>AI-LMS</h2>
+        <p className="auth-subtitle">Intelligent Learning Management System</p>
         
         {error && <div className="error-message">{error}</div>}
         

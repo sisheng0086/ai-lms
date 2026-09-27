@@ -407,7 +407,18 @@ const AdminDashboard = () => {
       <aside className="app-sidebar" style={{ width: '280px' }}>
         <div className="sidebar-header">
           <div className="app-brand">
-            <span className="brand-icon">🛡️</span>
+            <img
+              src="/logo.png"
+              alt="AI-LMS Logo"
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                boxShadow: '0 2px 10px rgba(37, 99, 235, 0.3)',
+                flexShrink: 0
+              }}
+            />
             <div>
               <span className="brand-title">AI-LMS Admin</span>
               <span className="brand-subtitle">System Control Center</span>

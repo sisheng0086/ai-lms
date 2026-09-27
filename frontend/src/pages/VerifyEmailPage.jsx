@@ -77,6 +77,19 @@ const VerifyEmailPage = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+          <img
+            src="/logo.png"
+            alt="AI-LMS Logo"
+            style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              display: 'inline-block',
+              boxShadow: '0 8px 24px rgba(37, 99, 235, 0.28)'
+            }}
+          />
+        </div>
         <h2 className="auth-title">Verify Email</h2>
         <p className="auth-subtitle">
           A 6-digit code has been sent to your email <strong>{email}</strong>
