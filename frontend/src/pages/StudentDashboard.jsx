@@ -2572,7 +2572,9 @@ const StudentDashboard = () => {
               }}
             />
             <div className="brand-text">
-              <h2>AI-LMS Portal</h2>
+              <h2>
+                <span className="brand-red">AI-LMS</span> <span>Portal</span>
+              </h2>
               <span>Smart Learning System</span>
             </div>
             <button

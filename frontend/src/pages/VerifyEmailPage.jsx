@@ -90,9 +90,11 @@ const VerifyEmailPage = () => {
             }}
           />
         </div>
-        <h2 className="auth-title">Verify Email</h2>
+        <h2 className="auth-title" style={{ letterSpacing: '-0.02em', fontSize: '1.85rem', fontWeight: 800 }}>
+          <span style={{ color: '#ef4444' }}>AI-LMS</span> <span>Portal</span>
+        </h2>
         <p className="auth-subtitle">
-          A 6-digit code has been sent to your email <strong>{email}</strong>
+          Verify Email · A 6-digit code has been sent to your email <strong>{email}</strong>
         </p>
         
         {error && <div className="error-message">{error}</div>}

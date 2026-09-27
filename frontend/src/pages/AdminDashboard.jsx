@@ -420,8 +420,12 @@ const AdminDashboard = () => {
               }}
             />
             <div>
-              <span className="brand-title">AI-LMS Admin</span>
-              <span className="brand-subtitle">System Control Center</span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, lineHeight: 1.2 }}>
+                <span style={{ color: '#ef4444' }}>AI-LMS</span> <span style={{ color: 'var(--text-main, #ffffff)' }}>Portal</span>
+              </div>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)', display: 'block', marginTop: '2px', fontWeight: 500 }}>
+                Smart Learning System
+              </span>
             </div>
           </div>
         </div>

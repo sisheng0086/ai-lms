@@ -612,18 +612,27 @@ body {
 }
 
 .brand-text h2 {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  background: var(--gradient-text);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-main, #ffffff);
   margin: 0;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.2;
+}
+
+.brand-text h2 .brand-red {
+  color: #ef4444;
 }
 
 .brand-text span {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
   display: block;
+  margin-top: 2px;
+  font-weight: 500;
 }
 
 .sidebar-user-card {

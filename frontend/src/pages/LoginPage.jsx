@@ -67,8 +67,12 @@ const LoginPage = () => {
             }}
           />
         </div>
-        <h2 className="auth-title" style={{ letterSpacing: '-0.02em', fontSize: '1.75rem' }}>AI-LMS</h2>
-        <p className="auth-subtitle">Intelligent Learning Management System</p>
+        <h2 className="auth-title" style={{ letterSpacing: '-0.02em', fontSize: '1.85rem', fontWeight: 800 }}>
+          <span style={{ color: '#ef4444' }}>AI-LMS</span> <span>Portal</span>
+        </h2>
+        <p className="auth-subtitle" style={{ fontSize: '0.92rem', color: 'var(--text-muted, #94a3b8)' }}>
+          Smart Learning System
+        </p>
         
         {error && <div className="error-message">{error}</div>}
         

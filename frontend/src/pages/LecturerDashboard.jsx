@@ -1819,8 +1819,10 @@ const LecturerDashboard = () => {
               }}
             />
             <div className="brand-text">
-              <h2>AI-LMS Portal</h2>
-              <span>Educator Workspace</span>
+              <h2>
+                <span className="brand-red">AI-LMS</span> <span>Portal</span>
+              </h2>
+              <span>Smart Learning System</span>
             </div>
             <button
               type="button"

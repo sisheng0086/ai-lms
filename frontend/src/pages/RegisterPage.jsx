@@ -171,8 +171,12 @@ const RegisterPage = () => {
             }}
           />
         </div>
-        <h2 className="auth-title" style={{ letterSpacing: '-0.02em', fontSize: '1.75rem' }}>Join AI-LMS</h2>
-        <p className="auth-subtitle">Create an account to access the intelligent learning portal</p>
+        <h2 className="auth-title" style={{ letterSpacing: '-0.02em', fontSize: '1.85rem', fontWeight: 800 }}>
+          <span style={{ color: '#ef4444' }}>AI-LMS</span> <span>Portal</span>
+        </h2>
+        <p className="auth-subtitle" style={{ fontSize: '0.92rem', color: 'var(--text-muted, #94a3b8)' }}>
+          Smart Learning System · Create Account
+        </p>
 
         {error && <div className="error-message">{error}</div>}
 

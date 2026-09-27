@@ -43,7 +43,10 @@ function App() {
             alt="AI-LMS Logo"
             style={{ width: '68px', height: '68px', borderRadius: '50%', boxShadow: '0 4px 20px rgba(37, 99, 235, 0.35)' }}
           />
-          <div style={{ fontSize: '0.92rem', fontWeight: 600, color: '#f8fafc' }}>Loading AI-LMS Portal...</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>
+            <span style={{ color: '#ef4444' }}>AI-LMS</span> Portal
+          </div>
+          <div style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 500 }}>Smart Learning System</div>
         </div>
       </div>
     );
