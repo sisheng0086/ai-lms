@@ -77,11 +77,14 @@ class GradeSubmissionRequest(BaseModel):
     feedback: Optional[str] = ""
 
 class AnnouncementCreateRequest(BaseModel):
-    lecturer_id: int
-    lecturer_name: Optional[str] = "Lecturer"
-    subject_code: Optional[str] = "ALL"
     title: str
     content: str
+    lecturer_id: Optional[int] = None
+    author_id: Optional[int] = None
+    lecturer_name: Optional[str] = None
+    author_name: Optional[str] = None
+    author_role: Optional[str] = "lecturer"
+    subject_code: Optional[str] = "ALL"
 
 class UserStatusRequest(BaseModel):
     is_active: bool
@@ -1648,17 +1651,28 @@ def create_announcement(req: AnnouncementCreateRequest):
         raise HTTPException(status_code=500, detail="Database connection failed")
     try:
         with conn.cursor() as cur:
+            title = (req.title or "").strip()
+            content = (req.content or "").strip()
+            if not title or not content:
+                raise HTTPException(status_code=400, detail="Announcement title and content cannot be empty.")
+
+            lect_id = req.lecturer_id or req.author_id or None
+            lect_name = req.lecturer_name or req.author_name or "Course Lecturer"
+            subj_code = (req.subject_code or "ALL").strip().upper()
+
             cur.execute(
                 """
                 INSERT INTO announcements (lecturer_id, lecturer_name, subject_code, title, content, created_at)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
-                (req.lecturer_id, req.lecturer_name or "Course Lecturer", req.subject_code or "ALL", req.title, req.content, datetime.now())
+                (lect_id, lect_name, subj_code, title, content, datetime.now())
             )
             ann_id = cur.fetchone()["id"]
             conn.commit()
             return {"status": "success", "message": "Announcement published!", "id": ann_id}
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create announcement: {str(e)}")
@@ -1680,7 +1694,15 @@ def get_announcements():
                 LIMIT 50
                 """
             )
-            announcements = cur.fetchall()
+            rows = cur.fetchall()
+            announcements = []
+            for r in rows:
+                item = dict(r)
+                # Map both author_name and lecturer_name so all frontends work seamlessly
+                item["author_name"] = item.get("lecturer_name") or "Course Lecturer"
+                item["author_role"] = "lecturer"
+                item["author_id"] = item.get("lecturer_id")
+                announcements.append(item)
             return {"status": "success", "announcements": announcements}
     finally:
         conn.close()

@@ -554,14 +554,20 @@ const LecturerDashboard = () => {
     setCreatingAnn(true);
     setAnnMessage({ type: '', text: '' });
     try {
+      const currentUser = user || JSON.parse(localStorage.getItem('user') || '{}');
+      const authorId = currentUser?.id || null;
+      const authorName = currentUser?.full_name || 'Course Lecturer';
+
       const res = await fetch(`${API_URL}/announcements/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: annTitle.trim(),
           content: annContent.trim(),
-          author_id: user.id,
-          author_name: user.full_name,
+          lecturer_id: authorId,
+          author_id: authorId,
+          lecturer_name: authorName,
+          author_name: authorName,
           author_role: 'lecturer',
           subject_code: annSubjectCode.trim().toUpperCase() || 'ALL'
         })
@@ -569,15 +575,22 @@ const LecturerDashboard = () => {
       const data = await res.json();
       if (res.ok && data.status === 'success') {
         setAnnMessage({ type: 'success', text: '🎉 Class announcement published successfully!' });
+        setToastMessage({ type: 'success', title: 'Published', message: 'Class announcement published successfully!' });
         setAnnTitle('');
         setAnnContent('');
         setAnnSubjectCode('');
-        fetchAnnouncements();
+        await fetchAnnouncements();
       } else {
-        setAnnMessage({ type: 'error', text: data.detail || 'Failed to publish announcement.' });
+        const errorText = typeof data.detail === 'string'
+          ? data.detail
+          : (Array.isArray(data.detail) ? data.detail.map(d => d.msg).join(', ') : 'Failed to publish announcement.');
+        setAnnMessage({ type: 'error', text: errorText });
+        setToastMessage({ type: 'error', title: 'Error', message: errorText });
       }
     } catch (err) {
+      console.error('Error publishing announcement:', err);
       setAnnMessage({ type: 'error', text: 'Network error publishing announcement.' });
+      setToastMessage({ type: 'error', title: 'Error', message: 'Network error publishing announcement.' });
     } finally {
       setCreatingAnn(false);
     }
@@ -1685,7 +1698,7 @@ const LecturerDashboard = () => {
                     {ann.content}
                   </p>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Posted by: <strong>{ann.author_name}</strong> ({ann.author_role}) • {new Date(ann.created_at).toLocaleString()}
+                    Posted by: <strong>{ann.author_name || ann.lecturer_name || 'Course Lecturer'}</strong> ({ann.author_role || 'Lecturer'}) • {new Date(ann.created_at).toLocaleString()}
                   </div>
                 </div>
 

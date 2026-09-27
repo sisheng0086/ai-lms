@@ -2771,7 +2771,7 @@ const StudentDashboard = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
                           <strong style={{ fontSize: '0.92rem', color: '#fef3c7' }}>{ann.title}</strong>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {new Date(ann.created_at).toLocaleDateString()} • {ann.author_name} ({ann.author_role})
+                            {new Date(ann.created_at).toLocaleDateString()} • {ann.author_name || ann.lecturer_name || 'Course Lecturer'} ({ann.author_role || 'Faculty'})
                           </span>
                         </div>
                         <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
