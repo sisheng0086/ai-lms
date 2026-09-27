@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import ConfirmModal from '../components/ConfirmModal';
+import ToastNotification from '../components/ToastNotification';
+import DocumentPreviewModal from '../components/DocumentPreviewModal';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -71,6 +74,18 @@ const LecturerDashboard = () => {
   const [previewNote, setPreviewNote] = useState(null);
   const [previewNoteContent, setPreviewNoteContent] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewTab, setPreviewTab] = useState('doc'); // 'doc' (PDF/Image) | 'text' (AI Extracted Text)
+
+  // Custom Confirmation Modal & Toast state (replaces native window.confirm/alert)
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    confirmColor: '#ef4444',
+    onConfirm: null
+  });
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Class Announcements state
   const [announcementsList, setAnnouncementsList] = useState([]);
@@ -381,12 +396,19 @@ const LecturerDashboard = () => {
     }
   };
 
-  const handleOpenPreviewNote = async (noteId, noteTitle) => {
-    setPreviewNote({ id: noteId, title: noteTitle });
+  const handleOpenPreviewNote = async (noteOrId, fallbackTitle = '') => {
+    let noteObj;
+    if (typeof noteOrId === 'object' && noteOrId !== null) {
+      noteObj = noteOrId;
+    } else {
+      const found = notesList.find(n => n.id === noteOrId);
+      noteObj = found || { id: noteOrId, title: fallbackTitle, file_name: fallbackTitle };
+    }
+    setPreviewNote(noteObj);
     setLoadingPreview(true);
     setPreviewNoteContent('');
     try {
-      const res = await fetch(`${API_URL}/notes/content/${noteId}`);
+      const res = await fetch(`${API_URL}/notes/content/${noteObj.id}`);
       if (res.ok) {
         const data = await res.json();
         setPreviewNoteContent(data.content || 'No text extracted for this lecture note.');
@@ -400,79 +422,105 @@ const LecturerDashboard = () => {
     }
   };
 
-  const handleDeleteNote = async (noteId, noteTitle) => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete "${noteTitle || 'this lecture note'}"?\n\nThis will remove it from the course database and AI Study Companion so students will no longer see it.`
-    );
-    if (!confirmDelete) return;
-
-    try {
-      const res = await fetch(`${API_URL}/notes/${noteId}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        if (previewNote && previewNote.id === noteId) {
-          setPreviewNote(null);
+  const handleDeleteNote = (noteId, noteTitle) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Lecture Note?',
+      message: `Are you sure you want to delete "${noteTitle || 'this lecture note'}"?\n\nThis will permanently remove it from the course database and student AI Study Companion so students will no longer see it.`,
+      confirmText: 'Yes, Delete Note',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '🗑️',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/notes/${noteId}`, {
+            method: 'DELETE'
+          });
+          const data = await res.json();
+          if (res.ok && data.status === 'success') {
+            if (previewNote && previewNote.id === noteId) {
+              setPreviewNote(null);
+            }
+            fetchNotes(user.id);
+            setToastMessage({ type: 'success', title: 'Deleted', message: 'Lecture note deleted successfully.' });
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: data.detail || 'Failed to delete lecture note.' });
+          }
+        } catch (err) {
+          console.error('Error deleting note:', err);
+          setToastMessage({ type: 'error', title: 'Error', message: 'Network error while deleting lecture note.' });
         }
-        fetchNotes(user.id);
-        alert('Lecture note deleted successfully.');
-      } else {
-        alert(data.detail || 'Failed to delete lecture note.');
       }
-    } catch (err) {
-      console.error('Error deleting note:', err);
-      alert('Network error while deleting lecture note.');
-    }
+    });
   };
 
-  const handleClearAllNotes = async () => {
-    const confirmClear = window.confirm(
-      "Are you sure you want to CLEAR ALL lecture notes?\n\nThis will permanently remove all uploaded notes from the AI LMS database and AI Study Companion so you can upload fresh notes."
-    );
-    if (!confirmClear) return;
-
-    try {
-      const res = await fetch(`${API_URL}/notes/all/clear`, { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        setNotesList([]);
-        if (previewNote) setPreviewNote(null);
-        alert(data.message || 'All lecture notes cleared successfully. You can now upload your fresh notes!');
-      } else {
-        alert(data.detail || 'Failed to clear lecture notes.');
+  const handleClearAllNotes = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Clear All Lecture Notes?',
+      message: "Are you sure you want to CLEAR ALL lecture notes?\n\nThis will permanently remove all uploaded notes from the AI LMS database and AI Study Companion so you can upload fresh notes.",
+      confirmText: 'Yes, Clear All Notes',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '⚠️',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/notes/all/clear`, { method: 'DELETE' });
+          const data = await res.json();
+          if (res.ok && data.status === 'success') {
+            setNotesList([]);
+            if (previewNote) setPreviewNote(null);
+            setToastMessage({
+              type: 'success',
+              title: 'Notes Cleared',
+              message: data.message || 'All lecture notes cleared successfully. You can now upload fresh notes!'
+            });
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: data.detail || 'Failed to clear lecture notes.' });
+          }
+        } catch (err) {
+          console.error('Error clearing notes:', err);
+          setToastMessage({ type: 'error', title: 'Error', message: 'Network error while clearing lecture notes.' });
+        }
       }
-    } catch (err) {
-      console.error('Error clearing notes:', err);
-      alert('Network error while clearing lecture notes.');
-    }
+    });
   };
 
-  const handleClearAllQuestions = async () => {
-    const confirmClear = window.confirm(
-      "Are you sure you want to CLEAR ALL student questions and lecturer replies?\n\nThis will completely reset the Q&A inbox for a clean start."
-    );
-    if (!confirmClear) return;
-
-    try {
-      const res = await fetch(`${API_URL}/contact/lecturer/all/clear`, { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        setStudentInbox([]);
-        alert(data.message || 'All student questions and replies have been cleared successfully!');
-      } else {
-        alert(data.detail || 'Failed to clear questions and replies.');
+  const handleClearAllQuestions = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Clear All Student Questions?',
+      message: "Are you sure you want to CLEAR ALL student questions and lecturer replies?\n\nThis will completely reset the Q&A inbox for a clean start.",
+      confirmText: 'Yes, Clear All Questions',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '💬',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/contact/lecturer/all/clear`, { method: 'DELETE' });
+          const data = await res.json();
+          if (res.ok && data.status === 'success') {
+            setStudentInbox([]);
+            setToastMessage({
+              type: 'success',
+              title: 'Inbox Cleared',
+              message: data.message || 'All student questions and replies have been cleared successfully!'
+            });
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: data.detail || 'Failed to clear questions and replies.' });
+          }
+        } catch (err) {
+          console.error('Error clearing questions:', err);
+          setToastMessage({ type: 'error', title: 'Error', message: 'Network error while clearing student questions.' });
+        }
       }
-    } catch (err) {
-      console.error('Error clearing questions:', err);
-      alert('Network error while clearing student questions.');
-    }
+    });
   };
 
   const handleExportGradesCSV = (assignment) => {
     const subs = submissionsMap[assignment.id] || [];
     if (subs.length === 0) {
-      alert('No student submissions found yet for this assignment to export.');
+      setToastMessage({ type: 'info', title: 'Notice', message: 'No student submissions found yet for this assignment to export.' });
       return;
     }
     const headers = ['Assignment Code', 'Assignment Title', 'Student Name', 'Matrix No', 'Submitted Date', 'File Name', 'Grade', 'Lecturer Feedback'];
@@ -535,16 +583,30 @@ const LecturerDashboard = () => {
     }
   };
 
-  const handleDeleteAnnouncement = async (id) => {
-    if (!window.confirm('Are you sure you want to remove this announcement?')) return;
-    try {
-      const res = await fetch(`${API_URL}/announcements/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchAnnouncements();
+  const handleDeleteAnnouncement = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Announcement?',
+      message: 'Are you sure you want to remove this announcement from the student bulletin board?',
+      confirmText: 'Yes, Remove',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '📢',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/announcements/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            fetchAnnouncements();
+            setToastMessage({ type: 'success', title: 'Removed', message: 'Announcement removed successfully.' });
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: 'Failed to remove announcement.' });
+          }
+        } catch (err) {
+          console.error('Failed to delete announcement', err);
+          setToastMessage({ type: 'error', title: 'Error', message: 'Failed to delete announcement.' });
+        }
       }
-    } catch (err) {
-      console.error('Failed to delete announcement', err);
-    }
+    });
   };
 
   const handleReplyStudentQuestion = async (msgId) => {
@@ -826,10 +888,10 @@ const LecturerDashboard = () => {
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
-                        onClick={() => handleOpenPreviewNote(note.id, `${note.subject_code} - ${note.title}`)}
+                        onClick={() => handleOpenPreviewNote(note)}
                         className="btn-secondary"
                         style={{ padding: '5px 12px', fontSize: '0.8rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
-                        title="Preview text in browser"
+                        title="Preview PDF and images in browser"
                       >
                         👁️ Preview
                       </button>
@@ -2002,139 +2064,37 @@ const LecturerDashboard = () => {
         </nav>
       </div>
 
-      {/* In-Browser Lecture Note Preview Modal */}
-      {previewNote && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'var(--card-bg, #1e293b)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            width: '100%',
-            maxWidth: '850px',
-            maxHeight: '85vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
-          }}>
-            <div style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '10px'
-            }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  📖 {previewNote.title}
-                </h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>In-browser lecture note preview</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button
-                  onClick={() => window.open(`${API_URL}/notes/${previewNote.id}/download`, '_blank')}
-                  className="btn-primary"
-                  style={{ padding: '6px 14px', fontSize: '0.82rem', margin: 0 }}
-                >
-                  ⬇️ Download Note
-                </button>
-                <button
-                  onClick={() => setPreviewNote(null)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    fontSize: '1.3rem',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    padding: '4px 8px'
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
+      {/* In-Browser Lecture Note Document Preview Modal (PDF / Images / AI Text) */}
+      <DocumentPreviewModal
+        isOpen={Boolean(previewNote)}
+        note={previewNote}
+        extractedText={previewNoteContent}
+        loadingText={loadingPreview}
+        onClose={() => setPreviewNote(null)}
+        onDelete={() => handleDeleteNote(previewNote.id, previewNote.title)}
+        canDelete={true}
+        apiUrl={API_URL}
+        role="lecturer"
+      />
 
-            <div style={{
-              flex: 1,
-              padding: '20px',
-              overflowY: 'auto',
-              whiteSpace: 'pre-wrap',
-              fontFamily: 'inherit',
-              lineHeight: '1.6',
-              fontSize: '0.9rem',
-              color: 'var(--text-main)'
-            }}>
-              {loadingPreview ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  ⏳ Loading note preview...
-                </div>
-              ) : (
-                previewNoteContent || 'No text content available to preview for this note.'
-              )}
-            </div>
-            
-            <div style={{
-              padding: '12px 20px',
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '10px',
-              background: 'rgba(0,0,0,0.15)'
-            }}>
-              <button
-                type="button"
-                onClick={() => handleDeleteNote(previewNote.id, previewNote.title)}
-                className="btn-secondary"
-                style={{
-                  width: 'auto',
-                  margin: 0,
-                  padding: '6px 16px',
-                  color: '#ef4444',
-                  borderColor: 'rgba(239, 68, 68, 0.4)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-                title="If this note is incorrect or outdated, delete it from the system"
-              >
-                🗑️ Delete Incorrect Note
-              </button>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => window.open(`${API_URL}/notes/${previewNote.id}/download`, '_blank')}
-                  className="btn-primary"
-                  style={{ width: 'auto', margin: 0, padding: '6px 16px' }}
-                >
-                  ⬇️ Download
-                </button>
-                <button
-                  onClick={() => setPreviewNote(null)}
-                  className="btn-secondary"
-                  style={{ width: 'auto', margin: 0, padding: '6px 18px' }}
-                >
-                  Close Preview
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Custom Confirmation Modal (replaces browser confirm) */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        confirmColor={confirmModal.confirmColor}
+        icon={confirmModal.icon}
+        onConfirm={confirmModal.onConfirm}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Custom Toast Notification (replaces browser alert) */}
+      <ToastNotification
+        toast={toastMessage}
+        onClose={() => setToastMessage(null)}
+      />
     </div>
   );
 };

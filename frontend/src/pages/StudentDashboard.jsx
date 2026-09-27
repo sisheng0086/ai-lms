@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import DocumentPreviewModal from '../components/DocumentPreviewModal';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -211,12 +212,19 @@ const StudentDashboard = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleOpenPreviewNote = async (note) => {
-    setPreviewNote(note);
+  const handleOpenPreviewNote = async (noteOrId, fallbackTitle = '') => {
+    let noteObj;
+    if (typeof noteOrId === 'object' && noteOrId !== null) {
+      noteObj = noteOrId;
+    } else {
+      const found = notesList.find(n => String(n.id) === String(noteOrId));
+      noteObj = found || { id: noteOrId, title: fallbackTitle, file_name: fallbackTitle };
+    }
+    setPreviewNote(noteObj);
     setLoadingPreview(true);
     setPreviewNoteContent('');
     try {
-      const res = await fetch(`${API_URL}/notes/${note.id}/content`);
+      const res = await fetch(`${API_URL}/notes/content/${noteObj.id}`);
       if (res.ok) {
         const d = await res.json();
         setPreviewNoteContent(d.content || 'No text content available for this note.');
@@ -1422,10 +1430,10 @@ const StudentDashboard = () => {
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={() => handleOpenPreviewNote(selectedNote.id, `${selectedNote.subject_code} - ${selectedNote.title}`)}
+                  onClick={() => handleOpenPreviewNote(selectedNote)}
                   className="btn-secondary"
                   style={{ padding: '6px 12px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
-                  title="Preview note in browser"
+                  title="Preview PDF and images in browser"
                 >
                   👁️ Preview Note
                 </button>
@@ -2846,8 +2854,8 @@ const StudentDashboard = () => {
                               <button
                                 className="btn-secondary"
                                 style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', margin: 0, color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
-                                onClick={() => handleOpenPreviewNote(note.id, `${note.subject_code} - ${note.title}`)}
-                                title="Preview Note in Browser"
+                                onClick={() => handleOpenPreviewNote(note)}
+                                title="Preview PDF and images in browser"
                               >
                                 👁️ Preview
                               </button>
@@ -3191,109 +3199,17 @@ const StudentDashboard = () => {
         </nav>
       </div>
 
-      {/* In-Browser Lecture Note Preview Modal */}
-      {previewNote && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'var(--card-bg, #1e293b)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            width: '100%',
-            maxWidth: '850px',
-            maxHeight: '85vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
-          }}>
-            <div style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '10px'
-            }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  📖 {previewNote.title}
-                </h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>In-browser lecture note preview</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button
-                  onClick={() => handleDownloadNote(previewNote.id)}
-                  className="btn-primary"
-                  style={{ padding: '6px 14px', fontSize: '0.82rem', margin: 0 }}
-                >
-                  ⬇️ Download Note
-                </button>
-                <button
-                  onClick={() => setPreviewNote(null)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    fontSize: '1.3rem',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    padding: '4px 8px'
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div style={{
-              flex: 1,
-              padding: '20px',
-              overflowY: 'auto',
-              whiteSpace: 'pre-wrap',
-              fontFamily: 'inherit',
-              lineHeight: '1.6',
-              fontSize: '0.9rem',
-              color: 'var(--text-main)'
-            }}>
-              {loadingPreview ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  ⏳ Loading note preview...
-                </div>
-              ) : (
-                previewNoteContent || 'No text content available to preview for this note.'
-              )}
-            </div>
-            
-            <div style={{
-              padding: '12px 20px',
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              background: 'rgba(0,0,0,0.15)'
-            }}>
-              <button
-                onClick={() => setPreviewNote(null)}
-                className="btn-secondary"
-                style={{ width: 'auto', margin: 0, padding: '6px 18px' }}
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* In-Browser Lecture Note Document Preview Modal (PDF / Images / AI Text) */}
+      <DocumentPreviewModal
+        isOpen={Boolean(previewNote)}
+        note={previewNote}
+        extractedText={previewNoteContent}
+        loadingText={loadingPreview}
+        onClose={() => setPreviewNote(null)}
+        canDelete={false}
+        apiUrl={API_URL}
+        role="student"
+      />
     </div>
   );
 };

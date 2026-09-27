@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Network Security & Cyber Defense: Comprehensive Technical Reference</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm 16mm 14mm;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    font-size: 8.5pt;
+    line-height: 1.40;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Header banner */
+  .header-card {
+    background: linear-gradient(135deg, #0f172a 0%, #311042 50%, #4c0519 100%);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    border: 1px solid #f43f5e;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .tag-badge {
+    display: inline-block;
+    background: #f43f5e;
+    color: #ffffff;
+    font-size: 7pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+  }
+  .header-title {
+    font-size: 18pt;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    margin-bottom: 3px;
+  }
+  .header-subtitle {
+    font-size: 9pt;
+    color: #fecdd3;
+    margin-bottom: 7px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    padding-top: 6px;
+    font-size: 7.3pt;
+    color: #fda4af;
+  }
+  .meta-grid strong {
+    color: #ffffff;
+  }
+
+  /* Section styles */
+  .section-container {
+    margin-bottom: 12px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid #e11d48;
+    padding-bottom: 3px;
+    margin-bottom: 7px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+  }
+  .section-num {
+    background: #e11d48;
+    color: #ffffff;
+    font-size: 7.8pt;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .section-title {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.2px;
+  }
+
+  /* Layout grids */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    margin-bottom: 7px;
+  }
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+
+  /* Cards */
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 7px 9px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .card-title {
+    font-size: 8.5pt;
+    font-weight: 700;
+    color: #9f1239;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-pill {
+    background: #ffe4e6;
+    color: #9f1239;
+    font-size: 6.5pt;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.5pt;
+    margin: 4px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #1e1b4b;
+    color: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    padding: 3.5px 5px;
+    border: 1px solid #312e81;
+  }
+  td {
+    padding: 3px 5px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td {
+    background: #f1f5f9;
+  }
+
+  /* Diagram box */
+  .diagram-box {
+    background: #0f172a;
+    color: #f43f5e;
+    border: 1px solid #1e293b;
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 6.8pt;
+    line-height: 1.22;
+    margin: 4px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    white-space: pre;
+  }
+  .diagram-box span.accent {
+    color: #38bdf8;
+  }
+  .diagram-box span.green {
+    color: #4ade80;
+  }
+  .diagram-box span.yellow {
+    color: #fbbf24;
+  }
+
+  /* Callout boxes */
+  .callout {
+    padding: 5px 8px;
+    border-radius: 4px;
+    margin: 4px 0;
+    font-size: 7.6pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .callout-tip {
+    background: #f0fdf4;
+    border-left: 3px solid #16a34a;
+    color: #166534;
+  }
+  .callout-warn {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    color: #92400e;
+  }
+  .callout-danger {
+    background: #fef2f2;
+    border-left: 3px solid #ef4444;
+    color: #991b1b;
+  }
+  .callout-exam {
+    background: #faf5ff;
+    border-left: 3px solid #9333ea;
+    color: #581c87;
+  }
+
+  code.inline {
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-size: 7.3pt;
+    font-weight: 600;
+  }
+
+  ul, ol {
+    padding-left: 14px;
+    margin: 3px 0;
+  }
+  li {
+    margin-bottom: 2px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- HEADER BANNER -->
+  <div class="header-card">
+    <span class="tag-badge">Master Reference & Cyber Defense Blueprint</span>
+    <h1 class="header-title">Network Security & Cyber Defense Architecture</h1>
+    <p class="header-subtitle">From Layered Threat Analysis to Cryptographic Foundations, Zero Trust, NGFW &amp; Incident Mitigation</p>
+    <div class="meta-grid">
+      <div><strong>DOMAIN:</strong> Cybersecurity &amp; SecOps</div>
+      <div><strong>FRAMEWORKS:</strong> NIST CSF, MITRE ATT&amp;CK, ISO 27001</div>
+      <div><strong>PROTOCOLS:</strong> TLS 1.3, IPsec, SSH, WPA3, DNSSEC</div>
+      <div><strong>SECURITY:</strong> Cryptography, Firewalls, IDS/IPS, ZTA</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: CORE FOUNDATIONS & ZERO TRUST -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2 class="section-title">Core Security Principles & Zero Trust Architecture</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">The CIA Triad & Expanded Security Tenets <span class="card-pill">Core</span></div>
+        <table>
+          <tr><th>Pillar</th><th>Objective</th><th>Primary Defensive Controls</th></tr>
+          <tr><td><strong>Confidentiality</strong></td><td>Data remains shielded from unauthorized eavesdropping</td><td>Symmetric encryption (AES-256), TLS 1.3, Access Control Lists (ACLs)</td></tr>
+          <tr><td><strong>Integrity</strong></td><td>Guarantees data is unmodified and tamper-evident in transit</td><td>Cryptographic hashes (SHA-256), HMAC, Digital Signatures, PKI</td></tr>
+          <tr><td><strong>Availability</strong></td><td>Systems and services remain operational upon demand</td><td>Redundant server clustering, BGP Anycast, Anti-DDoS, RAID, Backups</td></tr>
+          <tr><td><strong>Non-Repudiation</strong></td><td>Sender cannot refute having performed the action</td><td>Asymmetric digital signatures, auditable immutable tamper-proof logs</td></tr>
+          <tr><td><strong>Authenticity</strong></td><td>Verification of entity or packet origin legitimacy</td><td>Multi-Factor Authentication (MFA), 802.1X, mutual TLS (mTLS)</td></tr>
+        </table>
+        <div class="callout callout-tip">
+          <strong>Defense-in-Depth:</strong> Security must never rely on a single defensive barrier. Deploy layered defenses across Perimeter (Firewall), Network (VLANs), Host (EDR), Application (WAF), and Data (Encryption).
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Zero Trust Architecture (NIST SP 800-207) <span class="card-pill">Paradigm</span></div>
+        <p>Radical shift from perimeter-based "Castle-and-Moat" to "Never Trust, Always Verify":</p>
+        <div class="diagram-box">
+[Untrusted Client / User]
+       │  (1) Request access with Context (Device Health + Identity + IP)
+       ▼
+┌────────────────────────────────────────────────────────┐
+│ <span class="accent">Policy Decision Point (PDP)</span>: Risk Engine / Identity Provider │
+│ Evaluates MFA, Least Privilege, Posture, Threat Feeds  │
+└────────────────────────────────────────────────────────┘
+       │  (2) Dynamic, time-limited cryptographic token
+       ▼
+┌────────────────────────────────────────────────────────┐
+│ <span class="green">Policy Enforcement Point (PEP)</span>: Gateway / Reverse Proxy   │
+└────────────────────────────────────────────────────────┘
+       │  (3) Micro-segmented mutual TLS (mTLS) session
+       ▼
+[Target Microservice / Internal Workload / Database]
+        </div>
+        <ul style="font-size:7.4pt; margin-top:3px;">
+          <li><strong>Explicit Verification:</strong> Authenticate and authorize continuously based on all available data points (identity, location, device health, anomalies).</li>
+          <li><strong>Least Privilege Access:</strong> Just-In-Time (JIT) and Just-Enough-Access (JEA).</li>
+          <li><strong>Assume Breach:</strong> Minimize blast radius via microsegmentation and end-to-end encryption.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: OSI / TCP-IP LAYER THREATS -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2 class="section-title">OSI & TCP/IP Layer Vulnerabilities and Attacks</h2>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Layer-by-Layer Attack Vectors & Defensive Countermeasures <span class="card-pill">OSI Stack</span></div>
+      <table>
+        <tr><th>Layer</th><th>Protocol Stack</th><th>Vulnerabilities &amp; Exploitation Methods</th><th>Countermeasures &amp; Hardening</th></tr>
+        <tr>
+          <td><strong>Layer 2: Data Link</strong></td>
+          <td>Ethernet, ARP, 802.1Q, DHCP</td>
+          <td>
+            &bull; <strong>ARP Spoofing / Poisoning:</strong> Unsolicited ARP replies map attacker's MAC to gateway IP.<br>
+            &bull; <strong>MAC Flooding:</strong> Exhausts switch CAM table, turning switch into a dumb hub.<br>
+            &bull; <strong>DHCP Starvation / Rogue DHCP:</strong> Floods MACs to lease all pool IPs.
+          </td>
+          <td>
+            &bull; <strong>Dynamic ARP Inspection (DAI)</strong> with DHCP Snooping.<br>
+            &bull; <strong>Port Security:</strong> Limit maximum allowed MAC addresses per switchport.<br>
+            &bull; <strong>DHCP Snooping:</strong> Designate trusted uplink ports for DHCP responses.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Layer 3: Network</strong></td>
+          <td>IPv4, IPv6, ICMP, IPsec, BGP</td>
+          <td>
+            &bull; <strong>IP Spoofing:</strong> Forging source IP header for reflection attacks.<br>
+            &bull; <strong>ICMP Flood / Smurf Attack:</strong> ICMP echo broadcast amplifier.<br>
+            &bull; <strong>BGP Hijacking:</strong> Malicious AS path advertisement rerouting traffic globally.
+          </td>
+          <td>
+            &bull; <strong>Unicast Reverse Path Forwarding (uRPF)</strong> on boundary routers.<br>
+            &bull; Rate-limit or drop incoming external ICMP echo requests.<br>
+            &bull; <strong>ROA / RPKI</strong> (Resource Public Key Infrastructure) route validation.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Layer 4: Transport</strong></td>
+          <td>TCP, UDP</td>
+          <td>
+            &bull; <strong>TCP SYN Flood:</strong> Sends SYN packets with spoofed IPs, filling server backlog queue.<br>
+            &bull; <strong>TCP Reset Attack:</strong> Injects RST packets with guessed sequence numbers.<br>
+            &bull; <strong>UDP Amplification:</strong> Exploits connectionless UDP (NTP, DNS, SSDP) for 50x–500x floods.
+          </td>
+          <td>
+            &bull; <strong>SYN Cookies:</strong> Stateless cryptographic encoding in initial sequence number.<br>
+            &bull; Stateful firewalls with aggressive half-open connection pruning.<br>
+            &bull; Disable open UDP recursors and monlist commands on internet-facing daemons.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Layer 7: Application</strong></td>
+          <td>HTTP/S, DNS, SMTP, SSH</td>
+          <td>
+            &bull; <strong>DNS Cache Poisoning:</strong> Forges DNS query responses to divert domain traffic.<br>
+            &bull; <strong>Slowloris:</strong> Sends partial HTTP headers slowly, holding web server worker threads.<br>
+            &bull; <strong>SQLi / XSS / SSRF:</strong> Injections into unvalidated web inputs.
+          </td>
+          <td>
+            &bull; <strong>DNSSEC:</strong> Cryptographic validation of DNS resource records.<br>
+            &bull; <strong>Web Application Firewall (WAF)</strong> with ModSecurity / Cloudflare rules.<br>
+            &bull; Strict timeouts for HTTP headers; input parameterization &amp; sanitization.
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECTION 3: THREATS, MALWARE & DDOS TAXONOMY -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2 class="section-title">Threat Actors, Malware Taxonomy & DDoS Architectures</h2>
+    </div>
+
+    <div class="three-col">
+      <div class="card">
+        <div class="card-title">Malware Classification <span class="card-pill">Payloads</span></div>
+        <ul style="font-size:7.3pt;">
+          <li><strong>Worm:</strong> Self-replicating autonomous program exploiting network service bugs without human intervention (e.g., WannaCry, Conficker).</li>
+          <li><strong>Ransomware:</strong> Asymmetrically encrypts victim storage; demands cryptocurrency ransom. Double/Triple extortion threatens public data leakage.</li>
+          <li><strong>Trojan:</strong> Masquerades as legitimate software while establishing a covert <em>Command &amp; Control (C2)</em> reverse shell.</li>
+          <li><strong>Rootkit:</strong> Subverts OS kernel (Ring 0) or UEFI firmware to conceal malicious processes from security tools and task managers.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">DDoS Attack Taxonomy <span class="card-pill">Availability</span></div>
+        <div class="diagram-box">
+Attacker ──► C2 Botnet Master
+                 │
+                 ▼
+       [Thousands of IoT Bots]
+                 │
+  ┌──────────────┼──────────────┐
+  ▼              ▼              ▼
+<span class="accent">Volumetric</span>    <span class="yellow">Protocol</span>     <span class="green">Application</span>
+(NTP/DNS Amp) (SYN Flood)  (HTTP Flood)
+Saturates     Depletes     Crashes App
+Bandwidth     State Table  Thread Pools
+        </div>
+        <p style="font-size:7.2pt; color:#64748b; margin-top:2px;">Mitigated via Anycast IP routing, Cloud Scrubbing Centers (Akamai, Cloudflare), and rate-limiting.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Man-in-the-Middle (MitM) <span class="card-pill">Interception</span></div>
+        <ul style="font-size:7.3pt;">
+          <li><strong>SSL/TLS Stripping:</strong> Intercepts initial unencrypted HTTP redirect, downgrading HTTPS connections to plaintext.</li>
+          <li><strong>Defense:</strong> <em>HTTP Strict Transport Security (HSTS)</em> with preloading forces browser to connect exclusively over HTTPS.</li>
+          <li><strong>Session Hijacking:</strong> Stealing session tokens via packet sniffing or XSS. Fixed by <code class="inline">HttpOnly</code>, <code class="inline">Secure</code>, <code class="inline">SameSite=Strict</code> cookie flags.</li>
+          <li><strong>Evil Twin:</strong> Rogue wireless AP broadcasting legitimate SSID to harvest credentials.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: APPLIED CRYPTOGRAPHY & PKI -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2 class="section-title">Applied Cryptography & Public Key Infrastructure (PKI)</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Symmetric vs Asymmetric Encryption <span class="card-pill">Ciphers</span></div>
+        <table>
+          <tr><th>Attribute</th><th>Symmetric Encryption</th><th>Asymmetric (Public Key) Encryption</th></tr>
+          <tr><td>Key Structure</td><td>Single shared secret key for encryption &amp; decryption</td><td>Keypair: Public Key (encrypts) + Private Key (decrypts)</td></tr>
+          <tr><td>Computation Speed</td><td>Extremely fast (hardware-accelerated AES-NI)</td><td>Slow (~1000&times; slower; intensive modular math)</td></tr>
+          <tr><td>Key Distribution</td><td>Hard (must securely pre-share secret key)</td><td>Easy (public key can be freely distributed)</td></tr>
+          <tr><td>Primary Algorithms</td><td>AES-128/256 (GCM, CBC), ChaCha20-Poly1305</td><td>RSA (2048/4096-bit), ECC (Curve25519, ECDSA)</td></tr>
+          <tr><td>Network Role</td><td>Bulk data transmission in TLS / IPsec payloads</td><td>Initial key exchange, digital signatures, identity auth</td></tr>
+        </table>
+        <div class="callout callout-exam">
+          <strong>Diffie-Hellman Key Exchange (DH/ECDHE):</strong> Allows two parties over an untrusted channel to compute a shared secret key without ever transmitting the secret across the wire! <strong>Ephemeral (ECDHE)</strong> generates single-session keys providing <em>Perfect Forward Secrecy (PFS)</em>.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">X.509 PKI & Certificate Chain of Trust <span class="card-pill">PKI Architecture</span></div>
+        <p>How a client validates that an unknown server is authentic:</p>
+        <div class="diagram-box">
+[Root CA Certificate] (Self-signed, trusted in OS/Browser Root Store)
+       │  Signs Intermediate with Root Private Key
+       ▼
+[Intermediate CA Certificate] (Keeps Root offline for safety)
+       │  Signs End-Entity Certificate with Intermediate Key
+       ▼
+[Server SSL/TLS Certificate (e.g. *.domain.com)]
+ - Public Key of Domain Server
+ - Subject Alternative Names (SAN)
+ - Validity Dates & Signature Algorithm
+ - Digital Signature from Intermediate CA
+        </div>
+        <ul style="font-size:7.3pt; margin-top:3px;">
+          <li><strong>Revocation Verification:</strong> CRL (Certificate Revocation List) &amp; <strong>OCSP (Online Certificate Status Protocol)</strong>. <em>OCSP Stapling</em> attaches a timestamped CA-signed status directly to the TLS handshake, eliminating client latency.</li>
+          <li><strong>Cryptographic Hashes:</strong> SHA-256 / SHA-3 provide one-way deterministic outputs. Resistant to Pre-image and Collision attacks.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: SECURE PROTOCOLS: TLS 1.3, IPSEC & SSH -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2 class="section-title">Secure Network Protocols: TLS 1.3, IPsec & VPNs</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">TLS 1.2 vs TLS 1.3 Handshake Protocol <span class="card-pill">Transport Layer</span></div>
+        <div class="diagram-box">
+<span class="accent">TLS 1.2 (2 Round-Trip Times - 2 RTT)</span>
+Client ──[ClientHello (Cipher suites)]──────────► Server
+Client ◄─[ServerHello + Cert + KeyExchange]────── Server
+Client ──[ClientKeyExchange + Finished]─────────► Server
+Client ◄─[Session Ticket + Finished]──────────── Server  (Data starts!)
+
+<span class="green">TLS 1.3 (1 Round-Trip Time - 1 RTT Fast Handshake)</span>
+Client ──[ClientHello + KeyShare (ECDHE guess)]──► Server
+Client ◄─[ServerHello + KeyShare + Cert + Fin]── Server  (Data starts!)
+        </div>
+        <ul style="font-size:7.3pt; margin-top:3px;">
+          <li><strong>Modernized Security:</strong> TLS 1.3 banned obsolete ciphers (RC4, DES, 3DES, MD5, SHA-1, static RSA key exchange, CBC modes). Only authenticated AEAD ciphers permitted (AES-GCM, ChaCha20-Poly1305).</li>
+          <li><strong>0-RTT Resumption:</strong> Returning clients send encrypted early data on first packet.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">IPsec Suite & VPN Architectures <span class="card-pill">Network Layer</span></div>
+        <table>
+          <tr><th>Protocol / Mode</th><th>Confidentiality</th><th>Integrity &amp; Auth</th><th>Use Case</th></tr>
+          <tr><td><strong>AH (Auth Header)</strong></td><td>No (Plaintext)</td><td>Yes (Signs entire IP packet)</td><td>Integrity verification only</td></tr>
+          <tr><td><strong>ESP (Encapsulating Security Payload)</strong></td><td>Yes (Encrypted)</td><td>Yes (HMAC-SHA256)</td><td>Standard for all modern VPNs</td></tr>
+          <tr><td><strong>Transport Mode</strong></td><td>Only L4 payload</td><td>Headers unencrypted</td><td>Host-to-Host direct tunnels</td></tr>
+          <tr><td><strong>Tunnel Mode</strong></td><td>Entire original IP packet</td><td>New IP header appended</td><td>Site-to-Site &amp; Remote Access VPN</td></tr>
+        </table>
+        <p style="font-size:7.3pt; margin-top:3px;"><strong>VPN Modern Comparison:</strong></p>
+        <ul style="font-size:7.3pt;">
+          <li><strong>IPsec (IKEv2):</strong> High performance, kernel level, standard for enterprise router tunnels.</li>
+          <li><strong>OpenVPN:</strong> User-space SSL/TLS tunnel, highly configurable, traverses NAT easily.</li>
+          <li><strong>WireGuard:</strong> State-of-the-art (~4,000 lines of code vs 100k+ in OpenVPN). Uses Noise protocol, Curve25519, ChaCha20-Poly1305. Runs inside Linux kernel.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 6: PERIMETER DEFENSE, FIREWALLS & IDS/IPS -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2 class="section-title">Perimeter Defense: Firewalls, IDS/IPS & DMZ Architecture</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Firewall Evolution & Deep Packet Inspection <span class="card-pill">Perimeter</span></div>
+        <table>
+          <tr><th>Generation</th><th>Type</th><th>Inspection Scope</th><th>Limitation</th></tr>
+          <tr><td>1st Gen</td><td>Stateless Packet Filter</td><td>IP headers, Port numbers, Protocol flags (L3/L4)</td><td>Blind to connection state; spoofable</td></tr>
+          <tr><td>2nd Gen</td><td>Stateful Inspection</td><td>Tracks connection states (SYN, ESTABLISHED)</td><td>Cannot inspect encrypted payload contents</td></tr>
+          <tr><td>3rd Gen</td><td>Application Proxy</td><td>Reconstructs L7 protocol (HTTP, FTP)</td><td>High latency; resource heavy</td></tr>
+          <tr><td>Next-Gen (NGFW)</td><td>Next-Gen Firewall (Palo Alto, Fortinet)</td><td>Deep Packet Inspection (DPI), TLS decryption, App-ID, IPS, Antivirus</td><td>Requires high CPU/ASIC crypto offloading</td></tr>
+        </table>
+        <div class="callout callout-tip">
+          <strong>IDS vs IPS:</strong> An <strong>IDS (Intrusion Detection System)</strong> sits out-of-band via a TAP/SPAN port and generates alerts without affecting traffic. An <strong>IPS (Intrusion Prevention System)</strong> sits inline; it actively inspects and drops malicious packets before delivery.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">DMZ (Demilitarized Zone) Architecture <span class="card-pill">Network Design</span></div>
+        <p>Isolates internet-facing services from mission-critical internal corporate assets:</p>
+        <div class="diagram-box">
+             [ Public Internet ]
+                      │
+            ┌─────────┴─────────┐
+            │ External Firewall │
+            └─────────┬─────────┘
+                      │
+   ┌──────────────────┴──────────────────┐
+   │        <span class="accent">DMZ (Isolated Subnet)</span>        │
+   │  &bull; Web Server (Nginx Reverse Proxy) │
+   │  &bull; Mail Server (SMTP Gateway)       │
+   │  &bull; Public DNS Server                │
+   └──────────────────┬──────────────────┘
+                      │
+            ┌─────────┴─────────┐
+            │ Internal Firewall │
+            └─────────┬─────────┘
+                      │
+   ┌──────────────────┴──────────────────┐
+   │    <span class="green">Internal Enterprise Network</span>      │
+   │  &bull; Core Databases (SQL, MongoDB)    │
+   │  &bull; Active Directory Domain Ctr      │
+   │  &bull; Internal Employee Workstations   │
+   └─────────────────────────────────────┘
+        </div>
+        <p style="font-size:7.2pt; color:#64748b; margin-top:2px;">Traffic rule: Internet may access DMZ. DMZ can never initiate unsolicited connections to the internal LAN.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 7: WIRELESS SECURITY & 802.11 -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2 class="section-title">Wireless Network Security & Enterprise Authentication</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Wi-Fi Security Standard Evolution <span class="card-pill">802.11</span></div>
+        <table>
+          <tr><th>Standard</th><th>Encryption</th><th>Integrity</th><th>Security Status</th></tr>
+          <tr><td><strong>WEP</strong></td><td>RC4 (24-bit static IV)</td><td>CRC-32</td><td><strong>Severely Broken</strong> (Cracked in seconds)</td></tr>
+          <tr><td><strong>WPA</strong></td><td>RC4 + TKIP (48-bit IV)</td><td>Michael</td><td><strong>Deprecated</strong> (Vulnerable to Beck-Tews)</td></tr>
+          <tr><td><strong>WPA2</strong></td><td>AES-CCMP (128-bit)</td><td>CBC-MAC</td><td>Legacy Secure (Susceptible to KRACK &amp; offline dictionary attacks)</td></tr>
+          <tr><td><strong>WPA3</strong></td><td>AES-GCMP (128/256-bit)</td><td>BIP-GMAC</td><td><strong>Current Gold Standard</strong> (Resistant to offline brute force)</td></tr>
+        </table>
+        <div class="callout callout-exam">
+          <strong>WPA3 SAE (Dragonfly Handshake):</strong> Replaces WPA2's 4-way handshake with <em>Simultaneous Authentication of Equals</em> based on zero-knowledge proofs. Even if an attacker captures the handshake, offline dictionary brute-forcing is mathematically impossible.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">WPA-Personal vs WPA-Enterprise (802.1X) <span class="card-pill">Authentication</span></div>
+        <ul style="font-size:7.3pt;">
+          <li><strong>WPA-Personal (PSK):</strong> All devices share single static passphrase. If one employee leaks password, entire Wi-Fi is compromised.</li>
+          <li><strong>WPA-Enterprise (802.1X):</strong> Every user authenticates with individual credentials or client certificates against a centralized <strong>RADIUS / AAA Server</strong> (Active Directory / FreeRADIUS).</li>
+        </ul>
+        <div class="diagram-box">
+[Supplicant (Client)] ──(EAP over LAN / 802.1X)──► [Authenticator (AP)]
+                                                           │
+                                             (RADIUS Protocol over UDP)
+                                                           ▼
+                                               [Authentication Server]
+                                                (RADIUS / LDAP / AD)
+        </div>
+        <ul style="font-size:7.3pt; margin-top:2px;">
+          <li><strong>Protected Management Frames (802.11w / PMF):</strong> Cryptographically signs deauth/disassociation frames to defeat Wi-Fi deauth kicking attacks.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 8: SECOPS, MONITORING & INCIDENT RESPONSE -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2 class="section-title">Security Operations, Packet Analysis & Incident Response</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Network Reconnaissance & Packet Forensics <span class="card-pill">Tools</span></div>
+        <p>Core security analyst CLI toolchain syntax and techniques:</p>
+        <ul style="font-size:7.3pt;">
+          <li><strong>Nmap (Network Mapper):</strong>
+            <ul>
+              <li><code class="inline">nmap -sS -sV -O -p- 192.168.1.0/24</code>: Stealth SYN scan across all 65,535 ports with service version and OS fingerprinting.</li>
+              <li><code class="inline">nmap --script vuln &lt;target&gt;</code>: Runs NSE vulnerability scripts.</li>
+            </ul>
+          </li>
+          <li><strong>tcpdump / Wireshark:</strong>
+            <ul>
+              <li><code class="inline">tcpdump -i eth0 -nn 'tcp[tcpflags] &amp; (tcp-syn) != 0 and port 80'</code>: Captures incoming HTTP connection requests.</li>
+              <li>Wireshark TCP Stream Reassembly: Right click packet &gt; <em>Follow &gt; TCP Stream</em> to inspect unencrypted communications.</li>
+            </ul>
+          </li>
+          <li><strong>SIEM &amp; SOAR (Splunk / Elastic):</strong> Aggregates Syslog, Windows Event ID 4624 (Logon), Firewall drop logs to correlate multi-stage advanced persistent threats (APTs).</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">NIST Incident Response Lifecycle (SP 800-61) <span class="card-pill">Playbook</span></div>
+        <div class="diagram-box">
+1. <span class="accent">Preparation</span>: Hardening, EDR agents, backups, IR policy & playbooks
+      │
+      ▼
+2. <span class="yellow">Detection & Analysis</span>: SIEM alerts, IOC hunting, packet PCAP triage
+      │
+      ▼
+3. <span class="accent">Containment</span>:
+      ├── Short-Term: Isolate infected host VLAN, disable AD user
+      └── Long-Term: Forensics snapshot, route blackholing
+      │
+      ▼
+4. <span class="green">Eradication & Recovery</span>: Clean malware, reimage OS, restore backups
+      │
+      ▼
+5. <span class="accent">Post-Incident Activity</span>: Root cause analysis (RCA), lessons learned
+        </div>
+        <div class="callout callout-warn">
+          <strong>Chain of Custody:</strong> Forensic memory dumps (<code class="inline">Volatility</code>) and disk images (<code class="inline">dd</code>, <code class="inline">FTK Imager</code>) must be hashed immediately (SHA-256) to maintain legal evidence integrity.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 9: HARDENING MATRIX & DEFENSIVE BEST PRACTICES -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <h2 class="section-title">Network Hardening Checklist & Cyber Defense Best Practices</h2>
+    </div>
+
+    <div class="three-col">
+      <div class="card">
+        <div class="card-title">Switch & Router Hardening <span class="card-pill">Infrastructure</span></div>
+        <ul style="font-size:7.2pt;">
+          <li>Disable unused interfaces and assign them to an unrouted blackhole VLAN (e.g. VLAN 999).</li>
+          <li>Enforce SSHv2; permanently disable Telnet, HTTP, and SNMPv1/v2c (use SNMPv3 with auth &amp; priv).</li>
+          <li>Enable <strong>BPDU Guard</strong> and <strong>Root Guard</strong> on STP access ports to stop rogue switch topology hijacking.</li>
+          <li>Configure Control Plane Policing (CoPP) to shield router CPU against denial-of-service packet flooding.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Identity & Access Control <span class="card-pill">IAM</span></div>
+        <ul style="font-size:7.2pt;">
+          <li>Mandate Multi-Factor Authentication (MFA) utilizing FIDO2 / WebAuthn hardware tokens or TOTP apps; prohibit SMS OTP.</li>
+          <li>Enforce Principle of Least Privilege (PoLP) and Role-Based Access Control (RBAC).</li>
+          <li>Isolate administrative management traffic to an out-of-band (OOB) dedicated network with dedicated bastion jump boxes.</li>
+          <li>Eliminate shared administrative and root passwords.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Resilience & Data Protection <span class="card-pill">Continuity</span></div>
+        <ul style="font-size:7.2pt;">
+          <li><strong>3-2-1 Backup Strategy:</strong> Maintain 3 copies of data on 2 distinct media types with 1 copy stored off-site and air-gapped / immutable against ransomware.</li>
+          <li>Deploy continuous patch management (CISA Known Exploited Vulnerabilities catalog).</li>
+          <li>Configure email defense records: SPF (<code class="inline">v=spf1</code>), DKIM cryptographic signatures, and strict DMARC (<code class="inline">p=reject</code>).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

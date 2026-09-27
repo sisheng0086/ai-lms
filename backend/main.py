@@ -199,7 +199,11 @@ def ensure_db_columns():
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
                 cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_name VARCHAR(80);")
+                cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS lecturer_id INT;")
+                cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS file_size_kb INT;")
                 cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS file_data BYTEA;")
+                cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS is_indexed BOOLEAN DEFAULT FALSE;")
+                cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS file_size_kb INT;")
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS grade VARCHAR(30);")
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS feedback TEXT;")
@@ -714,6 +718,91 @@ def download_note(note_id: int):
             raise HTTPException(
                 status_code=404,
                 detail="Original file is being synced or needs re-upload by lecturer."
+            )
+    finally:
+        conn.close()
+
+
+@app.get("/notes/{note_id}/view")
+def view_note_file(note_id: int):
+    """Streams the exact uploaded note file (PDF, PNG, JPG, HTML, etc.) with inline disposition so the browser renders the PDF pages and embedded images directly."""
+    from urllib.parse import quote
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, subject_code, title, file_path, file_name, file_data FROM lecture_notes WHERE id = %s",
+                (note_id,)
+            )
+            note = cur.fetchone()
+            if not note:
+                raise HTTPException(status_code=404, detail="Note not found")
+            
+            file_name = note["file_name"] or f"note_{note_id}.pdf"
+            fn_lower = file_name.lower()
+            
+            # Determine appropriate media type for inline rendering
+            if fn_lower.endswith(".pdf"):
+                media_type = "application/pdf"
+            elif fn_lower.endswith(".png"):
+                media_type = "image/png"
+            elif fn_lower.endswith(".jpg") or fn_lower.endswith(".jpeg"):
+                media_type = "image/jpeg"
+            elif fn_lower.endswith(".gif"):
+                media_type = "image/gif"
+            elif fn_lower.endswith(".webp"):
+                media_type = "image/webp"
+            elif fn_lower.endswith(".svg"):
+                media_type = "image/svg+xml"
+            elif fn_lower.endswith(".html") or fn_lower.endswith(".htm"):
+                media_type = "text/html"
+            elif fn_lower.endswith(".txt"):
+                media_type = "text/plain"
+            else:
+                media_type = "application/octet-stream"
+
+            encoded_name = quote(file_name)
+            inline_headers = {
+                "Content-Disposition": f"inline; filename=\"{file_name}\"; filename*=UTF-8''{encoded_name}",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600"
+            }
+
+            # 1. From local file_path if available
+            if note["file_path"] and os.path.exists(note["file_path"]) and os.path.getsize(note["file_path"]) > 100:
+                return FileResponse(
+                    path=note["file_path"],
+                    media_type=media_type,
+                    headers=inline_headers
+                )
+
+            # 2. From database file_data bytes
+            if note.get("file_data"):
+                raw_bytes = bytes(note["file_data"])
+                if len(raw_bytes) > 0:
+                    target_path = note["file_path"] or f"uploads/notes/view_{note_id}_{file_name}"
+                    try:
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        with open(target_path, "wb") as f:
+                            f.write(raw_bytes)
+                        return FileResponse(
+                            path=target_path,
+                            media_type=media_type,
+                            headers=inline_headers
+                        )
+                    except Exception:
+                        return Response(
+                            content=raw_bytes,
+                            media_type=media_type,
+                            headers=inline_headers
+                        )
+
+            raise HTTPException(
+                status_code=404,
+                detail="Note file is unavailable for inline preview."
             )
     finally:
         conn.close()

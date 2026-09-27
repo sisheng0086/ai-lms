@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>C++ Programming: Comprehensive Technical Reference & Study Guide</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm 14mm 14mm;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    font-size: 8.8pt;
+    line-height: 1.42;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Header banner */
+  .header-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    border: 1px solid #3b82f6;
+  }
+  .tag-badge {
+    display: inline-block;
+    background: #3b82f6;
+    color: #ffffff;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+  .header-title {
+    font-size: 19pt;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+  .header-subtitle {
+    font-size: 9.5pt;
+    color: #cbd5e1;
+    margin-bottom: 8px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 8px;
+    font-size: 7.5pt;
+    color: #94a3b8;
+  }
+  .meta-grid strong {
+    color: #e2e8f0;
+  }
+
+  /* Section styles */
+  .section-container {
+    margin-bottom: 14px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+  }
+  .section-num {
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 8pt;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .section-title {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.2px;
+  }
+
+  /* Two column layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* Cards */
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .card-title {
+    font-size: 9pt;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-pill {
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 6.5pt;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.8pt;
+    margin: 6px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #1e293b;
+    color: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    padding: 4px 6px;
+    border: 1px solid #334155;
+  }
+  td {
+    padding: 3.5px 6px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td {
+    background: #f1f5f9;
+  }
+
+  /* Code blocks */
+  pre, code {
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 6px 8px;
+    border-radius: 5px;
+    font-size: 7.4pt;
+    line-height: 1.35;
+    overflow-x: hidden;
+    margin: 4px 0;
+    border: 1px solid #1e293b;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  code.inline {
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-size: 7.6pt;
+    font-weight: 600;
+    border: 1px solid #cbd5e1;
+  }
+
+  /* Syntax Highlighting */
+  .kw { color: #f472b6; font-weight: 600; }     /* keyword */
+  .type { color: #38bdf8; font-weight: 600; }   /* type */
+  .fn { color: #60a5fa; }                       /* function */
+  .str { color: #4ade80; }                      /* string */
+  .comm { color: #94a3b8; font-style: italic; } /* comment */
+  .num { color: #fbbf24; }                      /* number */
+  .prep { color: #c084fc; }                     /* preprocessor */
+
+  /* Callout boxes */
+  .callout {
+    padding: 6px 10px;
+    border-radius: 5px;
+    margin: 6px 0;
+    font-size: 7.8pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .callout-tip {
+    background: #ecfdf5;
+    border-left: 3px solid #10b981;
+    color: #065f46;
+  }
+  .callout-warn {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    color: #92400e;
+  }
+  .callout-danger {
+    background: #fef2f2;
+    border-left: 3px solid #ef4444;
+    color: #991b1b;
+  }
+  .callout-exam {
+    background: #f5f3ff;
+    border-left: 3px solid #8b5cf6;
+    color: #5b21b6;
+  }
+
+  /* Diagram box */
+  .diagram-box {
+    background: #f8fafc;
+    border: 1px dashed #64748b;
+    border-radius: 4px;
+    padding: 6px;
+    font-family: monospace;
+    font-size: 7.2pt;
+    line-height: 1.25;
+    color: #1e293b;
+    margin: 4px 0;
+    break-inside: avoid;
+  }
+
+  ul, ol {
+    padding-left: 14px;
+    margin: 4px 0;
+  }
+  li {
+    margin-bottom: 2px;
+  }
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+  .avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .footer-bar {
+    text-align: right;
+    font-size: 7pt;
+    color: #94a3b8;
+    margin-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- HEADER BANNER -->
+  <div class="header-card">
+    <span class="tag-badge">Master Reference & Study Guide</span>
+    <h1 class="header-title">C++ Programming: Architecture & Modern Standards</h1>
+    <p class="header-subtitle">From Low-Level Memory Internals to High-Performance Modern C++ (C++11 through C++20/23)</p>
+    <div class="meta-grid">
+      <div><strong>TOPIC:</strong> Systems & OOP in C++</div>
+      <div><strong>LEVEL:</strong> Comprehensive / Technical</div>
+      <div><strong>STANDARDS:</strong> C++98 / 11 / 14 / 17 / 20 / 23</div>
+      <div><strong>FOCUS:</strong> RAII, Memory, STL, OOP, Templates</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: COMPILATION MODEL & MEMORY ARCHITECTURE -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2 class="section-title">Compilation Model & Process Memory Layout</h2>
+    </div>
+    
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">C++ Build Pipeline (Source to Binary) <span class="card-pill">Toolchain</span></div>
+        <p>The translation from human-readable code to an executable passes through four strictly sequenced phases:</p>
+        <div class="diagram-box">
+[Source .cpp / .h]
+       │  (1) Preprocessor (g++ -E): Expands #include, #define macros, #ifdef
+       ▼
+[Translation Unit (.i)]
+       │  (2) Compiler (g++ -S): Lexing, parsing, AST, optimization -> Assembly
+       ▼
+[Assembly (.s)]
+       │  (3) Assembler (as / g++ -c): Translates assembly to machine code
+       ▼
+[Object File (.o / .obj)]
+       │  (4) Linker (ld / g++): Resolves external symbols, imports static/dynamic
+       ▼       libraries, fixes addresses -> Single Executable / Binary
+[Executable Binary (.exe / elf)]
+        </div>
+        <div class="callout callout-tip">
+          <strong>Key Rule:</strong> Header files (<code class="inline">.h/.hpp</code>) should contain declarations, inline functions, and template definitions. Avoid defining non-inline functions in headers to prevent <em>One Definition Rule (ODR)</em> violation errors during linking.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Virtual Address Space Memory Layout <span class="card-pill">Architecture</span></div>
+        <p>Every standard OS process executes within an isolated virtual memory space:</p>
+        <div class="diagram-box">
+High Memory 0xFFFFFFFF
+┌────────────────────────────────────────┐
+│ Kernel Space (OS reserved)             │
+├────────────────────────────────────────┤
+│ STACK (Grows Downward ▼)                │ -> Local vars, call frames, return IPs
+│   │                                    │    Fastest, automated allocation/free
+│   ▼                                    │
+│       [ Free Unallocated Memory ]      │
+│   ▲                                    │
+│   │                                    │
+│ HEAP (Grows Upward ▲)                  │ -> Dynamic alloc (new, malloc), manual
+├────────────────────────────────────────┤    lifetime, fragmented if unmanaged
+│ BSS Segment                            │ -> Uninitialized global & static vars (0)
+├────────────────────────────────────────┤
+│ Data Segment                           │ -> Initialized global & static vars
+├────────────────────────────────────────┤
+│ Text Segment (Code Segment)            │ -> Read-only machine bytecode, string lits
+└────────────────────────────────────────┘
+Low Memory 0x00000000
+        </div>
+        <ul style="font-size:7.5pt; margin-top:4px;">
+          <li><strong>Stack Allocation:</strong> Instantaneous ($O(1)$) pointer bump, automatically rewound on scope exit. Fixed size (typically 1–8 MB). Overflow causes <code class="inline">Stack Overflow</code>.</li>
+          <li><strong>Heap Allocation:</strong> Slower ($O(1)$ to $O(n)$) free-list lookup, managed via OS syscalls (<code class="inline">brk</code> / <code class="inline">mmap</code>). Flexible size, potential memory leaks.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: CORE SYNTAX, TYPE SYSTEM & POINTER MECHANICS -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2 class="section-title">Core Syntax, Types, References & Pointer Mechanics</h2>
+    </div>
+
+    <div class="three-col">
+      <div class="card">
+        <div class="card-title">Pointers vs References <span class="card-pill">Core</span></div>
+        <table>
+          <tr><th>Feature</th><th>Pointer (<code class="inline">T*</code>)</th><th>Reference (<code class="inline">T&amp;</code>)</th></tr>
+          <tr><td>Can be NULL?</td><td>Yes (<code class="inline">nullptr</code>)</td><td>No (must bind to valid object)</td></tr>
+          <tr><td>Reassignment</td><td>Can point elsewhere</td><td>Cannot be reseated once bound</td></tr>
+          <tr><td>Syntax</td><td>Requires deref <code class="inline">*p</code></td><td>Transparent like normal var</td></tr>
+          <tr><td>Memory</td><td>Has own address</td><td>Shares referent's address (alias)</td></tr>
+        </table>
+        <pre><span class="type">int</span> val = <span class="num">42</span>;
+<span class="type">int</span>* ptr = &amp;val;   <span class="comm">// ptr holds address</span>
+<span class="type">int</span>&amp; ref = val;    <span class="comm">// ref is an alias</span>
+*ptr = <span class="num">100</span>;        <span class="comm">// val is now 100</span>
+ref = <span class="num">200</span>;         <span class="comm">// val is now 200</span></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Const Correctness <span class="card-pill">Safety</span></div>
+        <p>Read pointers right-to-left to decode const qualifiers:</p>
+        <pre><span class="kw">const</span> <span class="type">int</span>* p1 = &amp;a;       <span class="comm">// Data is const</span>
+<span class="comm">// *p1 = 5;  ERROR! Cannot modify target</span>
+p1 = &amp;b;                  <span class="comm">// OK: can reassign pointer</span>
+
+<span class="type">int</span>* <span class="kw">const</span> p2 = &amp;a;       <span class="comm">// Pointer is const</span>
+*p2 = <span class="num">10</span>;                 <span class="comm">// OK: modify data</span>
+<span class="comm">// p2 = &amp;b;  ERROR! Cannot change address</span>
+
+<span class="kw">const</span> <span class="type">int</span>* <span class="kw">const</span> p3 = &amp;a; <span class="comm">// Both are const</span>
+<span class="kw">constexpr</span> <span class="type">int</span> K = <span class="num">10</span> * <span class="num">5</span>; <span class="comm">// Compile-time eval</span></pre>
+        <div class="callout callout-exam">
+          <strong>Pro Tip:</strong> Always qualify member functions that don't alter state as <code class="inline">void print() const</code>.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Modern Type Inference &amp; Casts <span class="card-pill">C++11/17</span></div>
+        <ul style="font-size:7.5pt;">
+          <li><code class="inline">auto</code>: Deduces type from initializer value (strips refs/const unless declared <code class="inline">const auto&amp;</code>).</li>
+          <li><code class="inline">decltype(expr)</code>: Inspects declared type of an expression without evaluating it.</li>
+        </ul>
+        <pre><span class="comm">// Safe Modern Casts:</span>
+<span class="kw">static_cast</span>&lt;<span class="type">double</span>&gt;(intVal);   <span class="comm">// Compile-time cast</span>
+<span class="kw">dynamic_cast</span>&lt;Derived*&gt;(basePtr);<span class="comm">// RTTI safe polymorphic</span>
+<span class="kw">const_cast</span>&lt;<span class="type">int</span>*&gt;(constPtr);     <span class="comm">// Strips constness</span>
+<span class="kw">reinterpret_cast</span>&lt;<span class="type">char</span>*&gt;(uPtr);  <span class="comm">// Bit reinterpretation</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: OBJECT-ORIENTED PROGRAMMING & RULE OF 5 -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2 class="section-title">Object-Oriented Programming (OOP) & Resource Lifecycle</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Class Architecture & The Big Five (Rule of 5 / Rule of 0) <span class="card-pill">Crucial</span></div>
+        <p>If a class manages an explicit raw resource (heap memory, socket, file descriptor), you must define or delete all five special member functions:</p>
+        <pre><span class="kw">class</span> <span class="type">Buffer</span> {
+<span class="kw">private</span>:
+    <span class="type">size_t</span> m_size;
+    <span class="type">int</span>*   m_data;
+<span class="kw">public</span>:
+    <span class="comm">// 1. Constructor</span>
+    <span class="type">Buffer</span>(<span class="type">size_t</span> sz) : m_size(sz), m_data(<span class="kw">new</span> <span class="type">int</span>[sz]{}) {}
+
+    <span class="comm">// 2. Destructor</span>
+    ~<span class="type">Buffer</span>() { <span class="kw">delete</span>[] m_data; }
+
+    <span class="comm">// 3. Copy Constructor (Deep Copy)</span>
+    <span class="type">Buffer</span>(<span class="kw">const</span> <span class="type">Buffer</span>&amp; o) : m_size(o.m_size), m_data(<span class="kw">new</span> <span class="type">int</span>[o.m_size]) {
+        std::copy(o.m_data, o.m_data + m_size, m_data);
+    }
+
+    <span class="comm">// 4. Copy Assignment Operator (Copy-and-Swap idiom)</span>
+    <span class="type">Buffer</span>&amp; <span class="kw">operator</span>=(<span class="type">Buffer</span> o) {
+        swap(*<span class="kw">this</span>, o);
+        <span class="kw">return</span> *<span class="kw">this</span>;
+    }
+
+    <span class="comm">// 5. Move Constructor (Resource Transfer - no allocation!)</span>
+    <span class="type">Buffer</span>(<span class="type">Buffer</span>&amp;&amp; o) <span class="kw">noexcept</span> : m_size(o.m_size), m_data(o.m_data) {
+        o.m_data = <span class="kw">nullptr</span>;  <span class="comm">// Neutralize zombie source</span>
+        o.m_size = <span class="num">0</span>;
+    }
+};</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Value Categories & Move Semantics <span class="card-pill">C++11</span></div>
+        <p>Understanding <strong>lvalues</strong> and <strong>rvalues</strong> is the key to zero-copy performance:</p>
+        <ul style="font-size:7.5pt;">
+          <li><strong>lvalue (Left Value):</strong> Has an identifiable identity / memory address (e.g. named variables <code class="inline">x</code>, <code class="inline">str</code>, <code class="inline">*ptr</code>). Can take its address <code class="inline">&amp;x</code>.</li>
+          <li><strong>rvalue (Right Value):</strong> Temporary object, expression result, or literal that has no persistent address (e.g. <code class="inline">42</code>, <code class="inline">x + y</code>, temporary returned objects).</li>
+          <li><strong>Rvalue Reference (<code class="inline">T&amp;&amp;</code>):</strong> Binds to temporaries, enabling stealing resources instead of deep-copying.</li>
+          <li><code class="inline">std::move(x)</code>: Casts an lvalue unconditionally to an rvalue reference (<code class="inline">static_cast&lt;T&amp;&amp;&gt;(x)</code>). Does NOT move anything itself; it simply signals that <code class="inline">x</code> can be pilfered!</li>
+        </ul>
+        <div class="callout callout-warn">
+          <strong>Rule of Zero:</strong> Prefer designing classes that rely exclusively on standard components (<code class="inline">std::vector</code>, <code class="inline">std::string</code>, <code class="inline">std::unique_ptr</code>). They handle all 5 operations automatically with zero manual bugs!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 4: POLYMORPHISM, VTABLE & VIRTUAL INTERNALS -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2 class="section-title">Polymorphism, Virtual Tables & Object Layout</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Static vs Dynamic Polymorphism <span class="card-pill">Theory</span></div>
+        <table>
+          <tr><th>Category</th><th>Mechanism</th><th>Binding Time</th><th>Cost</th></tr>
+          <tr><td><strong>Static</strong></td><td>Templates, Function Overloading</td><td>Compile-time</td><td>Zero runtime overhead, larger binary (code bloat)</td></tr>
+          <tr><td><strong>Dynamic</strong></td><td>Virtual Functions, Inheritance</td><td>Runtime (vtable dispatch)</td><td>1 pointer indirection per call, 1 vptr per instance</td></tr>
+        </table>
+        <pre><span class="kw">class</span> <span class="type">Shape</span> {
+<span class="kw">public</span>:
+    <span class="kw">virtual</span> <span class="type">void</span> <span class="fn">draw</span>() <span class="kw">const</span> = <span class="num">0</span>; <span class="comm">// Pure virtual -> Abstract class</span>
+    <span class="kw">virtual</span> ~<span class="type">Shape</span>() = <span class="kw">default</span>;     <span class="comm">// ALWAYS virtual destructor!</span>
+};
+<span class="kw">class</span> <span class="type">Circle</span> : <span class="kw">public</span> <span class="type">Shape</span> {
+<span class="kw">public</span>:
+    <span class="type">void</span> <span class="fn">draw</span>() <span class="kw">const</span> <span class="kw">override</span> { std::cout &lt;&lt; <span class="str">"Circle"</span>; }
+};</pre>
+        <div class="callout callout-danger">
+          <strong>Mandatory Virtual Destructor:</strong> If deleting a derived object via a base pointer (<code class="inline">Shape* s = new Circle(); delete s;</code>), the base destructor MUST be <code class="inline">virtual</code>. Otherwise, only the base destructor runs, causing UB and memory leaks!
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Virtual Table (vtable) & vptr Internals <span class="card-pill">Deep Dive</span></div>
+        <p>How dynamic dispatch works under the hood at machine level:</p>
+        <div class="diagram-box">
+Instance in Memory: Circle Object
+┌─────────────────────────────────┐
+│ __vptr (8 bytes pointer)        │───┐
+├─────────────────────────────────┤   │
+│ m_radius (8 bytes double)       │   │
+└─────────────────────────────────┘   │
+                                      ▼
+Virtual Method Table (vtable) [Read-Only Data Segment]
+┌──────────────────────────────────────────────────┐
+│ [0]: &Circle::~Circle()  (Destructor address)    │
+├──────────────────────────────────────────────────┤
+│ [1]: &Circle::draw()     (Overridden draw)       │
+├──────────────────────────────────────────────────┤
+│ [2]: &Shape::area()      (Inherited base func)   │
+└──────────────────────────────────────────────────┘
+Invocation: ptr->draw()  ==>  (*(ptr->__vptr[1]))(ptr);
+        </div>
+        <div class="callout callout-tip">
+          <strong>Diamond Problem Resolution:</strong> When Class D inherits from B and C, both inheriting from A, use <code class="inline">class B : virtual public A</code> to guarantee only one shared instance of Base A exists in memory!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: MODERN MEMORY MANAGEMENT (SMART POINTERS & RAII) -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2 class="section-title">RAII & Smart Pointer Architecture</h2>
+    </div>
+
+    <div class="three-col">
+      <div class="card">
+        <div class="card-title">std::unique_ptr <span class="card-pill">Sole Ownership</span></div>
+        <p>Zero-cost abstraction. Unique, non-copyable ownership. Automatically deletes object when falling out of scope.</p>
+        <pre><span class="comm">// Construction (C++14):</span>
+<span class="kw">auto</span> p = std::make_unique&lt;<span class="type">Widget</span>&gt;(<span class="num">10</span>);
+
+<span class="comm">// Cannot copy!</span>
+<span class="comm">// auto p2 = p; // Compile Error!</span>
+
+<span class="comm">// Ownership transfer:</span>
+<span class="kw">auto</span> p2 = std::move(p); <span class="comm">// p is now null</span>
+p2-&gt;execute();</pre>
+        <p style="font-size:7.2pt; color:#64748b; margin-top:2px;">Cost: Exactly identical to raw pointer in size and runtime efficiency!</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">std::shared_ptr <span class="card-pill">Shared Reference Counting</span></div>
+        <p>Multiple owners manage single heap object via a heap-allocated <strong>Control Block</strong>.</p>
+        <pre><span class="kw">auto</span> s1 = std::make_shared&lt;<span class="type">Node</span>&gt;(<span class="num">42</span>);
+<span class="kw">auto</span> s2 = s1; <span class="comm">// Ref count = 2</span>
+<span class="comm">// Object freed when last shared_ptr dies</span></pre>
+        <div class="diagram-box">
+shared_ptr s1 ──┐
+shared_ptr s2 ──┴─► [Control Block]
+                     - Strong Count: 2
+                     - Weak Count: 0
+                     - Managed Object ptr
+        </div>
+        <p style="font-size:7.2pt; color:#64748b;">Always use <code class="inline">make_shared</code> to allocate object &amp; control block in one contiguous chunk.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">std::weak_ptr <span class="card-pill">Breaking Cycles</span></div>
+        <p>Non-owning observer. Does not increment strong reference count. Used to break circular dependencies.</p>
+        <pre><span class="kw">class</span> <span class="type">Node</span> {
+<span class="kw">public</span>:
+    std::shared_ptr&lt;<span class="type">Node</span>&gt; next;
+    std::weak_ptr&lt;<span class="type">Node</span>&gt;   prev; <span class="comm">// Break cycle!</span>
+};
+
+<span class="kw">if</span> (<span class="kw">auto</span> locked = w.lock()) {
+    locked-&gt;doWork(); <span class="comm">// Safely promoted</span>
+} <span class="kw">else</span> {
+    <span class="comm">// Object already destroyed!</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 6: TEMPLATES & METAPROGRAMMING -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2 class="section-title">Generic Programming: Templates & C++20 Concepts</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Function & Class Templates <span class="card-pill">Generics</span></div>
+        <pre><span class="comm">// Generic Pair Class</span>
+<span class="kw">template</span> &lt;<span class="kw">typename</span> <span class="type">T</span>, <span class="kw">typename</span> <span class="type">U</span> = <span class="type">int</span>&gt;
+<span class="kw">class</span> <span class="type">Pair</span> {
+<span class="kw">public</span>:
+    <span class="type">T</span> first;
+    <span class="type">U</span> second;
+    <span class="type">Pair</span>(<span class="type">T</span> f, <span class="type">U</span> s) : first(f), second(s) {}
+};
+
+<span class="comm">// Variadic Template with Fold Expression (C++17)</span>
+<span class="kw">template</span> &lt;<span class="kw">typename</span>... <span class="type">Args</span>&gt;
+<span class="kw">auto</span> <span class="fn">sumAll</span>(<span class="type">Args</span>... args) {
+    <span class="kw">return</span> (... + args); <span class="comm">// Unary right fold: (1 + (2 + 3))</span>
+}</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-title">C++20 Concepts &amp; Constraints <span class="card-pill">Modern</span></div>
+        <p>Replaces cryptic template compiler errors with readable type contract constraints:</p>
+        <pre><span class="prep">#include</span> <span class="str">&lt;concepts&gt;</span>
+
+<span class="comm">// Define custom concept</span>
+<span class="kw">template</span> &lt;<span class="kw">typename</span> <span class="type">T</span>&gt;
+<span class="kw">concept</span> <span class="type">Numeric</span> = std::is_arithmetic_v&lt;<span class="type">T</span>&gt;;
+
+<span class="comm">// Constrained Template Function</span>
+<span class="kw">template</span> &lt;<span class="type">Numeric</span> <span class="type">T</span>&gt;
+<span class="type">T</span> <span class="fn">multiply</span>(<span class="type">T</span> a, <span class="type">T</span> b) {
+    <span class="kw">return</span> a * b;
+}
+<span class="comm">// multiply("hello", "world"); // Clean compile error!</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 7: STANDARD TEMPLATE LIBRARY (STL) -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2 class="section-title">The Standard Template Library (STL) Architecture</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">STL Container Taxonomy & Time Complexity <span class="card-pill">Complexity</span></div>
+        <table>
+          <tr><th>Container</th><th>Internal Structure</th><th>Access</th><th>Insert / Erase</th></tr>
+          <tr><td><code class="inline">std::vector</code></td><td>Dynamic contiguous array</td><td>$O(1)$ random</td><td>$O(1)$ back amortized, $O(n)$ middle</td></tr>
+          <tr><td><code class="inline">std::deque</code></td><td>Array of fixed-size chunks</td><td>$O(1)$ random</td><td>$O(1)$ at front &amp; back</td></tr>
+          <tr><td><code class="inline">std::list</code></td><td>Doubly linked list</td><td>$O(n)$ linear</td><td>$O(1)$ given iterator</td></tr>
+          <tr><td><code class="inline">std::map</code></td><td>Red-Black Tree (Self-balancing BST)</td><td>$O(\log n)$</td><td>$O(\log n)$ (keys sorted)</td></tr>
+          <tr><td><code class="inline">std::unordered_map</code></td><td>Hash Table (buckets &amp; chaining)</td><td>$O(1)$ avg, $O(n)$ worst</td><td>$O(1)$ avg, $O(n)$ worst</td></tr>
+        </table>
+        <div class="callout callout-tip">
+          <strong>Default Recommendation:</strong> Default to <code class="inline">std::vector</code> for 90% of use cases. Contiguous memory provides unbeatable CPU cache locality compared to pointer-chasing node containers.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Lambda Expressions & Essential STL Algorithms <span class="card-pill">Functional</span></div>
+        <p>Lambda Syntax: <code class="inline">[capture](parameters) mutable -&gt; return_type { body }</code></p>
+        <ul style="font-size:7.5pt;">
+          <li><code class="inline">[]</code> No captures | <code class="inline">[=]</code> Capture all by value | <code class="inline">[&amp;]</code> Capture all by reference</li>
+          <li><code class="inline">[x, &amp;y]</code> Explicit capture: <code class="inline">x</code> by value, <code class="inline">y</code> by ref</li>
+        </ul>
+        <pre><span class="type">std::vector</span>&lt;<span class="type">int</span>&gt; v = {<span class="num">5</span>, <span class="num">2</span>, <span class="num">8</span>, <span class="num">1</span>, <span class="num">9</span>};
+
+<span class="comm">// 1. std::sort with lambda comparator</span>
+std::sort(v.begin(), v.end(), [](<span class="type">int</span> a, <span class="type">int</span> b) { <span class="kw">return</span> a &gt; b; });
+
+<span class="comm">// 2. std::find_if</span>
+<span class="kw">auto</span> it = std::find_if(v.begin(), v.end(), [](<span class="type">int</span> n) { <span class="kw">return</span> n % <span class="num">2</span> == <span class="num">0</span>; });
+
+<span class="comm">// 3. std::transform (map operation)</span>
+<span class="type">std::vector</span>&lt;<span class="type">int</span>&gt; sq(v.size());
+std::transform(v.begin(), v.end(), sq.begin(), [](<span class="type">int</span> x) { <span class="kw">return</span> x * x; });
+
+<span class="comm">// 4. std::accumulate (reduce / fold)</span>
+<span class="type">int</span> sum = std::accumulate(v.begin(), v.end(), <span class="num">0</span>);</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 8: CONCURRENCY & MULTITHREADING -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2 class="section-title">Modern Concurrency & Thread Synchronization</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Thread Management & Data Race Prevention <span class="card-pill">Threading</span></div>
+        <pre><span class="prep">#include</span> <span class="str">&lt;thread&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;mutex&gt;</span>
+
+<span class="type">std::mutex</span> g_mtx;
+<span class="type">int</span> counter = <span class="num">0</span>;
+
+<span class="type">void</span> <span class="fn">safeIncrement</span>() {
+    <span class="comm">// RAII Lock: locks on init, unlocks automatically on exit</span>
+    <span class="type">std::lock_guard</span>&lt;<span class="type">std::mutex</span>&gt; lock(g_mtx);
+    ++counter;
+}
+
+<span class="type">int</span> <span class="fn">main</span>() {
+    <span class="type">std::thread</span> t1(safeIncrement);
+    <span class="type">std::thread</span> t2(safeIncrement);
+    t1.join();  <span class="comm">// Block until t1 finishes</span>
+    t2.join();
+}</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Atomics, Async & Thread Safety Checklist <span class="card-pill">Lock-Free</span></div>
+        <ul style="font-size:7.5pt;">
+          <li><code class="inline">std::atomic&lt;T&gt;</code>: Lock-free primitive operations backed by hardware atomic CPU instructions (<code class="inline">lock xadd</code>, <code class="inline">CMPXCHG</code>).</li>
+          <li><code class="inline">std::async</code>: Launches task asynchronously, returns a <code class="inline">std::future&lt;T&gt;</code> that blocks on <code class="inline">.get()</code>.</li>
+          <li><strong>Deadlock Prevention:</strong> Always acquire multiple mutexes in identical order across all threads, or use <code class="inline">std::scoped_lock lock(mtx1, mtx2);</code> (C++17 deadlock-free lock).</li>
+        </ul>
+        <pre><span class="type">std::atomic</span>&lt;<span class="type">int</span>&gt; atomicCounter{<span class="num">0</span>};
+atomicCounter.fetch_add(<span class="num">1</span>, std::memory_order_relaxed);
+
+<span class="comm">// Async task with future</span>
+<span class="kw">auto</span> fut = std::async(std::launch::async, []() { <span class="kw">return</span> <span class="num">42</span>; });
+<span class="type">int</span> result = fut.get(); <span class="comm">// Retrieves value</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 9: COMMON PITFALLS & CHEAT SHEET -->
+  <div class="section-container">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <h2 class="section-title">Critical Pitfalls, Undefined Behavior & Quick Reference</h2>
+    </div>
+
+    <div class="three-col">
+      <div class="card">
+        <div class="card-title">Memory Pitfalls <span class="card-pill">Critical</span></div>
+        <ul style="font-size:7.3pt;">
+          <li><strong>Dangling Pointer:</strong> Accessing memory after <code class="inline">delete ptr;</code>. Fix: Set <code class="inline">ptr = nullptr;</code> or use smart pointers.</li>
+          <li><strong>Double Free:</strong> Calling delete twice on the same address. Causes heap corruption crash.</li>
+          <li><strong>Memory Leak:</strong> Allocating via <code class="inline">new</code> without matching <code class="inline">delete</code> before losing scope.</li>
+          <li><strong>Iterator Invalidation:</strong> Modifying a vector (<code class="inline">push_back</code>) while iterating through it may trigger reallocation, invalidating all existing iterators!</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Undefined Behavior (UB) <span class="card-pill">Danger</span></div>
+        <ul style="font-size:7.3pt;">
+          <li>Dereferencing a null or uninitialized pointer (<code class="inline">*nullptr</code>).</li>
+          <li>Signed integer overflow (e.g. <code class="inline">INT_MAX + 1</code> is UB in C++).</li>
+          <li>Out-of-bounds array indexing (<code class="inline">arr[10]</code> on size 5). Use <code class="inline">v.at(i)</code> for bounds checking.</li>
+          <li>Returning a pointer/reference to a local stack variable.</li>
+          <li>Data races (two concurrent threads accessing memory where at least one writes without synchronization).</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Modern C++ Best Practice Rules <span class="card-pill">Summary</span></div>
+        <ul style="font-size:7.3pt;">
+          <li>Never use raw <code class="inline">new</code> / <code class="inline">delete</code>; wrap in <code class="inline">std::unique_ptr</code>.</li>
+          <li>Pass large read-only objects by <code class="inline">const T&amp;</code>.</li>
+          <li>Mark single-argument constructors <code class="inline">explicit</code> to prevent implicit conversions.</li>
+          <li>Use <code class="inline">nullptr</code>, never <code class="inline">NULL</code> or <code class="inline">0</code>.</li>
+          <li>Enable compiler warnings: <code class="inline">-Wall -Wextra -Wpedantic -Werror</code>.</li>
+          <li>Run Sanitizers: <code class="inline">-fsanitize=address,undefined</code>.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:6px;">
+    <div class="card-title">Modern C++ Standards Quick Reference Matrix <span class="card-pill">Evolution</span></div>
+    <table>
+      <tr><th>Standard</th><th>Year</th><th>Major Highlights</th></tr>
+      <tr><td><strong>C++11</strong></td><td>2011</td><td>Move semantics, auto, lambdas, smart pointers, nullptr, constexpr, thread support</td></tr>
+      <tr><td><strong>C++14</strong></td><td>2014</td><td>Generic lambdas, return type deduction, make_unique, relaxed constexpr</td></tr>
+      <tr><td><strong>C++17</strong></td><td>2017</td><td>Structured bindings, std::optional, std::variant, std::string_view, if constexpr, fold expressions</td></tr>
+      <tr><td><strong>C++20</strong></td><td>2020</td><td>Concepts, Ranges, Coroutines, Modules, spaceship operator &lt;=&gt;, consteval, std::format</td></tr>
+      <tr><td><strong>C++23</strong></td><td>2023</td><td>std::print, deducing this, std::expected, multidimensional subscript operator []</td></tr>
+    </table>
+  </div>
+
+</body>
+</html>

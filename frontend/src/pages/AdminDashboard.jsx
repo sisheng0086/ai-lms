@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import ConfirmModal from '../components/ConfirmModal';
+import ToastNotification from '../components/ToastNotification';
+import DocumentPreviewModal from '../components/DocumentPreviewModal';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -43,6 +46,18 @@ const AdminDashboard = () => {
   const [previewNote, setPreviewNote] = useState(null);
   const [previewNoteContent, setPreviewNoteContent] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Custom Confirmation Modal & Toast state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    confirmColor: '#ef4444',
+    icon: '🗑️',
+    onConfirm: null
+  });
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Check auth
   useEffect(() => {
@@ -255,15 +270,24 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleOpenPreviewNote = async (note) => {
-    setPreviewNote(note);
+  const handleOpenPreviewNote = async (noteOrId, fallbackTitle = '') => {
+    let noteObj;
+    if (typeof noteOrId === 'object' && noteOrId !== null) {
+      noteObj = noteOrId;
+    } else {
+      const found = notesList.find(n => n.id === noteOrId);
+      noteObj = found || { id: noteOrId, title: fallbackTitle, file_name: fallbackTitle };
+    }
+    setPreviewNote(noteObj);
     setLoadingPreview(true);
     setPreviewNoteContent('');
     try {
-      const res = await fetch(`${API_URL}/notes/${note.id}/content`);
+      const res = await fetch(`${API_URL}/notes/content/${noteObj.id}`);
       if (res.ok) {
         const d = await res.json();
         setPreviewNoteContent(d.content || 'No text extracted from this note.');
+      } else {
+        setPreviewNoteContent('Failed to load note content for preview.');
       }
     } catch {
       setPreviewNoteContent('Error loading note content.');
@@ -272,61 +296,91 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDeleteNote = async (noteId, noteTitle) => {
-    if (!window.confirm(`Are you sure you want to permanently delete "${noteTitle || 'this lecture note'}"?\n\nThis will remove it from all student AI Study Companions.`)) {
-      return;
-    }
-    try {
-      const res = await fetch(`${API_URL}/notes/${noteId}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        if (previewNote && previewNote.id === noteId) {
-          setPreviewNote(null);
+  const handleDeleteNote = (noteId, noteTitle) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Lecture Note?',
+      message: `Are you sure you want to permanently delete "${noteTitle || 'this lecture note'}"?\n\nThis will remove it from all student AI Study Companions and the course database.`,
+      confirmText: 'Yes, Delete Note',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '🗑️',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/notes/${noteId}`, {
+            method: 'DELETE'
+          });
+          const data = await res.json();
+          if (res.ok && data.status === 'success') {
+            if (previewNote && previewNote.id === noteId) {
+              setPreviewNote(null);
+            }
+            fetchNotes();
+            fetchStats();
+            setToastMessage({ type: 'success', title: 'Deleted', message: 'Lecture note deleted successfully.' });
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: data.detail || 'Failed to delete note.' });
+          }
+        } catch (err) {
+          console.error('Error deleting note:', err);
+          setToastMessage({ type: 'error', title: 'Error', message: 'Network error while deleting note.' });
         }
-        fetchNotes();
-        fetchStats();
-      } else {
-        alert(data.detail || 'Failed to delete note.');
       }
-    } catch (err) {
-      console.error('Error deleting note:', err);
-      alert('Network error while deleting note.');
-    }
+    });
   };
 
-  const handleClearAllNotes = async () => {
-    if (!window.confirm("Are you sure you want to CLEAR ALL lecture notes across the system? This action cannot be undone.")) return;
-    try {
-      const res = await fetch(`${API_URL}/notes/all/clear`, { method: 'DELETE' });
-      const d = await res.json();
-      if (res.ok) {
-        fetchNotes();
-        fetchStats();
-        alert(d.message || "All notes cleared.");
-      } else {
-        alert(d.detail || "Failed to clear notes.");
+  const handleClearAllNotes = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Clear All Lecture Notes?',
+      message: "Are you sure you want to CLEAR ALL lecture notes across the system? This action cannot be undone.",
+      confirmText: 'Yes, Clear All Notes',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '⚠️',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/notes/all/clear`, { method: 'DELETE' });
+          const d = await res.json();
+          if (res.ok) {
+            fetchNotes();
+            fetchStats();
+            if (previewNote) setPreviewNote(null);
+            setToastMessage({ type: 'success', title: 'Cleared', message: d.message || "All notes cleared successfully." });
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: d.detail || "Failed to clear notes." });
+          }
+        } catch {
+          setToastMessage({ type: 'error', title: 'Error', message: "Network error while clearing notes." });
+        }
       }
-    } catch {
-      alert("Network error.");
-    }
+    });
   };
 
-  const handleClearAllQuestions = async () => {
-    if (!window.confirm("Are you sure you want to CLEAR ALL student questions and lecturer replies?")) return;
-    try {
-      const res = await fetch(`${API_URL}/contact/lecturer/all/clear`, { method: 'DELETE' });
-      const d = await res.json();
-      if (res.ok) {
-        fetchStats();
-        alert(d.message || "All student questions and replies cleared.");
-      } else {
-        alert(d.detail || "Failed to clear questions.");
+  const handleClearAllQuestions = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Clear All Student Q&A?',
+      message: "Are you sure you want to CLEAR ALL student questions and lecturer replies across the system?",
+      confirmText: 'Yes, Clear All Questions',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '💬',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/contact/lecturer/all/clear`, { method: 'DELETE' });
+          const d = await res.json();
+          if (res.ok) {
+            fetchStats();
+            setToastMessage({ type: 'success', title: 'Cleared', message: d.message || "All student questions and replies cleared." });
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: d.detail || "Failed to clear questions." });
+          }
+        } catch {
+          setToastMessage({ type: 'error', title: 'Error', message: "Network error while clearing questions." });
+        }
       }
-    } catch {
-      alert("Network error.");
-    }
+    });
   };
 
   const filteredUsers = usersList.filter(u => {
@@ -1123,71 +1177,37 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      {/* MODAL: PREVIEW NOTE */}
-      {previewNote && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div className="card" style={{ maxWidth: '850px', width: '100%', height: '80vh', display: 'flex', flexDirection: 'column', margin: 0, padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.1rem' }}>👁️ Note Preview: {previewNote.subject_code} — {previewNote.title}</h3>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{previewNote.file_name}</span>
-              </div>
-              <button
-                onClick={() => setPreviewNote(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer', fontWeight: 800 }}
-              >
-                ✕
-              </button>
-            </div>
+      {/* MODAL: PREVIEW NOTE (PDF, Images & Extracted AI Text) */}
+      <DocumentPreviewModal
+        isOpen={Boolean(previewNote)}
+        note={previewNote}
+        extractedText={previewNoteContent}
+        loadingText={loadingPreview}
+        onClose={() => setPreviewNote(null)}
+        onDelete={() => handleDeleteNote(previewNote.id, previewNote.title)}
+        canDelete={true}
+        apiUrl={API_URL}
+        role="admin"
+      />
 
-            <div style={{ flexGrow: 1, overflowY: 'auto', background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-              {loadingPreview ? 'Extracting note text...' : previewNoteContent}
-            </div>
+      {/* Custom Confirmation Modal (replaces browser confirm) */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        confirmColor={confirmModal.confirmColor}
+        icon={confirmModal.icon}
+        onConfirm={confirmModal.onConfirm}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '14px' }}>
-              <button
-                type="button"
-                onClick={() => handleDeleteNote(previewNote.id, previewNote.title)}
-                className="btn-secondary"
-                style={{
-                  width: 'auto',
-                  padding: '6px 16px',
-                  color: '#ef4444',
-                  borderColor: 'rgba(239, 68, 68, 0.4)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-                title="Permanently remove this note from system"
-              >
-                🗑️ Delete Note
-              </button>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <a
-                  href={`${API_URL}/notes/${previewNote.id}/download`}
-                  download={previewNote.file_name}
-                  className="btn-primary"
-                  style={{ width: 'auto', padding: '6px 16px', textDecoration: 'none' }}
-                >
-                  ⬇️ Download Original File
-                </a>
-                <button onClick={() => setPreviewNote(null)} className="btn-secondary" style={{ padding: '6px 16px' }}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Custom Toast Notification (replaces browser alert) */}
+      <ToastNotification
+        toast={toastMessage}
+        onClose={() => setToastMessage(null)}
+      />
 
       {/* MODAL: ZOOM SCREENSHOT */}
       {viewScreenshotUrl && (
