@@ -265,29 +265,59 @@ const StudentDashboard = () => {
     }
   };
 
-  const getDeadlineBadge = (dueDate, isSubmitted) => {
+  const renderDeadlineBadge = (dueDate, isSubmitted) => {
     if (isSubmitted) {
-      return { text: '✓ Submitted', color: '#10b981', bg: 'rgba(16, 185, 129, 0.18)' };
+      return (
+        <span style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
+          ✅ Submitted
+        </span>
+      );
     }
     if (!dueDate) {
-      return { text: '⏳ Pending Submission', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)' };
+      return (
+        <span style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
+          ⏳ Pending Submission
+        </span>
+      );
     }
     const dueTime = new Date(dueDate).getTime();
     if (isNaN(dueTime)) {
-      return { text: `📅 Due: ${dueDate}`, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.18)' };
+      return (
+        <span style={{ background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
+          📅 Due: {dueDate}
+        </span>
+      );
     }
     const diffDays = Math.ceil((dueTime - Date.now()) / (1000 * 60 * 60 * 24));
     if (diffDays < 0) {
-      return { text: `🔴 Overdue (${Math.abs(diffDays)}d ago)`, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' };
+      return (
+        <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
+          🔴 Overdue ({Math.abs(diffDays)}d ago)
+        </span>
+      );
     }
     if (diffDays === 0) {
-      return { text: '⚠️ Due Today!', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' };
+      return (
+        <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
+          ⚠️ Due Today!
+        </span>
+      );
     }
     if (diffDays <= 3) {
-      return { text: `⏳ Due in ${diffDays} day${diffDays > 1 ? 's' : ''}`, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.2)' };
+      return (
+        <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
+          ⏳ Due in {diffDays} day{diffDays > 1 ? 's' : ''}
+        </span>
+      );
     }
-    return { text: `📅 Due in ${diffDays} days`, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)' };
+    return (
+      <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
+        📅 Due in {diffDays} days
+      </span>
+    );
   };
+
+  const getDeadlineBadge = renderDeadlineBadge;
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -3036,16 +3066,7 @@ const StudentDashboard = () => {
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            {getDeadlineBadge(a.due_date, isSubmitted)}
-                            {isSubmitted ? (
-                              <span style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
-                                ✅ Submitted
-                              </span>
-                            ) : (
-                              <span style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', padding: '5px 12px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700 }}>
-                                ⏳ Pending Submission
-                              </span>
-                            )}
+                            {renderDeadlineBadge(a.due_date, isSubmitted)}
                           </div>
                         </div>
 

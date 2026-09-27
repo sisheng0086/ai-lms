@@ -7,6 +7,7 @@ import StudentDashboard from './pages/StudentDashboard';
 import LecturerDashboard from './pages/LecturerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ServerDownPage from './pages/ServerDownPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -32,8 +33,17 @@ function App() {
     return () => clearInterval(interval);
   }, [checkServer]);
 
-  // Show nothing until first check completes
-  if (!checked) return null;
+  // Show a dark loading screen until initial connectivity check completes (prevent blank white flash)
+  if (!checked) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#94a3b8', fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+          <div style={{ fontSize: '2.2rem' }}>🎓</div>
+          <div style={{ fontSize: '0.92rem', fontWeight: 600, color: '#f8fafc' }}>Loading AI-LMS Portal...</div>
+        </div>
+      </div>
+    );
+  }
 
   // Show maintenance page when backend is unreachable
   if (!serverOnline) {
@@ -41,18 +51,20 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/student" element={<StudentDashboard />} />
-        <Route path="/lecturer" element={<LecturerDashboard />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/student" element={<StudentDashboard />} />
+          <Route path="/lecturer" element={<LecturerDashboard />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          {/* Fallback route */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
