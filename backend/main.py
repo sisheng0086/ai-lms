@@ -560,7 +560,7 @@ def list_all_notes():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT ln.id, ln.subject_code, ln.title, ln.file_name, ln.file_path, 
+                SELECT ln.id, ln.lecturer_id, ln.subject_code, ln.title, ln.file_name, ln.file_path, 
                        ln.file_size_kb, ln.uploaded_at, u.full_name as lecturer_name
                 FROM lecture_notes ln
                 LEFT JOIN users u ON ln.lecturer_id = u.id
@@ -578,19 +578,19 @@ def build_comprehensive_study_guide(subject_code: str, title: str, file_name: st
     return (
         f"Chapter Overview & Study Guide: {subject_code} - {title} ({clean_file})\n\n"
         f"1.1 Main Purpose & Introduction (Tujuan Utama):\n"
-        f"The main purpose of {title} ({clean_file}) in course {subject_code} is to establish the foundational starting point (Titik Awal), core objectives, and structured framework for the subject and E-Folio coursework. "
+        f"The main purpose of {title} ({clean_file}) in course {subject_code} is to establish the foundational starting point, core objectives, and structured framework for the subject coursework. "
         f"It guides students on how to define the problem statement, understand the fundamental concepts of {subject_code}, and plan their initial project/study milestones effectively.\n\n"
         f"1.2 Core Learning Objectives:\n"
         f"By studying {title}, students will be able to: (1) Understand the primary purpose, scope, and background of {clean_file} in {subject_code}; "
         f"(2) Identify the key requirements, workflow stages, and documentation standards; and "
-        f"(3) Apply the fundamental theories of {title} to practical lab exercises and E-Folio tasks.\n\n"
+        f"(3) Apply the fundamental theories of {title} to practical lab exercises and coursework tasks.\n\n"
         f"1.3 Key Concepts & Section Breakdown (Section 1.1 - 1.3):\n"
-        f"Section 1.1 focuses on the initial planning (Titik Awal), background research, and identifying the main goal of the topic. "
+        f"Section 1.1 focuses on the initial planning, background research, and identifying the main goal of the topic. "
         f"Section 1.2 covers the methodology, architecture, and step-by-step analysis required to solve problems in {subject_code}. "
         f"Section 1.3 highlights best practices, quality standards, and structured reporting for student submissions.\n\n"
-        f"1.4 Practical Application & E-Folio Guidelines:\n"
+        f"1.4 Practical Application & Guidelines:\n"
         f"Students should organize their work clearly with an introduction, objective statement, analysis of findings, and conclusion. "
-        f"Make sure your Matrix Number, Class Section, and Subject Code ({subject_code}) are clearly included in all assignment and E-Folio submissions.\n\n"
+        f"Make sure your Matrix Number, Class Section, and Subject Code ({subject_code}) are clearly included in all assignment submissions.\n\n"
         f"1.5 Summary & Key Takeaways:\n"
         f"In summary, {title} ({clean_file}) serves as the essential blueprint for mastering {subject_code}, ensuring students understand both the theoretical purpose and practical execution from the very beginning."
     )

@@ -503,11 +503,11 @@ const StudentDashboard = () => {
       .trim();
 
     return [
-      `1.1 Main Purpose & Introduction (Tujuan Utama): The main purpose of ${title} (${cleanFile}) in ${subjectCode} is to establish the foundational starting point (Titik Awal), core objectives, and structured framework for the subject and E-Folio coursework. It guides students on how to define the problem statement, understand the fundamental concepts of ${subjectCode}, and plan their initial project and study milestones effectively.`,
-      `1.2 Core Learning Objectives: By studying ${title} (${cleanFile}), students will be able to: (1) Understand the primary purpose, scope, and background of ${cleanFile} in ${subjectCode}; (2) Identify the key requirements, workflow stages, and documentation standards; and (3) Apply the fundamental theories of ${title} to practical lab exercises and E-Folio tasks.`,
-      `1.3 Key Concepts & Section Breakdown (Section 1.1 - 1.3): Section 1.1 focuses on the initial planning (Titik Awal), background research, and identifying the main goal of the topic. Section 1.2 covers the methodology, architecture, and step-by-step analysis required to solve problems in ${subjectCode}. Section 1.3 highlights best practices, quality standards, and structured reporting for student submissions.`,
-      `1.4 Practical Application & E-Folio Guidelines: Students should organize their E-Folio and coursework clearly with an introduction, objective statement, analysis of findings, and conclusion. Ensure your Matrix Number, Class Section, and Subject Code (${subjectCode}) are included in all submissions.`,
-      `1.5 Chapter Summary & Key Takeaways: In summary, ${title} (${cleanFile}) serves as the essential blueprint for mastering ${subjectCode}, ensuring students understand both the theoretical purpose and practical execution from the very beginning.`
+      `1.1 Main Purpose & Introduction: The main purpose of ${title} (${cleanFile}) in course ${subjectCode} is to establish the foundational core concepts, learning objectives, and structured framework for this topic. It guides students on understanding fundamental principles of ${subjectCode} and preparing for assignments and lab assessments.`,
+      `1.2 Core Learning Objectives: By studying ${title} (${cleanFile}), students will be able to: (1) Understand the primary purpose, scope, and technical context of ${cleanFile} in ${subjectCode}; (2) Identify key definitions, technical mechanisms, and standard methodologies; and (3) Apply the fundamental principles of ${title} to practical lab exercises, problem-solving, and coursework.`,
+      `1.3 Key Concepts & Section Breakdown: Section 1 covers foundational principles and system overview. Section 2 focuses on core operations, syntax or architecture, and step-by-step problem solving in ${subjectCode}. Section 3 highlights best practices, error prevention, security or optimization standards, and practical implementation.`,
+      `1.4 Practical Coursework Guidelines: Students should study the theoretical explanations and verify code/hardware/network configurations through hands-on lab practice. Ensure your Matrix Number, Class Section, and Subject Code (${subjectCode}) are included in all submissions.`,
+      `1.5 Chapter Summary & Key Takeaways: In summary, ${title} (${cleanFile}) serves as the essential blueprint for mastering ${subjectCode}, ensuring students understand both the theoretical principles and practical application.`
     ].join("\n\n");
   }, []);
 
@@ -625,14 +625,37 @@ const StudentDashboard = () => {
       return;
     }
 
-    // Normalize common typos & variations
+    // Normalize common typos & variations (handles chpater, cahpter, chaptre, summary typos, etc.)
     const normalizedQuery = userText
       .toLowerCase()
       .replace(/sumarry|sumary|summery|ringkasan|rumusan/g, 'summary')
       .replace(/propos|purpos|porpose|perpose|tujuan|matlamat|objektif/g, 'purpose objective')
-      .replace(/chaper|chaptr|chpter|chap\.?|ch\.?\s*(?=\d)/g, 'chapter ')
+      .replace(/chpater|cahpter|chaptre|chepter|chaper|chaptr|chpter|cptr|cpt|chap\.?|ch\.?\s*(?=\d)/g, 'chapter ')
       .replace(/chapter(\d)/g, 'chapter $1')
       .replace(/artikle|artical|artikel/g, 'article');
+
+    // Check if student is asking about which lecturer uploaded the note
+    const isLecturerInquiry = /\b(who\s+(uploaded|upload|created|posted|shared|made)|who\s+is\s+(the|my)?\s*lecturer|which\s+lecturer|lecturer\s+name|who\s+gave\s+this|lecturers?\s+list)\b/i.test(userText);
+    if (isLecturerInquiry) {
+      const activeTarget = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
+      const lecturerName = activeTarget.lecturer_name || 'Course Lecturer';
+      
+      const allNotesOverview = notesList.map((n) => 
+        `• **${n.subject_code} — ${n.title}**: Uploaded by **${n.lecturer_name || 'Lecturer'}** (File: \`${n.file_name}\`)`
+      ).join('\n');
+
+      setTimeout(() => {
+        const reply =
+          `👨‍🏫 **Note Lecturer & Upload Attribution:**\n\n` +
+          `The currently selected note **${activeTarget.subject_code} — ${activeTarget.title}** was uploaded by **${lecturerName}**.\n\n` +
+          `📚 **All Uploaded Notes & Respective Lecturers (${notesList.length}):**\n` +
+          `${allNotesOverview}\n\n` +
+          `💡 *When multiple lecturers upload notes, the system automatically tracks and displays each lecturer's name on their notes!*`;
+        setMessages(prev => [...prev, { text: reply, sender: "bot", source: "Course Information" }]);
+        speakText(`The current note was uploaded by ${lecturerName}.`);
+      }, 300);
+      return;
+    }
 
     // 2. Check if student is asking to generate 5 quiz questions directly
     if (
@@ -672,7 +695,8 @@ const StudentDashboard = () => {
           t.includes(`bab ${mainChapterNum}`) ||
           t === mainChapterNum ||
           f.includes(`chapter ${mainChapterNum}`) ||
-          f.includes(`topic${mainChapterNum}`)
+          f.includes(`topic${mainChapterNum}`) ||
+          (mainChapterNum === '1' && notesList.length > 0)
         );
       });
 
@@ -689,8 +713,8 @@ const StudentDashboard = () => {
       }
     }
 
-    // 4. Explicit Off-Topic / Out-of-Chapter Subject Blacklist (blocks IoT, coding, sports, weather, etc.)
-    const offTopicBlacklist = /\b(iot|internet of things|arduino|raspberry pi|python|javascript|java|c\+\+|react|html|css|sql|football|soccer|basketball|badminton|fifa|valorant|mobile legends|dota|minecraft|bitcoin|crypto|ethereum|forex|stock market|weather|rain today|temperature|recipe|pizza|burger|calculus|algebra|thermodynamics|quantum|car engine|tesla|iphone|samsung|anime|netflix|movie)\b/i;
+    // 4. Explicit Off-Topic / Out-of-Chapter Subject Blacklist (blocks sports, gaming, entertainment, food, crypto, etc.)
+    const offTopicBlacklist = /\b(football|soccer|basketball|badminton|fifa|valorant|mobile legends|dota|minecraft|roblox|pubg|genshin|bitcoin|crypto|cryptocurrency|ethereum|forex|stock market|weather|rain today|temperature|forecast|recipe|pizza|burger|cooking|cake|calculus|thermodynamics|quantum physics|car engine|tesla|iphone|samsung galaxy|anime|naruto|one piece|netflix|movie|cinema)\b/i;
     if (offTopicBlacklist.test(normalizedQuery)) {
       const activeTarget = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
       setTimeout(() => {
@@ -735,7 +759,7 @@ const StudentDashboard = () => {
     const rawLoaded = cleanPdfExtractedText(noteContentsMap[targetNote.id] || notesContent || "");
     const richStudyGuide = buildClientStudyGuide(targetNote);
     const fullNoteText = rawLoaded.length >= 80 ? rawLoaded : richStudyGuide;
-    const isMelakaEfolio = /kesultanan melayu melaka|titik awal|syahbandar|hukum kanun|mpu21072/i.test(fullNoteText);
+    const isMelakaEfolio = /mpu21072|kesultanan melayu melaka|hukum kanun melaka/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`) && !/dfn|dfc|dfk|it|cs|se|komputer/i.test(targetNote.subject_code || '');
     const sourceLabel = `${targetNote.subject_code} - ${targetNote.title}`;
 
     // =========================================================================
@@ -806,9 +830,10 @@ const StudentDashboard = () => {
       const summaryBullets = logicalSections.slice(0, 6).map((sec, i) => `• **Key Point ${i + 1}:** ${sec.slice(0, 260)}${sec.length > 260 ? '...' : ''}`);
       const genericSummary =
         `📝 **SMART SUMMARY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
-        `📄 *Source File:* ${targetNote.file_name}\n\n` +
+        `📄 *Source File:* \`${targetNote.file_name}\`\n` +
+        `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
         `${summaryBullets.join('\n\n')}`;
-      sendBotAnswer(genericSummary, `Here is the summary note for ${targetNote.title}.`);
+      sendBotAnswer(genericSummary, `Here is the summary note for ${targetNote.title}, uploaded by lecturer ${targetNote.lecturer_name || 'Course Lecturer'}.`);
       return;
     }
 
@@ -1036,15 +1061,17 @@ const StudentDashboard = () => {
     }
 
     // =========================================================================
-    // MODE C: CHAPTER 1 FULL INFO ("ask about Chapter 1 give the info", "explain all 4 articles", "tell me about chapter 1")
+    // MODE C: CHAPTER INFO & OVERVIEW ("ask about Chapter 1", "tell me about chapter 1", "overview", "give me about chapter 1")
     // =========================================================================
     const isChapterInfoRequest =
-      /\b(chapter\s*1|chapter1|1\.1|all\s*4\s*article|four\s*article|4\s*article|empat\s*artikel|full\s*info|info|overview|about\s*this\s*chapter|about\s*this\s*note|give\s*me\s*the\s*note)\b/i.test(normalizedQuery);
+      /\b(chapter\s*\d+|bab\s*\d+|topic\s*\d+|1\.1|all\s*4\s*article|four\s*article|4\s*article|empat\s*artikel|full\s*info|info|overview|about\s*this\s*chapter|about\s*this\s*note|give\s*me\s*the\s*note|give\s*me\s*about\s*chapter|tell\s*me\s*about\s*chapter)\b/i.test(normalizedQuery) ||
+      (/\bchapter\b/i.test(normalizedQuery) && /\b(give|tell|explain|show|what|about|info|guide)\b/i.test(normalizedQuery));
 
-    if (isChapterInfoRequest && isMelakaEfolio) {
+    if (isChapterInfoRequest && isMelakaEfolio && (!mainChapterNum || mainChapterNum === '1')) {
       const fullChapterInfo =
         `📘 **COMPLETE CHAPTER 1 INFORMATION GUIDE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
-        `📄 *Uploaded File:* ${targetNote.file_name} (*Majalah E-Folio MPU21072 Penghayatan Etika & Peradaban · Politeknik Kuching Sarawak*)\n\n` +
+        `📄 *Uploaded File:* ${targetNote.file_name} (*Majalah E-Folio MPU21072 Penghayatan Etika & Peradaban · Politeknik Kuching Sarawak*)\n` +
+        `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
         `**🏛️ Topic & Title:**\n` +
         `• **Topik 6 · Tajuk 4:** *Titik Awal — Peranan Hubungan Perdagangan Zaman Kesultanan Melayu Melaka (1400–1511) dalam Membentuk Titik Awal Masyarakat Majmuk*\n` +
         `• **Theme:** *"Dari Pelabuhan ke Perpaduan"* (From Port to Unity)\n\n` +
@@ -1066,6 +1093,26 @@ const StudentDashboard = () => {
       sendBotAnswer(
         fullChapterInfo,
         "Here is the complete information for Chapter 1, including its theme, key numbers, 2 objectives, and all 4 articles."
+      );
+      return;
+    } else if (isChapterInfoRequest) {
+      // Dynamic chapter overview for technical course notes (C++, Network Security, Hardware, etc.)
+      const logicalSecs = buildLogicalSections(fullNoteText);
+      const overviewBullets = logicalSecs.slice(0, 5).map((sec, i) => `• **Topic Section ${i + 1}:** ${sec.slice(0, 260)}${sec.length > 260 ? '...' : ''}`);
+
+      const fullTechnicalInfo =
+        `📘 **COURSE CHAPTER OVERVIEW: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+        `📄 *Source File:* \`${targetNote.file_name}\`\n` +
+        `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+        `**🎯 Key Topics & Syllabus Coverage:**\n` +
+        (overviewBullets.length > 0
+          ? overviewBullets.join('\n\n')
+          : `This chapter covers essential concepts for **${targetNote.subject_code} (${targetNote.title})**.\nFeel free to ask any specific question from this document!`) +
+        `\n\n💡 *Tip: You can ask specific questions about definitions, syntax, code examples, security protocols, or type "summary" for a full revision sheet!*`;
+
+      sendBotAnswer(
+        fullTechnicalInfo,
+        `Here is the overview for ${targetNote.subject_code} - ${targetNote.title}, uploaded by lecturer ${targetNote.lecturer_name || 'Course Lecturer'}.`
       );
       return;
     }
@@ -1154,10 +1201,14 @@ const StudentDashboard = () => {
 
     // If user asked a question with ZERO matching tokens/synonyms/stems in the chapter and no chapter study intent -> Refuse!
     if (matchedTokens.length === 0 && !hasStudyIntent) {
+      const suggestionsText = isMelakaEfolio
+        ? "Try asking about Chapter 1, its summary note, the 4 articles, Melaka trade, Syahbandar, Hukum Kanun Melaka, 84 languages, Baba-Nyonya, or Malaysia MADANI!"
+        : `Try asking about topics in ${targetNote.subject_code} (${targetNote.title}), or type "summary" for an overview!`;
+
       setTimeout(() => {
         const refusalReply =
           `⚠️ Sorry, I cannot answer this question because it is outside of your uploaded chapter (${targetNote.subject_code} - ${targetNote.title}).\n\n` +
-          `I strictly answer questions based on your uploaded course notes (${availableChaptersText}). Try asking about Chapter 1, its summary note, the 4 articles, Melaka trade, Syahbandar, Hukum Kanun Melaka, 84 languages, Baba-Nyonya, or Malaysia MADANI!`;
+          `I strictly answer questions based on your uploaded course notes (${availableChaptersText}). ${suggestionsText}`;
         setMessages(prev => [...prev, { text: refusalReply, sender: "bot", source: "Chapter Guard" }]);
         speakText("Sorry, I cannot answer this question because it is outside of your uploaded chapter.");
       }, 300);
@@ -1402,14 +1453,22 @@ const StudentDashboard = () => {
             <span style={{ fontSize: '1.3rem' }}>📚</span>
             <div>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>Active Chapter / Note (AI also searches all {notesList.length} uploaded notes):</span>
-              <span style={{ fontWeight: 600, color: '#10b981', fontSize: '0.95rem' }}>
-                {selectedNote ? `${selectedNote.subject_code} - ${selectedNote.title}` : 'Selected Course Material'}
-              </span>
-              {selectedNote?.lecturer_name && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '8px' }}>
-                  (by {selectedNote.lecturer_name})
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
+                <span style={{ fontWeight: 600, color: '#10b981', fontSize: '0.95rem' }}>
+                  {selectedNote ? `${selectedNote.subject_code} - ${selectedNote.title}` : 'Selected Course Material'}
                 </span>
-              )}
+                <span style={{
+                  fontSize: '0.78rem',
+                  color: '#38bdf8',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  fontWeight: 600
+                }}>
+                  👨‍🏫 Lecturer: {selectedNote?.lecturer_name || 'Course Lecturer'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1422,7 +1481,7 @@ const StudentDashboard = () => {
             >
               {notesList.map((n) => (
                 <option key={n.id} value={n.id}>
-                  {n.subject_code} - {n.title}
+                  {n.subject_code} - {n.title} {n.lecturer_name ? `(Lecturer: ${n.lecturer_name})` : ''}
                 </option>
               ))}
             </select>
@@ -1702,7 +1761,7 @@ const StudentDashboard = () => {
             value={inputValue} 
             onChange={(e) => setInputValue(e.target.value)} 
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} 
-            placeholder='Ask anything from your note: "Chapter 1 info", "Summary note", "4 Syahbandar", "84 languages", "Hukum Kanun", "Baba Nyonya"...' 
+            placeholder={selectedNote ? `Ask anything about ${selectedNote.subject_code} (${selectedNote.title}): e.g. "Chapter 1 info", "Summary note", "Who uploaded this note"...` : 'Ask anything from your uploaded lecture notes: e.g. "Chapter 1 info", "Summary note"...'} 
             className="form-input"
           />
           <button 
