@@ -38,9 +38,10 @@ const DocumentPreviewModal = ({
 
   if (!isOpen || !note) return null;
 
+  const isAssignment = Boolean(note.is_assignment || note.type === 'assignment');
   const resolvedApiUrl = apiUrl || (import.meta.env.VITE_API_URL || 'https://ai-lms-production.up.railway.app');
-  const viewUrl = `${resolvedApiUrl}/notes/${note.id}/view`;
-  const downloadUrl = `${resolvedApiUrl}/notes/${note.id}/download`;
+  const viewUrl = note.viewUrl || (isAssignment ? `${resolvedApiUrl}/assignments/${note.id}/view` : `${resolvedApiUrl}/notes/${note.id}/view`);
+  const downloadUrl = note.downloadUrl || (isAssignment ? `${resolvedApiUrl}/assignments/${note.id}/download` : `${resolvedApiUrl}/notes/${note.id}/download`);
 
   const fileName = (note.file_name || note.title || '').toLowerCase();
   const isPdf = fileName.endsWith('.pdf');
@@ -155,7 +156,7 @@ const DocumentPreviewModal = ({
                   transition: 'all 0.15s'
                 }}
               >
-                <span>{isPdf ? '📄 PDF Document' : isImage ? '🖼️ Image View' : '📄 Original File'}</span>
+                <span>{isPdf ? '📄 PDF Document' : isImage ? '🖼️ Image View' : isAssignment ? '📋 Assignment Document' : '📄 Original File'}</span>
               </button>
               <button
                 type="button"
@@ -175,7 +176,7 @@ const DocumentPreviewModal = ({
                   transition: 'all 0.15s'
                 }}
               >
-                <span>📝 AI Extracted Text</span>
+                <span>{isAssignment ? '📝 Instructions & Details' : '📝 AI Extracted Text'}</span>
               </button>
             </div>
 

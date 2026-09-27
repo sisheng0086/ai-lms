@@ -422,6 +422,52 @@ const LecturerDashboard = () => {
     }
   };
 
+  const handleOpenPreviewAssignment = async (assignment) => {
+    if (!assignment) return;
+    const assignObj = {
+      id: assignment.id,
+      is_assignment: true,
+      subject_code: assignment.subject_code,
+      title: assignment.title,
+      file_name: assignment.file_name || `Assignment_${assignment.subject_code || 'Task'}_${assignment.id}.pdf`,
+      viewUrl: `${API_URL}/assignments/${assignment.id}/view`,
+      downloadUrl: `${API_URL}/assignments/${assignment.id}/download`,
+    };
+    setPreviewNote(assignObj);
+    setLoadingPreview(true);
+    setPreviewNoteContent('');
+    try {
+      const res = await fetch(`${API_URL}/assignments/${assignment.id}/content`);
+      if (res.ok) {
+        const d = await res.json();
+        setPreviewNoteContent(d.content || assignment.description || 'No instruction text available.');
+      } else {
+        setPreviewNoteContent(assignment.description || `Assignment: ${assignment.title}`);
+      }
+    } catch {
+      setPreviewNoteContent(assignment.description || `Assignment: ${assignment.title}`);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const handleOpenPreviewSubmission = (submission) => {
+    if (!submission) return;
+    const subObj = {
+      id: submission.id,
+      is_assignment: true,
+      title: `Submission: ${submission.student_name || 'Student'} (${submission.matrix_no || 'N/A'})`,
+      file_name: submission.file_name || `submission_${submission.id}.pdf`,
+      viewUrl: `${API_URL}/submissions/${submission.id}/view`,
+      downloadUrl: `${API_URL}/submissions/${submission.id}/download`,
+    };
+    setPreviewNote(subObj);
+    setLoadingPreview(false);
+    setPreviewNoteContent(
+      `Student: ${submission.student_name || 'Student'}\nMatrix No: ${submission.matrix_no || 'N/A'}\nSubmitted File: ${submission.file_name || 'N/A'}\nSubmitted At: ${new Date(submission.submitted_at).toLocaleString()}\n\nStudent Comments:\n${submission.comment || 'No comments submitted.'}`
+    );
+  };
+
   const handleDeleteNote = (noteId, noteTitle) => {
     setConfirmModal({
       isOpen: true,
@@ -1064,7 +1110,13 @@ const LecturerDashboard = () => {
                         <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '3px 9px', borderRadius: '5px', fontWeight: 700, fontSize: '0.8rem' }}>
                           {a.subject_code}
                         </span>
-                        <strong style={{ fontSize: '1.08rem' }}>{a.title}</strong>
+                        <strong
+                          onClick={() => handleOpenPreviewAssignment(a)}
+                          style={{ fontSize: '1.08rem', cursor: 'pointer', transition: 'color 0.2s' }}
+                          title="Click to preview assignment in browser"
+                        >
+                          {a.title}
+                        </strong>
                       </div>
                       <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
                         {a.due_date && <span>⏰ Due: <strong style={{ color: '#fbbf24' }}>{a.due_date}</strong></span>}
@@ -1074,6 +1126,15 @@ const LecturerDashboard = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPreviewAssignment(a)}
+                        className="btn-secondary"
+                        style={{ fontSize: '0.8rem', padding: '6px 12px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                        title="Preview assignment briefing and question sheet"
+                      >
+                        👁️ Preview
+                      </button>
                       {a.file_name && (
                         <button
                           onClick={() => window.open(`${API_URL}/assignments/${a.id}/download`, '_blank')}
@@ -1146,13 +1207,25 @@ const LecturerDashboard = () => {
                                     </span>
                                   </td>
                                   <td>
-                                    <button
-                                      onClick={() => window.open(`${API_URL}/submissions/${s.id}/download`, '_blank')}
-                                      className="btn-secondary"
-                                      style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                                    >
-                                      ⬇️ {s.file_name}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenPreviewSubmission(s)}
+                                        className="btn-secondary"
+                                        style={{ padding: '5px 8px', fontSize: '0.78rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                                        title="Preview student submission in modal"
+                                      >
+                                        👁️ View
+                                      </button>
+                                      <button
+                                        onClick={() => window.open(`${API_URL}/submissions/${s.id}/download`, '_blank')}
+                                        className="btn-secondary"
+                                        style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                                        title="Download submitted file"
+                                      >
+                                        ⬇️ {s.file_name}
+                                      </button>
+                                    </div>
                                   </td>
                                   <td style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
                                     {s.comment || '—'}
@@ -2085,7 +2158,7 @@ const LecturerDashboard = () => {
         loadingText={loadingPreview}
         onClose={() => setPreviewNote(null)}
         onDelete={() => handleDeleteNote(previewNote.id, previewNote.title)}
-        canDelete={true}
+        canDelete={Boolean(previewNote && !previewNote.is_assignment)}
         apiUrl={API_URL}
         role="lecturer"
       />

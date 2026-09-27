@@ -236,6 +236,35 @@ const StudentDashboard = () => {
     }
   };
 
+  const handleOpenPreviewAssignment = async (assignment) => {
+    if (!assignment) return;
+    const assignObj = {
+      id: assignment.id,
+      is_assignment: true,
+      subject_code: assignment.subject_code,
+      title: assignment.title,
+      file_name: assignment.file_name || `Assignment_${assignment.subject_code || 'Task'}_${assignment.id}.pdf`,
+      viewUrl: `${API_URL}/assignments/${assignment.id}/view`,
+      downloadUrl: `${API_URL}/assignments/${assignment.id}/download`,
+    };
+    setPreviewNote(assignObj);
+    setLoadingPreview(true);
+    setPreviewNoteContent('');
+    try {
+      const res = await fetch(`${API_URL}/assignments/${assignment.id}/content`);
+      if (res.ok) {
+        const d = await res.json();
+        setPreviewNoteContent(d.content || assignment.description || 'No instruction text available.');
+      } else {
+        setPreviewNoteContent(assignment.description || `Assignment: ${assignment.title}`);
+      }
+    } catch {
+      setPreviewNoteContent(assignment.description || `Assignment: ${assignment.title}`);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
   const getDeadlineBadge = (dueDate, isSubmitted) => {
     if (isSubmitted) {
       return { text: '✓ Submitted', color: '#10b981', bg: 'rgba(16, 185, 129, 0.18)' };
@@ -2992,7 +3021,13 @@ const StudentDashboard = () => {
                               <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '3px 10px', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem' }}>
                                 {a.subject_code}
                               </span>
-                              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{a.title}</h3>
+                              <h3
+                                onClick={() => handleOpenPreviewAssignment(a)}
+                                style={{ fontSize: '1.1rem', margin: 0, cursor: 'pointer', transition: 'color 0.2s' }}
+                                title="Click to open and preview assignment"
+                              >
+                                {a.title}
+                              </h3>
                             </div>
                             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                               <span>👨‍🏫 Lecturer: <strong>{a.lecturer_name || 'Lecturer'}</strong></span>
@@ -3020,26 +3055,67 @@ const StudentDashboard = () => {
                           </div>
                         )}
 
-                        {a.file_name && (
-                          <div>
+                        {/* Assignment Document Action Bar */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPreviewAssignment(a)}
+                            className="btn-secondary"
+                            style={{
+                              fontSize: '0.82rem',
+                              padding: '7px 14px',
+                              color: '#38bdf8',
+                              borderColor: 'rgba(56, 189, 248, 0.4)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                            title="Open and preview assignment instructions, question sheet, and PDF in browser"
+                          >
+                            👁️ Open & Preview Assignment
+                          </button>
+                          {a.file_name ? (
                             <button
+                              type="button"
                               onClick={() => handleDownloadAssignmentFile(a.id)}
                               className="btn-secondary"
-                              style={{ fontSize: '0.82rem', padding: '7px 14px' }}
+                              style={{ fontSize: '0.82rem', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              title="Download lecturer question sheet file"
                             >
-                              📎 Download Lecturer Attachment ({a.file_name})
+                              ⬇️ Download Attachment ({a.file_name})
                             </button>
-                          </div>
-                        )}
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadAssignmentFile(a.id)}
+                              className="btn-secondary"
+                              style={{ fontSize: '0.82rem', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              title="Download official assignment briefing PDF"
+                            >
+                              ⬇️ Download Briefing PDF
+                            </button>
+                          )}
+                        </div>
 
                         {/* Existing Submission Info & Grade */}
                         {isSubmitted && (
                           <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', fontSize: '0.86rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                               <span>📄 <strong>Your Submitted File:</strong> {a.submitted_file}</span>
-                              <span style={{ color: 'var(--text-muted)' }}>
-                                Submitted on {new Date(a.submitted_at).toLocaleString()}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => triggerMobileSafeDownload(`${API_URL}/submissions/${a.submission_id}/download`, a.submitted_file)}
+                                  className="btn-secondary"
+                                  style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' }}
+                                  title="Download your submitted homework file"
+                                >
+                                  ⬇️ Download My Submission
+                                </button>
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  Submitted on {new Date(a.submitted_at).toLocaleString()}
+                                </span>
+                              </div>
                             </div>
                             {a.grade && (
                               <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>

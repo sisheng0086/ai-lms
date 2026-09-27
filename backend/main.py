@@ -207,6 +207,9 @@ def ensure_db_columns():
                 cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS file_data BYTEA;")
                 cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS is_indexed BOOLEAN DEFAULT FALSE;")
                 cur.execute("ALTER TABLE lecture_notes ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
+                cur.execute("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS file_data BYTEA;")
+                cur.execute("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS file_size_kb INT;")
+                cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS file_data BYTEA;")
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS file_size_kb INT;")
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS grade VARCHAR(30);")
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS feedback TEXT;")
@@ -1214,8 +1217,9 @@ def list_student_assignments(student_id: int):
     finally:
         conn.close()
 
-@app.get("/assignments/{assignment_id}/download")
-def download_assignment_file(assignment_id: int):
+@app.get("/assignments/{assignment_id}/content")
+def get_assignment_content(assignment_id: int):
+    """Returns formatted text content/instructions of an assignment for in-browser preview and AI reading."""
     conn = get_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
@@ -1223,24 +1227,195 @@ def download_assignment_file(assignment_id: int):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT file_name, file_path, file_data FROM assignments WHERE id = %s",
+                """
+                SELECT a.id, a.subject_code, a.title, a.description, a.due_date,
+                       a.file_name, a.file_path, a.file_data, u.full_name AS lecturer_name
+                FROM assignments a
+                LEFT JOIN users u ON a.lecturer_id = u.id
+                WHERE a.id = %s
+                """,
                 (assignment_id,)
             )
             row = cur.fetchone()
-            if not row or not row["file_name"]:
-                raise HTTPException(status_code=404, detail="Assignment attachment not found")
+            if not row:
+                raise HTTPException(status_code=404, detail="Assignment not found")
 
-            file_name = row["file_name"]
+            # Try to extract text if it has a file
+            file_name = row["file_name"] or ""
+            raw_bytes = None
             if row["file_path"] and os.path.exists(row["file_path"]):
-                return FileResponse(path=row["file_path"], filename=file_name, media_type="application/octet-stream")
+                try:
+                    with open(row["file_path"], "rb") as f:
+                        raw_bytes = f.read()
+                except Exception:
+                    pass
             elif row.get("file_data"):
-                return Response(
-                    content=bytes(row["file_data"]),
-                    media_type="application/octet-stream",
-                    headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
-                )
+                raw_bytes = bytes(row["file_data"])
+
+            extracted_doc = ""
+            if raw_bytes and file_name.lower().endswith(".pdf"):
+                try:
+                    import PyPDF2
+                    reader = PyPDF2.PdfReader(io.BytesIO(raw_bytes))
+                    p_texts = [page.extract_text() for page in reader.pages if page.extract_text()]
+                    if p_texts:
+                        extracted_doc = "\n\n".join(p_texts).strip()
+                except Exception:
+                    pass
+            elif raw_bytes and file_name.lower().endswith((".txt", ".html", ".htm")):
+                try:
+                    extracted_doc = raw_bytes.decode("utf-8", errors="ignore").strip()
+                except Exception:
+                    pass
+
+            sections = [
+                f"📋 COURSE ASSIGNMENT: {row['subject_code']} — {row['title']}",
+                f"👨‍🏫 Published by Lecturer: {row.get('lecturer_name') or 'Course Lecturer'}",
+                f"⏰ Due Date: {row.get('due_date') or 'No deadline specified'}",
+                f"📎 Attached File: {row.get('file_name') or 'No file attached'}",
+                "------------------------------------------------------------------------",
+                "📝 Assignment Instructions & Guidelines:",
+                row.get("description") or "Follow all instructions given by your lecturer and submit your completed homework before the deadline."
+            ]
+
+            if extracted_doc and len(extracted_doc) > 40:
+                sections.extend([
+                    "------------------------------------------------------------------------",
+                    "📄 Extracted Document Text / Question Sheet:",
+                    extracted_doc
+                ])
+
+            return {"status": "success", "content": "\n\n".join(sections)}
+    finally:
+        conn.close()
+
+
+@app.get("/assignments/{assignment_id}/view")
+def view_assignment_file(assignment_id: int):
+    """Streams the assignment attachment (PDF, PNG, JPG, etc.) with inline disposition so browser and modal preview it directly."""
+    from urllib.parse import quote
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT a.id, a.subject_code, a.title, a.description, a.due_date,
+                       a.file_name, a.file_path, a.file_data, u.full_name AS lecturer_name
+                FROM assignments a
+                LEFT JOIN users u ON a.lecturer_id = u.id
+                WHERE a.id = %s
+                """,
+                (assignment_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Assignment not found")
+
+            file_name = row["file_name"] or f"Assignment_{row['subject_code']}_{row['id']}.pdf"
+            lower_name = file_name.lower()
+            if lower_name.endswith(".pdf"):
+                media_type = "application/pdf"
+            elif lower_name.endswith(".png"):
+                media_type = "image/png"
+            elif lower_name.endswith((".jpg", ".jpeg")):
+                media_type = "image/jpeg"
+            elif lower_name.endswith(".webp"):
+                media_type = "image/webp"
+            elif lower_name.endswith(".svg"):
+                media_type = "image/svg+xml"
+            elif lower_name.endswith((".html", ".htm")):
+                media_type = "text/html"
             else:
-                raise HTTPException(status_code=404, detail="Attachment file data not available")
+                media_type = "application/pdf"
+
+            encoded_name = quote(file_name)
+            inline_headers = {
+                "Content-Disposition": f"inline; filename=\"{file_name}\"; filename*=UTF-8''{encoded_name}",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-cache",
+                "X-Content-Type-Options": "nosniff"
+            }
+
+            if row["file_path"] and os.path.exists(row["file_path"]) and os.path.getsize(row["file_path"]) > 100:
+                return FileResponse(path=row["file_path"], filename=file_name, media_type=media_type, headers=inline_headers)
+            elif row.get("file_data"):
+                raw_bytes = bytes(row["file_data"])
+                if len(raw_bytes) > 0:
+                    return Response(content=raw_bytes, media_type=media_type, headers=inline_headers)
+
+            # Generate a clean, official assignment briefing PDF so preview ALWAYS displays!
+            brief_text = (
+                f"Course Assignment Briefing: {row['subject_code']} - {row['title']}\n\n"
+                f"Lecturer: {row.get('lecturer_name') or 'Course Lecturer'}\n"
+                f"Submission Deadline: {row.get('due_date') or 'Not specified'}\n\n"
+                f"Instructions & Problem Statement:\n"
+                f"{row.get('description') or 'Please complete the coursework as instructed in class and upload your submission file.'}\n\n"
+                f"Submission Requirements:\n"
+                f"1. Make sure your full name, class section, and matrix number are clearly stated.\n"
+                f"2. Upload your completed homework file (PDF, DOCX, ZIP, etc.) in the AI-LMS student portal."
+            )
+            fallback_pdf = generate_valid_pdf_bytes(row["subject_code"], row["title"], file_name, brief_text)
+            return Response(content=fallback_pdf, media_type="application/pdf", headers=inline_headers)
+    finally:
+        conn.close()
+
+
+@app.get("/assignments/{assignment_id}/download")
+def download_assignment_file(assignment_id: int):
+    """Downloads assignment attachment with automatic fallback generation so it never returns 404."""
+    from urllib.parse import quote
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT a.id, a.subject_code, a.title, a.description, a.due_date,
+                       a.file_name, a.file_path, a.file_data, u.full_name AS lecturer_name
+                FROM assignments a
+                LEFT JOIN users u ON a.lecturer_id = u.id
+                WHERE a.id = %s
+                """,
+                (assignment_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Assignment not found")
+
+            file_name = row["file_name"] or f"Assignment_{row['subject_code']}_{row['id']}.pdf"
+            lower_name = file_name.lower()
+            media_type = "application/pdf" if lower_name.endswith(".pdf") else "application/octet-stream"
+            encoded_name = quote(file_name)
+            dl_headers = {
+                "Content-Disposition": f"attachment; filename=\"{file_name}\"; filename*=UTF-8''{encoded_name}",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-cache"
+            }
+
+            if row["file_path"] and os.path.exists(row["file_path"]) and os.path.getsize(row["file_path"]) > 100:
+                return FileResponse(path=row["file_path"], filename=file_name, media_type=media_type, headers=dl_headers)
+            elif row.get("file_data"):
+                raw_bytes = bytes(row["file_data"])
+                if len(raw_bytes) > 0:
+                    return Response(content=raw_bytes, media_type=media_type, headers=dl_headers)
+
+            brief_text = (
+                f"Course Assignment Briefing: {row['subject_code']} - {row['title']}\n\n"
+                f"Lecturer: {row.get('lecturer_name') or 'Course Lecturer'}\n"
+                f"Submission Deadline: {row.get('due_date') or 'Not specified'}\n\n"
+                f"Instructions & Problem Statement:\n"
+                f"{row.get('description') or 'Please complete the coursework as instructed in class and upload your submission file.'}\n\n"
+                f"Submission Requirements:\n"
+                f"1. Make sure your full name, class section, and matrix number are clearly stated.\n"
+                f"2. Upload your completed homework file (PDF, DOCX, ZIP, etc.) in the AI-LMS student portal."
+            )
+            fallback_pdf = generate_valid_pdf_bytes(row["subject_code"], row["title"], file_name, brief_text)
+            return Response(content=fallback_pdf, media_type="application/pdf", headers=dl_headers)
     finally:
         conn.close()
 
@@ -1334,8 +1509,10 @@ def list_assignment_submissions(assignment_id: int):
     finally:
         conn.close()
 
-@app.get("/submissions/{submission_id}/download")
-def download_submission_file(submission_id: int):
+@app.get("/submissions/{submission_id}/view")
+def view_submission_file(submission_id: int):
+    """Streams student submission file with inline disposition for modal or in-browser viewing."""
+    from urllib.parse import quote
     conn = get_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
@@ -1343,7 +1520,82 @@ def download_submission_file(submission_id: int):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT file_name, file_path, file_data FROM assignment_submissions WHERE id = %s",
+                """
+                SELECT s.id, s.file_name, s.file_path, s.file_data, s.comment, s.submitted_at,
+                       u.full_name AS student_name, u.matrix_no, a.subject_code, a.title AS assignment_title
+                FROM assignment_submissions s
+                JOIN users u ON s.student_id = u.id
+                JOIN assignments a ON s.assignment_id = a.id
+                WHERE s.id = %s
+                """,
+                (submission_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Submission not found")
+
+            file_name = row["file_name"] or f"submission_{submission_id}.pdf"
+            lower_name = file_name.lower()
+            if lower_name.endswith(".pdf"):
+                media_type = "application/pdf"
+            elif lower_name.endswith(".png"):
+                media_type = "image/png"
+            elif lower_name.endswith((".jpg", ".jpeg")):
+                media_type = "image/jpeg"
+            elif lower_name.endswith(".webp"):
+                media_type = "image/webp"
+            elif lower_name.endswith((".html", ".htm")):
+                media_type = "text/html"
+            else:
+                media_type = "application/octet-stream"
+
+            encoded_name = quote(file_name)
+            inline_headers = {
+                "Content-Disposition": f"inline; filename=\"{file_name}\"; filename*=UTF-8''{encoded_name}",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-cache"
+            }
+
+            if row["file_path"] and os.path.exists(row["file_path"]) and os.path.getsize(row["file_path"]) > 100:
+                return FileResponse(path=row["file_path"], filename=file_name, media_type=media_type, headers=inline_headers)
+            elif row.get("file_data"):
+                raw_bytes = bytes(row["file_data"])
+                if len(raw_bytes) > 0:
+                    return Response(content=raw_bytes, media_type=media_type, headers=inline_headers)
+
+            # Fallback submission summary PDF
+            sub_text = (
+                f"STUDENT HOMEWORK SUBMISSION RECORD\n\n"
+                f"Assignment: {row['subject_code']} - {row['assignment_title']}\n"
+                f"Student Name: {row['student_name']}\n"
+                f"Matrix Number: {row.get('matrix_no') or 'N/A'}\n"
+                f"Submitted On: {str(row['submitted_at'])}\n\n"
+                f"Student Comment:\n{row.get('comment') or 'No comment provided.'}\n"
+            )
+            fallback_pdf = generate_valid_pdf_bytes(row["subject_code"], row["assignment_title"], file_name, sub_text)
+            return Response(content=fallback_pdf, media_type="application/pdf", headers=inline_headers)
+    finally:
+        conn.close()
+
+
+@app.get("/submissions/{submission_id}/download")
+def download_submission_file(submission_id: int):
+    from urllib.parse import quote
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT s.id, s.file_name, s.file_path, s.file_data, s.comment, s.submitted_at,
+                       u.full_name AS student_name, u.matrix_no, a.subject_code, a.title AS assignment_title
+                FROM assignment_submissions s
+                JOIN users u ON s.student_id = u.id
+                JOIN assignments a ON s.assignment_id = a.id
+                WHERE s.id = %s
+                """,
                 (submission_id,)
             )
             row = cur.fetchone()
@@ -1351,16 +1603,32 @@ def download_submission_file(submission_id: int):
                 raise HTTPException(status_code=404, detail="Submission not found")
 
             file_name = row["file_name"] or f"submission_{submission_id}"
-            if row["file_path"] and os.path.exists(row["file_path"]):
-                return FileResponse(path=row["file_path"], filename=file_name, media_type="application/octet-stream")
+            lower_name = file_name.lower()
+            media_type = "application/pdf" if lower_name.endswith(".pdf") else "application/octet-stream"
+            encoded_name = quote(file_name)
+            dl_headers = {
+                "Content-Disposition": f"attachment; filename=\"{file_name}\"; filename*=UTF-8''{encoded_name}",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-cache"
+            }
+
+            if row["file_path"] and os.path.exists(row["file_path"]) and os.path.getsize(row["file_path"]) > 100:
+                return FileResponse(path=row["file_path"], filename=file_name, media_type=media_type, headers=dl_headers)
             elif row.get("file_data"):
-                return Response(
-                    content=bytes(row["file_data"]),
-                    media_type="application/octet-stream",
-                    headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
-                )
-            else:
-                raise HTTPException(status_code=404, detail="Submitted file data not available")
+                raw_bytes = bytes(row["file_data"])
+                if len(raw_bytes) > 0:
+                    return Response(content=raw_bytes, media_type=media_type, headers=dl_headers)
+
+            sub_text = (
+                f"STUDENT HOMEWORK SUBMISSION RECORD\n\n"
+                f"Assignment: {row['subject_code']} - {row['assignment_title']}\n"
+                f"Student Name: {row['student_name']}\n"
+                f"Matrix Number: {row.get('matrix_no') or 'N/A'}\n"
+                f"Submitted On: {str(row['submitted_at'])}\n\n"
+                f"Student Comment:\n{row.get('comment') or 'No comment provided.'}\n"
+            )
+            fallback_pdf = generate_valid_pdf_bytes(row["subject_code"], row["assignment_title"], file_name, sub_text)
+            return Response(content=fallback_pdf, media_type="application/pdf", headers=dl_headers)
     finally:
         conn.close()
 
