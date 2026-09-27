@@ -594,7 +594,7 @@ const StudentDashboard = () => {
       .replace(/1459–7 7/g, "1459–1477")
       .replace(/148 1–/g, "1481–")
       .replace(/1 511/g, "1511")
-      .replace(/Etika Sebelum  Untung/g, "Etika Sebelum Untung");
+      .replace(/Etika Sebelum {2}Untung/g, "Etika Sebelum Untung");
   }, []);
 
   // Groups raw extracted PDF lines into logical multi-sentence page/topic sections
@@ -1313,7 +1313,7 @@ const StudentDashboard = () => {
     if (!voiceEnabled) return;
     window.speechSynthesis.cancel();
 
-    const cleanText = text.replace(/[📘📚💡✅⏳🏆⬇️]/g, '');
+    const cleanText = text.replace(/[📘📚💡✅⏳🏆]/gu, '').replace(/⬇️?/gu, '');
     const utterance = new SpeechSynthesisUtterance(cleanText);
     const voices = window.speechSynthesis.getVoices();
 

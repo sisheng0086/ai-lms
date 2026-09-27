@@ -1,8 +1,15 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const ServerDownPage = ({ onRetry }) => {
   const [countdown, setCountdown] = useState(10);
   const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
+    if (onRetry) await onRetry();
+    setIsRetrying(false);
+    setCountdown(10);
+  }, [onRetry]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -15,14 +22,7 @@ const ServerDownPage = ({ onRetry }) => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  const handleRetry = async () => {
-    setIsRetrying(true);
-    if (onRetry) await onRetry();
-    setIsRetrying(false);
-    setCountdown(10);
-  };
+  }, [handleRetry]);
 
   return (
     <div style={styles.container}>
