@@ -400,6 +400,32 @@ const LecturerDashboard = () => {
     }
   };
 
+  const handleDeleteNote = async (noteId, noteTitle) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${noteTitle || 'this lecture note'}"?\n\nThis will remove it from the course database and AI Study Companion so students will no longer see it.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(`${API_URL}/notes/${noteId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        if (previewNote && previewNote.id === noteId) {
+          setPreviewNote(null);
+        }
+        fetchNotes(user.id);
+        alert('Lecture note deleted successfully.');
+      } else {
+        alert(data.detail || 'Failed to delete lecture note.');
+      }
+    } catch (err) {
+      console.error('Error deleting note:', err);
+      alert('Network error while deleting lecture note.');
+    }
+  };
+
   const handleExportGradesCSV = (assignment) => {
     const subs = submissionsMap[assignment.id] || [];
     if (subs.length === 0) {
@@ -757,6 +783,15 @@ const LecturerDashboard = () => {
                         style={{ padding: '5px 12px', fontSize: '0.8rem' }}
                       >
                         ⬇️ Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNote(note.id, note.title)}
+                        className="btn-secondary"
+                        style={{ padding: '5px 12px', fontSize: '0.8rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                        title="Delete this lecture note from AI LMS"
+                      >
+                        🗑️ Delete
                       </button>
                     </div>
                   </td>
@@ -1987,16 +2022,46 @@ const LecturerDashboard = () => {
               padding: '12px 20px',
               borderTop: '1px solid var(--border)',
               display: 'flex',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
               background: 'rgba(0,0,0,0.15)'
             }}>
               <button
-                onClick={() => setPreviewNote(null)}
+                type="button"
+                onClick={() => handleDeleteNote(previewNote.id, previewNote.title)}
                 className="btn-secondary"
-                style={{ width: 'auto', margin: 0, padding: '6px 18px' }}
+                style={{
+                  width: 'auto',
+                  margin: 0,
+                  padding: '6px 16px',
+                  color: '#ef4444',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="If this note is incorrect or outdated, delete it from the system"
               >
-                Close Preview
+                🗑️ Delete Incorrect Note
               </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => window.open(`${API_URL}/notes/${previewNote.id}/download`, '_blank')}
+                  className="btn-primary"
+                  style={{ width: 'auto', margin: 0, padding: '6px 16px' }}
+                >
+                  ⬇️ Download
+                </button>
+                <button
+                  onClick={() => setPreviewNote(null)}
+                  className="btn-secondary"
+                  style={{ width: 'auto', margin: 0, padding: '6px 18px' }}
+                >
+                  Close Preview
+                </button>
+              </div>
             </div>
           </div>
         </div>

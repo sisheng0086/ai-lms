@@ -878,6 +878,7 @@ def clean_extracted_pdf_text(raw_text: str) -> str:
     return t.strip()
 
 
+@app.get("/notes/content/{note_id}")
 @app.get("/notes/{note_id}/content")
 def get_note_content(note_id: int):
     """Extracts and returns full structured text content from an uploaded note file (PDF, DOCX, PPTX, HTML, TXT)."""

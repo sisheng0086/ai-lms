@@ -272,6 +272,30 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleDeleteNote = async (noteId, noteTitle) => {
+    if (!window.confirm(`Are you sure you want to permanently delete "${noteTitle || 'this lecture note'}"?\n\nThis will remove it from all student AI Study Companions.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/notes/${noteId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        if (previewNote && previewNote.id === noteId) {
+          setPreviewNote(null);
+        }
+        fetchNotes();
+        fetchStats();
+      } else {
+        alert(data.detail || 'Failed to delete note.');
+      }
+    } catch (err) {
+      console.error('Error deleting note:', err);
+      alert('Network error while deleting note.');
+    }
+  };
+
   const filteredUsers = usersList.filter(u => {
     const q = userSearch.toLowerCase();
     const matchSearch =
@@ -947,6 +971,14 @@ const AdminDashboard = () => {
                             >
                               ⬇️ Download
                             </a>
+                            <button
+                              onClick={() => handleDeleteNote(n.id, n.title)}
+                              className="btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                              title="Delete note permanently"
+                            >
+                              🗑️ Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1039,18 +1071,37 @@ const AdminDashboard = () => {
               {loadingPreview ? 'Extracting note text...' : previewNoteContent}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
-              <a
-                href={`${API_URL}/notes/${previewNote.id}/download`}
-                download={previewNote.file_name}
-                className="btn-primary"
-                style={{ width: 'auto', padding: '6px 16px', textDecoration: 'none' }}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '14px' }}>
+              <button
+                type="button"
+                onClick={() => handleDeleteNote(previewNote.id, previewNote.title)}
+                className="btn-secondary"
+                style={{
+                  width: 'auto',
+                  padding: '6px 16px',
+                  color: '#ef4444',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Permanently remove this note from system"
               >
-                ⬇️ Download Original File
-              </a>
-              <button onClick={() => setPreviewNote(null)} className="btn-secondary" style={{ padding: '6px 16px' }}>
-                Close
+                🗑️ Delete Note
               </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a
+                  href={`${API_URL}/notes/${previewNote.id}/download`}
+                  download={previewNote.file_name}
+                  className="btn-primary"
+                  style={{ width: 'auto', padding: '6px 16px', textDecoration: 'none' }}
+                >
+                  ⬇️ Download Original File
+                </a>
+                <button onClick={() => setPreviewNote(null)} className="btn-secondary" style={{ padding: '6px 16px' }}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
