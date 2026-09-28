@@ -6,6 +6,7 @@ import ProfilePictureUploader from '../components/ProfilePictureUploader';
 import RevisionFlashcardsModal from '../components/RevisionFlashcardsModal';
 import StudentStudyProgressWidget from '../components/StudentStudyProgressWidget';
 import FormattedChatMessage from '../components/FormattedChatMessage';
+import StudentTimetableWidget, { POLITEKNIK_TIMETABLE_DATA } from '../components/StudentTimetableWidget';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -1248,6 +1249,41 @@ const StudentDashboard = () => {
           `💡 *You can ask me any technical or conceptual questions about ${activeTarget.title}, or request a summary note and practice quiz!*`;
         setMessages(prev => [...prev, { text: reply, sender: "bot", source: "Course Information" }]);
         speakText(`This lecture note was uploaded by ${lecturerName}.`);
+      }, 300);
+      return;
+    }
+
+    // =========================================================================
+    // UNIVERSAL HANDLER: Class Timetable & Schedule Assistant
+    // =========================================================================
+    const isScheduleInquiry = /\b(timetable|schedule|jadual|jadual\s*waktu|class\s*time|when\s*is\s*(my\s*)?class|classes\s*today|class\s*today|what\s*class|time\s*table|bila\s*kelas|kelas\s*hari\s*ini)\b/i.test(normalizedQuery);
+    if (isScheduleInquiry) {
+      setTimeout(() => {
+        const currentDayIndex = new Date().getDay();
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const todayName = days[currentDayIndex] || 'Monday';
+        const todayClasses = POLITEKNIK_TIMETABLE_DATA.filter(c => c.day === todayName);
+
+        let reply = `📅 **Politeknik Kuching Sarawak — Student Class Schedule:**\n\n`;
+        if (todayClasses.length > 0) {
+          reply += `🎯 **Today's Classes (${todayName}):**\n`;
+          todayClasses.forEach(c => {
+            reply += `• **${c.subjectCode} (${c.type}):** ${c.startTime} – ${c.endTime}\n  📍 *Venue:* ${c.venue}\n  👨‍🏫 *Lecturer:* ${c.lecturer}\n\n`;
+          });
+        } else {
+          reply += `🌴 **Today (${todayName}):** No scheduled classes for today! Perfect time for revision.\n\n`;
+        }
+
+        reply += `📋 **Weekly Schedule Overview:**\n` +
+          `• **Monday:** DFC11063 (08:00 - 10:00 · BK1) | DUA6022 (10:15 - 12:15 · BB2) | DFT10014 (14:00 - 16:00 · BHP)\n` +
+          `• **Tuesday:** DFN10078 (08:00 - 10:00 · MKSR) | DFC11063 (10:30 - 12:30 · MK3) | MPU21032 (14:00 - 16:00 · DK2)\n` +
+          `• **Wednesday:** DFT10014 (08:30 - 10:30 · Bilik CS) | DFN10078 (11:00 - 13:00 · DKU)\n` +
+          `• **Thursday:** DFC11063 (08:00 - 11:00 · MK4) | DFN10078 (14:00 - 16:00 · MKSR)\n` +
+          `• **Friday:** DFT10014 (08:00 - 10:00 · BHP) | AI-LMS Consultation (10:15 - 12:00 · Rundingan)\n\n` +
+          `💡 *Tip: You can open the full interactive timetable by clicking **Class Timetable** on the left menu, or click "AI Study Prep" on any class slot to start studying!*`;
+
+        setMessages(prev => [...prev, { text: reply, sender: "bot", source: "Class Timetable" }]);
+        speakText(`Here is your class timetable. You have ${todayClasses.length} class sessions scheduled for today.`);
       }, 300);
       return;
     }
@@ -3773,6 +3809,13 @@ const StudentDashboard = () => {
               <span>Revision Flashcards</span>
             </button>
             <button
+              className={`sidebar-nav-item ${activeTab === 'timetable' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('timetable'); setSidebarOpen(false); }}
+            >
+              <span>📅</span>
+              <span>Class Timetable</span>
+            </button>
+            <button
               className={`sidebar-nav-item ${activeTab === 'assignments' ? 'active' : ''}`}
               onClick={() => { setActiveTab('assignments'); setSidebarOpen(false); }}
             >
@@ -4005,8 +4048,32 @@ const StudentDashboard = () => {
 
               <div style={{ height: '20px' }} />
 
+              {/* Today's Live Class Schedule Widget */}
+              <StudentTimetableWidget
+                viewMode="overview"
+                onOpenChatWithQuery={(q) => {
+                  setActiveTab('chat');
+                  processStudentQuery(q);
+                }}
+                onOpenNotes={() => setActiveTab('materials')}
+                onOpenFlashcards={() => setFlashcardsOpen(true)}
+              />
+
+              <div style={{ height: '20px' }} />
+
               {/* Easy-to-Understand Quick Action Cards */}
-              <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+              <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                <div
+                  className="stat-card"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setActiveTab('timetable')}
+                >
+                  <div className="stat-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>📅</div>
+                  <div className="stat-info">
+                    <h3>Timetable</h3>
+                    <p>Class Schedule & Rooms</p>
+                  </div>
+                </div>
                 <div
                   className="stat-card"
                   style={{ cursor: 'pointer' }}
@@ -4516,6 +4583,19 @@ const StudentDashboard = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* CLASS TIMETABLE TAB */}
+          {activeTab === 'timetable' && (
+            <StudentTimetableWidget
+              viewMode="tab"
+              onOpenChatWithQuery={(q) => {
+                setActiveTab('chat');
+                processStudentQuery(q);
+              }}
+              onOpenNotes={() => setActiveTab('materials')}
+              onOpenFlashcards={() => setFlashcardsOpen(true)}
+            />
           )}
         </main>
 
