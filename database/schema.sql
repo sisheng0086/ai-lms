@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS users (
     role          VARCHAR(20)     NOT NULL CHECK (role IN ('student', 'lecturer', 'admin')),
     email         VARCHAR(100)    UNIQUE,
     matrix_no     VARCHAR(30)     UNIQUE,
+    profile_picture TEXT,
+    profile_picture_data BYTEA,
     created_at    TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -4,8 +4,17 @@ import ThemeToggle from '../components/ThemeToggle';
 import ConfirmModal from '../components/ConfirmModal';
 import ToastNotification from '../components/ToastNotification';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
+import ProfilePictureUploader from '../components/ProfilePictureUploader';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+const getAvatarUrl = (path, apiUrl) => {
+  if (!path) return null;
+  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  return `${apiUrl}${path}`;
+};
 
 const LecturerDashboard = () => {
   const navigate = useNavigate();
@@ -1836,9 +1845,17 @@ const LecturerDashboard = () => {
 
           <div className="sidebar-user-card">
             <div className="sidebar-user-top">
-              <div className="user-avatar" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
-                {initials}
-              </div>
+              {user.profile_picture ? (
+                <img
+                  src={getAvatarUrl(user.profile_picture, API_URL)}
+                  alt={user.full_name}
+                  className="user-avatar"
+                />
+              ) : (
+                <div className="user-avatar" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
+                  {initials}
+                </div>
+              )}
               <div className="user-info-text">
                 <div className="user-info-name">{user.full_name}</div>
                 <div className="user-info-role">Lecturer Account</div>
@@ -2041,7 +2058,15 @@ const LecturerDashboard = () => {
               <span className="nav-btn-label">Student Q&A</span>
               <span>({pendingStudentQuestionsCount})</span>
             </button>
-            <div className="user-badge" style={{ background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', borderColor: 'rgba(251, 191, 36, 0.3)' }}>
+            <div className="user-badge" style={{ background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', borderColor: 'rgba(251, 191, 36, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              {user.profile_picture ? (
+                <img
+                  src={getAvatarUrl(user.profile_picture, API_URL)}
+                  alt={user.full_name}
+                  className="user-badge-avatar"
+                  style={{ borderColor: '#f59e0b' }}
+                />
+              ) : null}
               <span>{user.full_name}</span>
               <span style={{ background: 'rgba(251, 191, 36, 0.2)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
                 Lecturer
@@ -2094,24 +2119,33 @@ const LecturerDashboard = () => {
           {activeTab === 'contact' && renderContactAndInboxCard()}
 
           {activeTab === 'profile' && (
-            <div className="card" style={{ maxWidth: '600px' }}>
-              <h2 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>👤 Lecturer Profile</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Full Name</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.full_name}</div>
-                </div>
-                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Username</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.username}</div>
-                </div>
-                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Email Address</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.email}</div>
-                </div>
-                <div style={{ padding: '12px 16px', background: 'rgba(245, 158, 11, 0.08)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#f59e0b' }}>Role Status</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f59e0b' }}>Verified Lecturer</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '700px' }}>
+              <ProfilePictureUploader
+                user={user}
+                onUpdate={(updatedUser) => setUser(updatedUser)}
+                apiUrl={API_URL}
+                role="lecturer"
+              />
+
+              <div className="card" style={{ margin: 0 }}>
+                <h2 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>👤 Lecturer Account Details</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Full Name</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.full_name}</div>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Username</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.username}</div>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Email Address</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 600 }}>{user.email}</div>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'rgba(245, 158, 11, 0.08)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#f59e0b' }}>Role Status</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f59e0b' }}>Verified Lecturer</div>
+                  </div>
                 </div>
               </div>
             </div>

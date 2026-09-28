@@ -391,9 +391,11 @@ def login_user(request: LoginRequest):
         with conn.cursor() as cur:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS matrix_no VARCHAR(30);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_data BYTEA;")
             conn.commit()
             cur.execute(
-                "SELECT id, username, password_hash, full_name, role, email, matrix_no, is_active FROM users WHERE username = %s", 
+                "SELECT id, username, password_hash, full_name, role, email, matrix_no, is_active, profile_picture FROM users WHERE username = %s", 
                 (request.username,)
             )
             user = cur.fetchone()
@@ -420,7 +422,7 @@ def get_user(user_id: int):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, username, full_name, role, email, matrix_no, created_at FROM users WHERE id = %s", 
+                "SELECT id, username, full_name, role, email, matrix_no, created_at, profile_picture FROM users WHERE id = %s", 
                 (user_id,)
             )
             user = cur.fetchone()
@@ -429,6 +431,123 @@ def get_user(user_id: int):
                 raise HTTPException(status_code=404, detail="User not found")
             
             return {"status": "success", "user": user}
+    finally:
+        conn.close()
+
+@app.post("/users/{user_id}/profile-picture")
+async def upload_profile_picture(user_id: int, file: UploadFile = File(...)):
+    """Upload and save a custom profile picture for student or lecturer."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, username, role FROM users WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+                
+            allowed_extensions = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+            ext = os.path.splitext(file.filename or "")[1].lower()
+            if ext not in allowed_extensions:
+                raise HTTPException(status_code=400, detail="Only PNG, JPG, JPEG, WEBP, or GIF image files are allowed.")
+                
+            contents = await file.read()
+            if len(contents) > 5 * 1024 * 1024:
+                raise HTTPException(status_code=400, detail="File too large. Maximum image size is 5MB.")
+                
+            avatar_dir = "uploads/avatars"
+            os.makedirs(avatar_dir, exist_ok=True)
+            filename = f"avatar_{user_id}_{int(datetime.now().timestamp())}{ext}"
+            file_path = os.path.join(avatar_dir, filename).replace("\\", "/")
+            
+            with open(file_path, "wb") as f:
+                f.write(contents)
+                
+            relative_url = f"/users/{user_id}/profile-picture?v={int(datetime.now().timestamp())}"
+            
+            cur.execute("""
+                UPDATE users 
+                SET profile_picture = %s, profile_picture_data = %s
+                WHERE id = %s
+            """, (relative_url, psycopg2.Binary(contents), user_id))
+            conn.commit()
+            
+            cur.execute(
+                "SELECT id, username, full_name, role, email, matrix_no, created_at, profile_picture FROM users WHERE id = %s", 
+                (user_id,)
+            )
+            updated_user = cur.fetchone()
+            
+            return {
+                "status": "success",
+                "message": "Profile picture updated successfully!",
+                "profile_picture": relative_url,
+                "user": updated_user
+            }
+    finally:
+        conn.close()
+
+@app.get("/users/{user_id}/profile-picture")
+def get_user_profile_picture(user_id: int):
+    """Serve the profile picture file for a user."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT profile_picture, profile_picture_data FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            if not row or (not row.get("profile_picture") and not row.get("profile_picture_data")):
+                raise HTTPException(status_code=404, detail="No profile picture found")
+                
+            if row.get("profile_picture_data"):
+                raw_bytes = bytes(row["profile_picture_data"])
+                media_type = "image/png"
+                if raw_bytes.startswith(b'\xff\xd8\xff'):
+                    media_type = "image/jpeg"
+                elif raw_bytes.startswith(b'RIFF') and b'WEBP' in raw_bytes[:16]:
+                    media_type = "image/webp"
+                elif raw_bytes.startswith(b'GIF8'):
+                    media_type = "image/gif"
+                return Response(
+                    content=raw_bytes,
+                    media_type=media_type,
+                    headers={"Cache-Control": "public, max-age=86400"}
+                )
+            raise HTTPException(status_code=404, detail="No profile picture data found")
+    finally:
+        conn.close()
+
+@app.delete("/users/{user_id}/profile-picture")
+def remove_profile_picture(user_id: int):
+    """Remove user's profile picture and revert to standard avatar."""
+    conn = get_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users 
+                SET profile_picture = NULL, profile_picture_data = NULL
+                WHERE id = %s
+            """, (user_id,))
+            conn.commit()
+            
+            cur.execute(
+                "SELECT id, username, full_name, role, email, matrix_no, created_at, profile_picture FROM users WHERE id = %s", 
+                (user_id,)
+            )
+            updated_user = cur.fetchone()
+            
+            return {
+                "status": "success",
+                "message": "Profile picture removed successfully",
+                "user": updated_user
+            }
     finally:
         conn.close()
 
@@ -2059,7 +2178,7 @@ def get_admin_users_list():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, username, full_name, email, role, matrix_no, is_active, created_at
+                SELECT id, username, full_name, email, role, matrix_no, is_active, created_at, profile_picture
                 FROM users
                 ORDER BY created_at DESC
                 """

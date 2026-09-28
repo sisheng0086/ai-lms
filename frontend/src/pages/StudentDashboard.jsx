@@ -2,8 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
+import ProfilePictureUploader from '../components/ProfilePictureUploader';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+const getAvatarUrl = (path, apiUrl) => {
+  if (!path) return null;
+  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  return `${apiUrl}${path}`;
+};
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -2590,7 +2599,15 @@ const StudentDashboard = () => {
           {/* Student Profile Card in Sidebar */}
           <div className="sidebar-user-card">
             <div className="sidebar-user-top">
-              <div className="user-avatar">{initials}</div>
+              {user.profile_picture ? (
+                <img
+                  src={getAvatarUrl(user.profile_picture, API_URL)}
+                  alt={user.full_name}
+                  className="user-avatar"
+                />
+              ) : (
+                <div className="user-avatar">{initials}</div>
+              )}
               <div className="user-info-text">
                 <div className="user-info-name">{user.full_name}</div>
                 <div className="user-info-role">Student Account</div>
@@ -2814,7 +2831,14 @@ const StudentDashboard = () => {
               <span>🪪</span>
               <span>{user.matrix_no || 'STUDENT'}</span>
             </div>
-            <div className="user-badge">
+            <div className="user-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              {user.profile_picture ? (
+                <img
+                  src={getAvatarUrl(user.profile_picture, API_URL)}
+                  alt={user.full_name}
+                  className="user-badge-avatar"
+                />
+              ) : null}
               <span>{user.full_name}</span>
               <span style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
                 Student
@@ -3262,9 +3286,18 @@ const StudentDashboard = () => {
                     fontWeight: 700,
                     color: '#fff',
                     flexShrink: 0,
-                    border: '2px solid rgba(255,255,255,0.2)'
+                    border: '2px solid rgba(255,255,255,0.2)',
+                    overflow: 'hidden'
                   }}>
-                    {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'S'}
+                    {user.profile_picture ? (
+                      <img
+                        src={getAvatarUrl(user.profile_picture, API_URL)}
+                        alt={user.full_name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      user.full_name ? user.full_name.charAt(0).toUpperCase() : 'S'
+                    )}
                   </div>
                   <div style={{ overflow: 'hidden' }}>
                     <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
@@ -3294,6 +3327,14 @@ const StudentDashboard = () => {
                   POLITEKNIK AI LEARNING MANAGEMENT SYSTEM (FINAL YEAR PROJECT)
                 </div>
               </div>
+
+              {/* Profile Picture Uploader Card */}
+              <ProfilePictureUploader
+                user={user}
+                onUpdate={(updatedUser) => setUser(updatedUser)}
+                apiUrl={API_URL}
+                role="student"
+              />
 
               {/* Account Details Card */}
               <div className="card" style={{ margin: 0 }}>
