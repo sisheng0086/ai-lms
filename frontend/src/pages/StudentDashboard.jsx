@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import ProfilePictureUploader from '../components/ProfilePictureUploader';
+import RevisionFlashcardsModal from '../components/RevisionFlashcardsModal';
+import StudentStudyProgressWidget from '../components/StudentStudyProgressWidget';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -43,7 +45,12 @@ const StudentDashboard = () => {
   const [previewNote, setPreviewNote] = useState(null);
   const [previewNoteContent, setPreviewNoteContent] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewPage, setPreviewPage] = useState(1);
   const [chatFontSize, setChatFontSize] = useState('0.92rem');
+
+  // Flashcards & Quick Ask Menu states
+  const [flashcardsOpen, setFlashcardsOpen] = useState(false);
+  const [quickAskMenuOpen, setQuickAskMenuOpen] = useState(false);
 
   // Contact & Support state (Lecturer Q&A + Admin Tech Support)
   const [contactSubTab, setContactSubTab] = useState('lecturer'); // 'lecturer' | 'admin'
@@ -221,7 +228,7 @@ const StudentDashboard = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleOpenPreviewNote = async (noteOrId, fallbackTitle = '') => {
+  const handleOpenPreviewNote = async (noteOrId, fallbackTitle = '', targetPage = 1) => {
     let noteObj;
     if (typeof noteOrId === 'object' && noteOrId !== null) {
       noteObj = noteOrId;
@@ -229,6 +236,7 @@ const StudentDashboard = () => {
       const found = notesList.find(n => String(n.id) === String(noteOrId));
       noteObj = found || { id: noteOrId, title: fallbackTitle, file_name: fallbackTitle };
     }
+    setPreviewPage(targetPage || 1);
     setPreviewNote(noteObj);
     setLoadingPreview(true);
     setPreviewNoteContent('');
@@ -243,6 +251,202 @@ const StudentDashboard = () => {
     } finally {
       setLoadingPreview(false);
     }
+  };
+
+  const handleExportSummaryPdf = () => {
+    const activeNote = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
+    const subjectCode = activeNote?.subject_code || 'MPU21032';
+    const noteTitle = activeNote?.title || 'Penghayatan Etika dan Peradaban';
+    const studentName = user?.full_name || 'Politeknik Student';
+    const matrixNo = user?.matrix_no || 'N/A';
+    const dateStr = new Date().toLocaleDateString('en-MY', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const recentQAs = messages
+      .filter(m => m.sender === 'bot' && !m.text.includes('Hai! 👋') && !m.text.includes('cleared'))
+      .slice(-4)
+      .map(m => {
+        const clean = m.text
+          .replace(/[*#_`]/g, '')
+          .split('\n')
+          .filter(l => l.trim().length > 0)
+          .slice(0, 6)
+          .join('<br/>• ');
+        return `
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:10px 14px; margin-bottom:10px;">
+            <div style="font-size:8pt; font-weight:700; color:#0284c7; text-transform:uppercase; margin-bottom:4px;">
+              📌 ${m.source || 'AI Study Companion Notes'}
+            </div>
+            <div style="font-size:9pt; color:#334155; line-height:1.5;">
+              • ${clean}
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('Please allow popups to export the PDF revision sheet.');
+      return;
+    }
+
+    printWin.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI-LMS Revision Study Sheet - ${subjectCode}</title>
+  <style>
+    @page { size: A4 portrait; margin: 15mm; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      line-height: 1.5;
+      padding: 0;
+      margin: 0;
+      background: #ffffff;
+      font-size: 10pt;
+    }
+    .banner {
+      border-bottom: 3px double #0284c7;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .inst-title { font-size: 15pt; font-weight: 800; color: #0369a1; margin: 0; }
+    .inst-sub { font-size: 8.5pt; color: #64748b; font-weight: 600; margin-top: 2px; }
+    .meta-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 8.5pt;
+    }
+    .section-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #0284c7;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin: 14px 0 8px;
+    }
+    .summary-box {
+      background: #f0f9ff;
+      border-left: 4px solid #0284c7;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 9pt;
+      margin-bottom: 12px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .card {
+      background: #fcfcfc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 8.5pt;
+    }
+    .card h4 { margin: 0 0 4px; color: #1e293b; font-size: 9pt; }
+    .footer {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+      margin-top: 20px;
+      font-size: 8pt;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="background:#0284c7; color:#fff; padding:10px 16px; margin-bottom:14px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+    <span>📄 <strong>Politeknik Kuching Sarawak</strong> — Exam Revision Sheet Ready</span>
+    <button onclick="window.print()" style="background:#fff; color:#0284c7; border:none; padding:6px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+
+  <div class="banner">
+    <div>
+      <h1 class="inst-title">POLITEKNIK KUCHING SARAWAK</h1>
+      <div class="inst-sub">AI-LMS FINAL YEAR PROJECT STUDY COMPANION • OFFICIAL REVISION SHEET</div>
+    </div>
+    <div style="text-align:right; font-size:8pt; color:#64748b;">
+      <div><strong>Document:</strong> Exam Revision Guide</div>
+      <div><strong>Date:</strong> ${dateStr}</div>
+    </div>
+  </div>
+
+  <div class="meta-box">
+    <div><strong>Course:</strong> ${subjectCode} — ${noteTitle}</div>
+    <div><strong>Student Name:</strong> ${studentName}</div>
+    <div><strong>Matrix Number:</strong> ${matrixNo}</div>
+    <div><strong>Department:</strong> Jabatan Teknologi Maklumat & Komunikasi (JTMK)</div>
+  </div>
+
+  <div class="section-title">📌 Executive Summary & Key Course Objectives</div>
+  <div class="summary-box">
+    <strong>Overview:</strong> This structured study guide synthesizes key lecture note concepts, historical trade administration, dual legal codes, and multicultural unity. Prepared for Politeknik final examinations and continuous assessments.
+  </div>
+
+  <div class="section-title">💡 High-Yield Core Examinable Topics</div>
+  <div class="grid-2">
+    <div class="card">
+      <h4>🏛️ Article 1: Melaka Port & 4 Syahbandar</h4>
+      Governed by 4 Syahbandar handling merchants from Gujarat, South India/Bengal, Southeast Asia, and China/Japan with standardized warehouse security and customs taxes.
+    </div>
+    <div class="card">
+      <h4>🗣️ Article 2: 84 Global Spoken Languages</h4>
+      Tome Pires recorded 84 distinct spoken languages in Melaka. Bahasa Melayu served as the universal <em>lingua franca</em> for global commerce and international treaties.
+    </div>
+    <div class="card">
+      <h4>⚖️ Article 3: Dual Legal Foundations</h4>
+      <strong>Hukum Kanun Melaka</strong> (44 civil/criminal clauses) and <strong>Undang-Undang Laut Melaka</strong> (maritime navigation ethics, cargo accountability, and trade conduct).
+    </div>
+    <div class="card">
+      <h4>🏮 Article 4: Peranakan Hybrid Culture</h4>
+      Intermarriage fostered Baba-Nyonya, Chetti, and Kristang communities—exemplifying early harmonious diversity and the roots of contemporary Malaysia MADANI values.
+    </div>
+  </div>
+
+  ${recentQAs ? `
+    <div class="section-title">❓ Session Q&A Key Points (From AI Tutor)</div>
+    ${recentQAs}
+  ` : ''}
+
+  <div class="footer">
+    <div>AI-LMS Study Companion • Politeknik Kuching Sarawak</div>
+    <div>Page 1 of 1 • Official Academic Revision Document</div>
+  </div>
+
+  <script>
+    window.addEventListener('load', () => {
+      setTimeout(() => { window.print(); }, 400);
+    });
+  </script>
+</body>
+</html>
+    `);
+    printWin.document.close();
   };
 
   const handleOpenPreviewAssignment = async (assignment) => {
@@ -831,9 +1035,30 @@ const StudentDashboard = () => {
     const sourceLabel = `${targetNote.subject_code} - ${targetNote.title}`;
 
     // =========================================================================
-    // HELPER: Deliver Bot Reply with Download & Copy Note Support
+    // HELPER: Deliver Bot Reply with Download, Copy Note & Clickable Citation
     // =========================================================================
-    const sendBotAnswer = (replyText, speechSummary) => {
+    const detectCitationPage = (qText, rText) => {
+      const q = (qText || '').toLowerCase();
+      const r = (rText || '').toLowerCase();
+      if (q.includes('chapter 2') || q.includes('bab 2')) return 14;
+      if (q.includes('chapter 3') || q.includes('bab 3')) return 22;
+      if (q.includes('article 1') || q.includes('syahbandar') || q.includes('arthur ryan') || q.includes('pelabuhan')) return 3;
+      if (q.includes('article 2') || q.includes('84 language') || q.includes('84 bahasa') || q.includes('alyssa') || q.includes('lingua franca')) return 5;
+      if (q.includes('article 3') || q.includes('hukum kanun') || q.includes('undang-undang') || q.includes('muhammad irfan')) return 7;
+      if (q.includes('article 4') || q.includes('baba') || q.includes('nyonya') || q.includes('chetti') || q.includes('kristang') || q.includes('darren')) return 9;
+      if (q.includes('timeline') || q.includes('garis masa') || q.includes('1400') || q.includes('1511')) return 11;
+      if (q.includes('objective') || q.includes('objektif') || q.includes('tujuan') || q.includes('summary') || q.includes('ringkasan')) return 2;
+
+      const pageMatch = r.match(/(?:page|halaman|hlm|slide)\s*(\d+)/i) || q.match(/(?:page|halaman|hlm|slide)\s*(\d+)/i);
+      if (pageMatch) return parseInt(pageMatch[1], 10);
+      return 1;
+    };
+
+    const sendBotAnswer = (replyText, speechSummary, customCitation = null) => {
+      const pageNum = customCitation?.page || detectCitationPage(normalizedQuery, replyText);
+      const chapterPrefix = targetNumber ? `Chapter ${mainChapterNum}` : (targetNote.subject_code || 'Lecture Note');
+      const citationTitle = customCitation?.label || `${chapterPrefix}, Page ${pageNum}`;
+
       setTimeout(() => {
         setMessages(prev => [
           ...prev,
@@ -842,7 +1067,9 @@ const StudentDashboard = () => {
             sender: "bot",
             source: sourceLabel,
             noteId: targetNote.id,
-            noteFileName: targetNote.file_name
+            noteFileName: targetNote.file_name,
+            page: pageNum,
+            citationLabel: citationTitle
           }
         ]);
         speakText(speechSummary || replyText.slice(0, 260));
@@ -1579,40 +1806,179 @@ const StudentDashboard = () => {
         </div>
       )}
 
-      {/* Easy One-Click Smart Prompt Buttons */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Quick Ask:</span>
-        {[
-          { label: "📘 Chapter 1 Full Info", prompt: "Give me Chapter 1 info" },
-          { label: "📝 Generate Summary Note", prompt: "Help me do the summary note for Chapter 1" },
-          { label: "🎯 2 Main Objectives", prompt: "What are the main purpose and 2 objectives of Chapter 1?" },
-          { label: "🏛️ Article 1: Port & Syahbandar", prompt: "Explain Article 1 and the 4 Syahbandar in detail" },
-          { label: "🗣️ Article 2: 84 Languages", prompt: "Explain Article 2 and the 84 languages in Melaka" },
-          { label: "⚖️ Article 3: Laws & Ethics", prompt: "Explain Article 3 Hukum Kanun Melaka and Undang-Undang Laut" },
-          { label: "🏮 Article 4: Baba Nyonya & Heritage", prompt: "Explain Article 4 Baba Nyonya, Chetti, Kristang and UNESCO" },
-          { label: "👥 Group Members & Roles", prompt: "Who are the group members and their matrix numbers?" },
-          { label: "⏳ Timeline (1400–1511)", prompt: "Show the historical timeline of Melaka 1400-1511" },
-          { label: "❓ Make 5 Quiz Questions", prompt: "Generate 5 practice questions for me" }
-        ].map((chip, idx) => (
+      {/* Redesigned Sleek Quick Ask Menu & Horizontal Pill Bar */}
+      <div className="quick-ask-bar-container">
+        {/* Menu Dropdown Trigger Button */}
+        <div style={{ position: 'relative' }}>
           <button
-            key={idx}
             type="button"
-            onClick={() => processStudentQuery(chip.prompt)}
-            style={{
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              color: '#38bdf8',
-              padding: '5px 12px',
-              borderRadius: '999px',
-              fontSize: '0.77rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
+            className={`quick-ask-menu-trigger ${quickAskMenuOpen ? 'active' : ''}`}
+            onClick={() => setQuickAskMenuOpen(!quickAskMenuOpen)}
+            title="Browse all Quick Ask questions and topics"
           >
-            {chip.label}
+            <span>⚡ Quick Ask Menu</span>
+            <span style={{ fontSize: '0.72rem', transform: quickAskMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
           </button>
-        ))}
+
+          {quickAskMenuOpen && (
+            <div className="quick-ask-dropdown">
+              <div className="theme-menu-header">
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>⚡</span>
+                  <span>Quick Ask Topics</span>
+                </span>
+                <span className="theme-status-tag" style={{ background: 'rgba(56, 189, 248, 0.16)', color: '#38bdf8' }}>
+                  1-CLICK AI
+                </span>
+              </div>
+
+              <div className="quick-ask-category">📖 Chapter Overviews</div>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Give me Chapter 1 info"); setQuickAskMenuOpen(false); }}
+              >
+                <span>📘</span>
+                <span>Chapter 1 Full Information</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Help me do the summary note for Chapter 1"); setQuickAskMenuOpen(false); }}
+              >
+                <span>📝</span>
+                <span>Generate Smart Summary Note</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("What are the main purpose and 2 objectives of Chapter 1?"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🎯</span>
+                <span>2 Core Objectives & Purpose</span>
+              </button>
+
+              <div className="quick-ask-category">🏛️ Specialized Articles</div>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain Article 1 and the 4 Syahbandar in detail"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🏛️</span>
+                <span>Article 1: Port & 4 Syahbandar</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain Article 2 and the 84 languages in Melaka"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🗣️</span>
+                <span>Article 2: 84 Spoken Languages</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain Article 3 Hukum Kanun Melaka and Undang-Undang Laut"); setQuickAskMenuOpen(false); }}
+              >
+                <span>⚖️</span>
+                <span>Article 3: Hukum Kanun & Maritime Laws</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain Article 4 Baba Nyonya, Chetti, Kristang and UNESCO"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🏮</span>
+                <span>Article 4: Baba Nyonya & Heritage</span>
+              </button>
+
+              <div className="quick-ask-category">👥 Presentation & Context</div>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Who are the group members and their matrix numbers?"); setQuickAskMenuOpen(false); }}
+              >
+                <span>👥</span>
+                <span>Group Members & Matrix Numbers</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Show the historical timeline of Melaka 1400-1511"); setQuickAskMenuOpen(false); }}
+              >
+                <span>⏳</span>
+                <span>Historical Timeline (1400–1511)</span>
+              </button>
+
+              <div className="quick-ask-category">🎯 Exam Prep & Flashcards</div>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Generate 5 practice questions for me"); setQuickAskMenuOpen(false); }}
+              >
+                <span>❓</span>
+                <span>Generate 5 Practice Questions</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { setFlashcardsOpen(true); setQuickAskMenuOpen(false); }}
+              >
+                <span>📇</span>
+                <span>Open Revision Flashcards Deck</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { handleExportSummaryPdf(); setQuickAskMenuOpen(false); }}
+              >
+                <span>📄</span>
+                <span>Export Revision Study Sheet (PDF)</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Trending Pill Chips alongside the Menu */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '2px', maxWidth: '100%' }}>
+          <button
+            type="button"
+            className="quick-ask-pill-chip"
+            onClick={() => processStudentQuery("Give me Chapter 1 info")}
+          >
+            📘 Chapter 1 Info
+          </button>
+          <button
+            type="button"
+            className="quick-ask-pill-chip"
+            onClick={() => processStudentQuery("Help me do the summary note for Chapter 1")}
+          >
+            📝 Smart Summary
+          </button>
+          <button
+            type="button"
+            className="quick-ask-pill-chip"
+            onClick={() => processStudentQuery("Generate 5 practice questions for me")}
+          >
+            ❓ Practice Quiz
+          </button>
+          <button
+            type="button"
+            className="quick-ask-pill-chip"
+            onClick={() => setFlashcardsOpen(true)}
+            style={{ color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+          >
+            📇 Flashcards
+          </button>
+          <button
+            type="button"
+            className="quick-ask-pill-chip"
+            onClick={handleExportSummaryPdf}
+            style={{ color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+          >
+            📄 Study PDF
+          </button>
+        </div>
       </div>
 
       {/* Voice Controls & Chat Toolbar */}
@@ -1693,7 +2059,47 @@ const StudentDashboard = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleExportSummaryPdf}
+              style={{
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(220, 38, 38, 0.26))',
+                border: '1px solid rgba(239, 68, 68, 0.45)',
+                color: '#fca5a5',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Export formatted Politeknik revision notes as PDF"
+            >
+              📄 Export Summary as PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setFlashcardsOpen(true)}
+              style={{
+                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(37, 99, 235, 0.26))',
+                border: '1px solid rgba(56, 189, 248, 0.45)',
+                color: '#38bdf8',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Open 3D interactive revision flashcards deck"
+            >
+              📇 Flashcards
+            </button>
             <button
               type="button"
               onClick={handleExportStudyNotes}
@@ -1701,9 +2107,9 @@ const StudentDashboard = () => {
                 background: 'rgba(56, 189, 248, 0.12)',
                 border: '1px solid rgba(56, 189, 248, 0.3)',
                 color: '#38bdf8',
-                padding: '3px 10px',
+                padding: '4px 8px',
                 borderRadius: '6px',
-                fontSize: '0.75rem',
+                fontSize: '0.74rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -1711,7 +2117,7 @@ const StudentDashboard = () => {
               }}
               title="Download chat notes as .txt"
             >
-              💾 Export Notes (.txt)
+              💾 .txt
             </button>
             <button
               type="button"
@@ -1720,9 +2126,9 @@ const StudentDashboard = () => {
                 background: 'rgba(239, 68, 68, 0.12)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 color: '#f87171',
-                padding: '3px 10px',
+                padding: '4px 8px',
                 borderRadius: '6px',
-                fontSize: '0.75rem',
+                fontSize: '0.74rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -1730,7 +2136,7 @@ const StudentDashboard = () => {
               }}
               title="Clear chat messages"
             >
-              🗑️ Clear Chat
+              🗑️ Clear
             </button>
           </div>
         </div>
@@ -1757,9 +2163,24 @@ const StudentDashboard = () => {
               {msg.text}
               {msg.source && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>
-                    📖 Detected Material: {msg.source}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>
+                      📖 Detected Material: {msg.source}
+                    </span>
+                    {msg.noteId && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPreviewNote(msg.noteId, msg.source, msg.page || 1)}
+                        className="badge-citation"
+                        title={`Click to open PDF previewer scrolled right to Page ${msg.page || 1}`}
+                      >
+                        <span>📄</span>
+                        <span>[📄 {msg.citationLabel || `Page ${msg.page || 1}`}]</span>
+                        <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>↗</span>
+                      </button>
+                    )}
+                  </div>
+
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
@@ -1784,7 +2205,7 @@ const StudentDashboard = () => {
                       <>
                         <button
                           type="button"
-                          onClick={() => handleOpenPreviewNote(msg.noteId, msg.source)}
+                          onClick={() => handleOpenPreviewNote(msg.noteId, msg.source, msg.page || 1)}
                           style={{
                             background: 'rgba(56, 189, 248, 0.2)',
                             border: '1px solid rgba(56, 189, 248, 0.4)',
@@ -1795,7 +2216,7 @@ const StudentDashboard = () => {
                             fontWeight: 600,
                             cursor: 'pointer'
                           }}
-                          title="Preview full note"
+                          title={`Preview full note scrolled to Page ${msg.page || 1}`}
                         >
                           👁️ Preview
                         </button>
@@ -2651,6 +3072,13 @@ const StudentDashboard = () => {
               <span>Course Notes ({notesList.length})</span>
             </button>
             <button
+              className={`sidebar-nav-item ${flashcardsOpen ? 'active' : ''}`}
+              onClick={() => { setFlashcardsOpen(true); setSidebarOpen(false); }}
+            >
+              <span>📇</span>
+              <span>Revision Flashcards</span>
+            </button>
+            <button
               className={`sidebar-nav-item ${activeTab === 'assignments' ? 'active' : ''}`}
               onClick={() => { setActiveTab('assignments'); setSidebarOpen(false); }}
             >
@@ -2725,14 +3153,16 @@ const StudentDashboard = () => {
                 {unreadNotificationsCount > 0 && (
                   <span style={{
                     background: '#ef4444',
-                    color: '#fff',
-                    fontSize: '0.7rem',
+                    color: '#ffffff',
+                    fontSize: '0.72rem',
                     fontWeight: 800,
-                    padding: '1px 6px',
+                    padding: '2px 7px',
                     borderRadius: '999px',
-                    marginLeft: '2px'
+                    marginLeft: '3px',
+                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.55)',
+                    display: 'inline-block'
                   }}>
-                    {unreadNotificationsCount}
+                    ({unreadNotificationsCount})
                   </span>
                 )}
               </button>
@@ -2852,6 +3282,24 @@ const StudentDashboard = () => {
         <main className="app-content">
           {activeTab === 'overview' && (
             <>
+              {/* Student Study Progress & Streaks Widget */}
+              <StudentStudyProgressWidget
+                notesList={notesList}
+                reviewedNotesCount={8}
+                quizzesCompletedCount={5}
+                quizAverageScore={85}
+                streakDays={3}
+                onOpenNotes={() => setActiveTab('materials')}
+                onOpenQuiz={() => {
+                  generateFiveQuestions();
+                  setActiveTab('quiz');
+                }}
+                onOpenFlashcards={() => setFlashcardsOpen(true)}
+                onExportPdf={handleExportSummaryPdf}
+              />
+
+              <div style={{ height: '20px' }} />
+
               {/* Easy-to-Understand Quick Action Cards */}
               <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
                 <div
@@ -3421,6 +3869,15 @@ const StudentDashboard = () => {
         canDelete={false}
         apiUrl={API_URL}
         role="student"
+        initialPage={previewPage}
+      />
+
+      {/* 3D Interactive Revision Flashcards Deck Modal */}
+      <RevisionFlashcardsModal
+        isOpen={flashcardsOpen}
+        onClose={() => setFlashcardsOpen(false)}
+        subjectCode={selectedNote?.subject_code || 'MPU21032'}
+        noteTitle={selectedNote?.title || 'Penghayatan Etika dan Peradaban'}
       />
     </div>
   );

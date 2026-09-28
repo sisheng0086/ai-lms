@@ -1387,4 +1387,138 @@ img.user-avatar,
   }
 }
 
+/* =========================================================================
+   Quick Ask Menu & Citation Badge Styles
+   ========================================================================= */
+.quick-ask-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.quick-ask-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(37, 99, 235, 0.25));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(56, 189, 248, 0.15);
+}
+
+.quick-ask-menu-trigger:hover,
+.quick-ask-menu-trigger.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(37, 99, 235, 0.4));
+  border-color: #38bdf8;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.quick-ask-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 320px;
+  max-height: 430px;
+  overflow-y: auto;
+  background: var(--card-bg, #1e293b);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 18px 40px -4px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.2);
+  z-index: 1000;
+  backdrop-filter: blur(14px);
+  animation: fadeInMenu 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-ask-category {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  margin-top: 4px;
+}
+
+.quick-ask-category:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+
+.quick-ask-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-main, #f8fafc);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.quick-ask-item:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  transform: translateX(2px);
+}
+
+.quick-ask-pill-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  color: var(--text-main, #e2e8f0);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.77rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.quick-ask-pill-chip:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+
+.badge-citation {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1.5px solid #38bdf8;
+  color: #38bdf8;
+  padding: 4px 11px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.2);
+}
+
+.badge-citation:hover {
+  background: #38bdf8;
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
+
 

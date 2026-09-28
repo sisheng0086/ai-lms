@@ -1961,13 +1961,16 @@ const LecturerDashboard = () => {
                 {unreadLecturerNotifs > 0 && (
                   <span style={{
                     background: '#ef4444',
-                    color: '#fff',
-                    fontSize: '0.7rem',
+                    color: '#ffffff',
+                    fontSize: '0.72rem',
                     fontWeight: 800,
-                    padding: '1px 6px',
-                    borderRadius: '999px'
+                    padding: '2px 7px',
+                    borderRadius: '999px',
+                    marginLeft: '3px',
+                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.55)',
+                    display: 'inline-block'
                   }}>
-                    {unreadLecturerNotifs}
+                    ({unreadLecturerNotifs})
                   </span>
                 )}
               </button>

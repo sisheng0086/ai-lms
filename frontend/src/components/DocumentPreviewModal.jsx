@@ -13,7 +13,8 @@ const DocumentPreviewModal = ({
   onClose,
   onDelete = null,
   apiUrl = '',
-  canDelete = false
+  canDelete = false,
+  initialPage = 1
 }) => {
   const [activeTab, setActiveTab] = useState('doc'); // 'doc' | 'text'
   const [copied, setCopied] = useState(false);
@@ -121,8 +122,21 @@ const DocumentPreviewModal = ({
               </h3>
             </div>
             {note.file_name && (
-              <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>
-                File: {note.file_name} {note.file_size_kb ? `(${note.file_size_kb} KB)` : ''}
+              <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span>File: {note.file_name} {note.file_size_kb ? `(${note.file_size_kb} KB)` : ''}</span>
+                {initialPage > 1 && (
+                  <span style={{
+                    background: 'rgba(56, 189, 248, 0.18)',
+                    border: '1px solid rgba(56, 189, 248, 0.45)',
+                    color: '#38bdf8',
+                    padding: '1px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.74rem',
+                    fontWeight: 700
+                  }}>
+                    📍 Citation Scrolled: Page {initialPage}
+                  </span>
+                )}
               </p>
             )}
           </div>
@@ -228,7 +242,7 @@ const DocumentPreviewModal = ({
               {isPdf ? (
                 <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                   <iframe
-                    src={`${viewUrl}#view=FitH`}
+                    src={`${viewUrl}#page=${initialPage || 1}&view=FitH`}
                     title={`PDF Preview - ${note.title}`}
                     style={{
                       width: '100%',
