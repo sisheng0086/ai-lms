@@ -5,6 +5,7 @@ import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import ProfilePictureUploader from '../components/ProfilePictureUploader';
 import RevisionFlashcardsModal from '../components/RevisionFlashcardsModal';
 import StudentStudyProgressWidget from '../components/StudentStudyProgressWidget';
+import FormattedChatMessage from '../components/FormattedChatMessage';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -1374,44 +1375,80 @@ const StudentDashboard = () => {
     // =========================================================================
     if (isCppNote) {
       // C++ Detail 1: Basic Coding, Syntax & Program Structure
-      if (/\b(basic\s+cod|basic\s+program|basic\s+c|how\s+to\s+code|start\s+cod|syntax|hello\s*world|cin|cout|iostream|structure\s+of\s+c|variable|variables|data\s*type|input\s*output)\b/i.test(normalizedQuery)) {
+      const isBasicCodingInquiry =
+        /\b(basic|simple|sample|example|template|starter|fundamental|syntax|structure|format)\b.*\b(cod|code|coding|program|programming|c\+\+|cpp)\b/i.test(normalizedQuery) ||
+        /\b(cod|code|coding|program|programming)\b.*\b(basic|simple|sample|example|template|starter|fundamental|syntax|format)\b/i.test(normalizedQuery) ||
+        /\b(basic\s*(code|coding|program|programming|syntax)|how\s+to\s+(code|program|write\s*c\+\+|write\s*cpp)|start\s+(coding|programming)|cin|cout|iostream|hello\s*world|variable|variables|data\s*type|input\s*output)\b/i.test(normalizedQuery) ||
+        /\b(give|show|provide|write|share)\b.*\b(code|coding|program)\b/i.test(normalizedQuery) ||
+        /coding\s*(in\s*)?(the\s*)?coding\s*format/i.test(normalizedQuery);
+
+      if (isBasicCodingInquiry) {
         const basicCodingReply =
           `💻 **C++ Basic Coding & Program Structure (${targetNote.subject_code} · Page 1):**\n\n` +
-          `**1. Fundamental C++ Program Template:**\n` +
+          `Here is the complete, standard C++ program template in official Politeknik coding format. It is fully executable and demonstrates standard headers, input/output streams, variables, and decision logic:\n\n` +
           `\`\`\`cpp\n` +
-          `#include <iostream>   // Preprocessor directive for input/output streams\n` +
+          `// =========================================================================\n` +
+          `// Course: DFC11063 — Programming Fundamentals (Politeknik Kuching Sarawak)\n` +
+          `// Program: Standard C++ Console Application Template\n` +
+          `// =========================================================================\n` +
+          `#include <iostream>   // Header file for standard console input/output\n` +
+          `#include <string>     // Enables standard string variable handling\n` +
+          `#include <iomanip>    // Formats floating-point numbers & output alignment\n` +
           `using namespace std;  // Allows using cout, cin without the std:: prefix\n\n` +
           `int main() {\n` +
-          `    // 1. Variable Declarations\n` +
+          `    // 1. Variable Declarations with Data Types\n` +
           `    string studentName;\n` +
-          `    int examScore;\n\n` +
+          `    string studentId;\n` +
+          `    int examScore;\n` +
+          `    double gpa = 3.85;\n` +
+          `    char gradeLetter;\n` +
+          `    bool hasPassed = false;\n\n` +
           `    // 2. Standard Output (cout) & User Prompt\n` +
-          `    cout << "Enter student name: ";\n` +
-          `    cin >> studentName; // Standard Input (cin)\n\n` +
-          `    cout << "Enter exam score (0-100): ";\n` +
-          `    cin >> examScore;\n\n` +
-          `    // 3. Conditional Logic (if-else)\n` +
-          `    if (examScore >= 50) {\n` +
-          `        cout << "Result: " << studentName << " passed the exam! 🎉" << endl;\n` +
+          `    cout << "=== POLITEKNIK AI-LMS STUDENT GRADING SYSTEM ===" << endl;\n` +
+          `    cout << "Enter Student Full Name: ";\n` +
+          `    getline(cin, studentName); // Reads full line including spaces\n\n` +
+          `    cout << "Enter Matrix / Student ID: ";\n` +
+          `    cin >> studentId;\n\n` +
+          `    cout << "Enter Final Exam Mark (0 - 100): ";\n` +
+          `    cin >> examScore; // Standard Input (cin)\n\n` +
+          `    // 3. Conditional Decision Logic (if-else if-else)\n` +
+          `    if (examScore >= 80) {\n` +
+          `        gradeLetter = 'A';\n` +
+          `        hasPassed = true;\n` +
+          `    } else if (examScore >= 65) {\n` +
+          `        gradeLetter = 'B';\n` +
+          `        hasPassed = true;\n` +
+          `    } else if (examScore >= 50) {\n` +
+          `        gradeLetter = 'C';\n` +
+          `        hasPassed = true;\n` +
           `    } else {\n` +
-          `        cout << "Result: " << studentName << " needs to re-sit the exam." << endl;\n` +
+          `        gradeLetter = 'F';\n` +
+          `        hasPassed = false;\n` +
           `    }\n\n` +
-          `    return 0; // Return 0 signals successful execution to the OS\n` +
+          `    // 4. Output Formatted Results\n` +
+          `    cout << "\\n----------------- RESULTS -----------------" << endl;\n` +
+          `    cout << "Student Name : " << studentName << endl;\n` +
+          `    cout << "Matrix ID    : " << studentId << endl;\n` +
+          `    cout << "Exam Mark    : " << examScore << " / 100" << endl;\n` +
+          `    cout << "Final Grade  : Grade " << gradeLetter << endl;\n` +
+          `    cout << "Status       : " << (hasPassed ? "PASSED! Congratulations 🎉" : "FAILED (Repeat Examination)") << endl;\n` +
+          `    cout << "-------------------------------------------" << endl;\n\n` +
+          `    return 0; // Signals successful execution to the Operating System\n` +
           `}\n` +
           `\`\`\`\n\n` +
-          `**2. Line-by-Line Breakdown:**\n` +
-          `• \`#include <iostream>\`: Includes the standard header library providing console input (\`cin\`) and output (\`cout\`).\n` +
-          `• \`using namespace std;\`: Grants access to standard library identifiers without writing \`std::cout\` every time.\n` +
-          `• \`int main()\`: The required entry point of every C++ program where execution begins.\n` +
-          `• \`cout <<\` (Insertion Operator): Sends data to the standard output screen.\n` +
-          `• \`cin >>\` (Extraction Operator): Reads user keyboard input into a designated variable.\n` +
-          `• \`endl\` or \`'\\n'\`: Inserts a newline character and flushes the output stream.\n` +
-          `• **Basic Primitive Data Types:**\n` +
-          `  - \`int\`: Integer numbers (e.g., \`10\`, \`-5\`).\n` +
-          `  - \`float\` / \`double\`: Floating-point decimal numbers (e.g., \`3.14\`, \`99.5\`).\n` +
-          `  - \`char\`: Single character wrapped in single quotes (e.g., \`'A'\`).\n` +
-          `  - \`string\`: Text string wrapped in double quotes (e.g., \`"Politeknik"\`).\n` +
-          `  - \`bool\`: Boolean value (\`true\` or \`false\`).`;
+          `**2. Line-by-Line Technical Breakdown:**\n` +
+          `• \`#include <iostream>\`: Preprocessor directive including standard header library for \`cin\` and \`cout\`.\n` +
+          `• \`using namespace std;\`: Grants access to standard library identifiers without writing \`std::cout\` repeatedly.\n` +
+          `• \`int main()\`: The universal mandatory entry point of all C++ programs where execution begins.\n` +
+          `• \`cout <<\` (Stream Insertion Operator): Sends formatted text to the screen output.\n` +
+          `• \`cin >>\` (Stream Extraction Operator): Reads user keyboard keystrokes into variables.\n` +
+          `• \`return 0;\`: Returns status code \`0\` indicating the program exited cleanly without errors.\n\n` +
+          `**3. Primary Data Types Summary:**\n` +
+          `• \`int\`: 32-bit whole numbers (e.g. \`10\`, \`-5\`, \`100\`).\n` +
+          `• \`double\` / \`float\`: Floating-point decimal numbers (e.g. \`3.85\`, \`99.5\`).\n` +
+          `• \`char\`: Single character enclosed in single quotes (e.g. \`'A'\`, \`'9'\`).\n` +
+          `• \`string\`: Text string enclosed in double quotes (e.g. \`"Politeknik"\`).\n` +
+          `• \`bool\`: Boolean truth flag holding either \`true\` (1) or \`false\` (0).`;
         sendBotAnswer(basicCodingReply, "Here is the basic coding template, fundamental program structure, and syntax explanation for C++.", { page: 1, label: `${targetNote.subject_code} • Basic Coding, Page 1` });
         return;
       }
@@ -1420,10 +1457,15 @@ const StudentDashboard = () => {
       if (/\b(loop|loops|for\s+loop|while\s+loop|do\s+while|if\s+else|switch\s+case|conditional|control\s+structure)\b/i.test(normalizedQuery)) {
         const loopReply =
           `🔄 **C++ Control Structures & Loops (${targetNote.subject_code} · Page 2):**\n\n` +
-          `**1. The \`for\` Loop (Best for Known Number of Iterations):**\n` +
+          `**1. The \`for\` Loop (Best for Known Iteration Counts):**\n` +
           `\`\`\`cpp\n` +
-          `for (int i = 1; i <= 5; i++) {\n` +
-          `    cout << "Iteration number: " << i << endl;\n` +
+          `#include <iostream>\n` +
+          `using namespace std;\n\n` +
+          `int main() {\n` +
+          `    for (int i = 1; i <= 5; i++) {\n` +
+          `        cout << "Iteration number: " << i << endl;\n` +
+          `    }\n` +
+          `    return 0;\n` +
           `}\n` +
           `\`\`\`\n` +
           `• Syntax: \`for (initialization; condition; increment/decrement)\`.\n\n` +
@@ -1457,9 +1499,16 @@ const StudentDashboard = () => {
           `⚙️ **C++ Functions & Parameter Passing (${targetNote.subject_code} · Page 2):**\n\n` +
           `**1. Function Declaration & Definition:**\n` +
           `\`\`\`cpp\n` +
+          `#include <iostream>\n` +
+          `using namespace std;\n\n` +
           `// ReturnType FunctionName(Parameters)\n` +
           `int addNumbers(int a, int b) {\n` +
           `    return a + b; // Returns integer sum\n` +
+          `}\n\n` +
+          `int main() {\n` +
+          `    int result = addNumbers(15, 25);\n` +
+          `    cout << "Sum: " << result << endl; // Output: 40\n` +
+          `    return 0;\n` +
           `}\n` +
           `\`\`\`\n\n` +
           `**2. Pass-by-Value vs Pass-by-Reference:**\n` +
@@ -1478,13 +1527,26 @@ const StudentDashboard = () => {
       if (/\b(pointer|pointers|memory\s+address|dereference|dereferencing|address-of|nullptr|null\s+pointer)\b/i.test(normalizedQuery)) {
         const pointerReply =
           `💻 **C++ Pointers, Addresses & Dereferencing (${targetNote.subject_code} · Page 1):**\n\n` +
-          `• **Pointer Definition:** A pointer is a variable that stores the memory address of another variable.\n` +
-          `• **Address-of Operator (\`&\`):** Retrieves the physical RAM memory address of a variable:\n` +
-          `  \`int num = 42; int *ptr = &num;\`\n` +
-          `• **Dereference Operator (\`*\`):** Accesses or modifies the value stored at the target memory address:\n` +
-          `  \`*ptr = 100;\` (changes \`num\` directly to 100)\n` +
-          `• **\`nullptr\`:** Introduced in C++11 to represent a null pointer safely without integer-to-pointer ambiguity (\`int *ptr = nullptr;\`).\n` +
-          `• **Pass-by-Reference (\`void func(int &val)\`):** Allows functions to modify caller arguments directly without copying memory overhead.`;
+          `Here is an executable code example demonstrating pointers, memory addresses, and dereferencing in C++:\n\n` +
+          `\`\`\`cpp\n` +
+          `#include <iostream>\n` +
+          `using namespace std;\n\n` +
+          `int main() {\n` +
+          `    int score = 95;\n` +
+          `    int* ptr = &score; // Stores physical RAM memory address of score\n\n` +
+          `    cout << "Original Value of score : " << score << endl; // 95\n` +
+          `    cout << "Memory Address (&score) : " << ptr << endl;   // e.g. 0x7ffee4b2\n` +
+          `    cout << "Dereferenced (*ptr)     : " << *ptr << endl;  // 95\n\n` +
+          `    // Modify score value directly via pointer!\n` +
+          `    *ptr = 100;\n` +
+          `    cout << "New Value of score      : " << score << endl; // 100\n\n` +
+          `    int* nullPtr = nullptr; // C++11 safe null pointer\n` +
+          `    return 0;\n` +
+          `}\n` +
+          `\`\`\`\n\n` +
+          `• **Address-of Operator (\`&\`):** Retrieves the physical RAM memory address of a variable (\`&score\`).\n` +
+          `• **Dereference Operator (\`*\`):** Accesses or modifies the value stored at the target memory address (\`*ptr = 100\`).\n` +
+          `• **\`nullptr\`:** Represents a null pointer safely without integer-to-pointer ambiguity.`;
         sendBotAnswer(pointerReply, "Here is the explanation of C++ pointers, the address-of operator, dereferencing, and nullptr.", { page: 1, label: `${targetNote.subject_code} • C++ Pointers, Page 1` });
         return;
       }
@@ -1493,16 +1555,27 @@ const StudentDashboard = () => {
       if (/\b(dynamic\s+memory|heap|stack|new\s+operator|delete\s+operator|malloc|free|memory\s+leak)\b/i.test(normalizedQuery)) {
         const memReply =
           `💾 **Dynamic Memory Allocation in C++ (\`new\` & \`delete\` · Page 2):**\n\n` +
-          `• **Stack vs Heap:**\n` +
-          `  - **Stack:** Fast, automatic memory allocation for local function variables. Deallocated automatically upon function exit.\n` +
-          `  - **Heap:** Large, flexible memory pool allocated dynamically at runtime using \`new\`. Must be explicitly freed.\n` +
-          `• **Operator \`new\`:** Allocates memory on the heap:\n` +
-          `  \`int *p = new int; *p = 50;\`\n` +
-          `  \`int *arr = new int[10];\` (dynamically allocated array)\n` +
-          `• **Operator \`delete\`:** Frees allocated heap memory:\n` +
-          `  \`delete p; p = nullptr;\`\n` +
-          `  \`delete[] arr; arr = nullptr;\`\n` +
-          `• **Memory Leak:** Occurs when heap memory is allocated with \`new\` but never freed with \`delete\`, consuming system memory over time.`;
+          `\`\`\`cpp\n` +
+          `#include <iostream>\n` +
+          `using namespace std;\n\n` +
+          `int main() {\n` +
+          `    // 1. Allocate single integer on Heap\n` +
+          `    int* ptr = new int;\n` +
+          `    *ptr = 42;\n` +
+          `    cout << "Heap Value: " << *ptr << endl;\n` +
+          `    delete ptr;       // Deallocate to prevent memory leak!\n` +
+          `    ptr = nullptr;    // Reset pointer\n\n` +
+          `    // 2. Allocate dynamic array on Heap\n` +
+          `    int size = 5;\n` +
+          `    int* arr = new int[size];\n` +
+          `    for (int i = 0; i < size; i++) arr[i] = (i + 1) * 10;\n` +
+          `    delete[] arr;     // Free array memory\n` +
+          `    arr = nullptr;\n` +
+          `    return 0;\n` +
+          `}\n` +
+          `\`\`\`\n\n` +
+          `• **Stack:** Fast, automatic memory allocation for local function variables. Deallocated upon return.\n` +
+          `• **Heap:** Flexible runtime memory pool allocated dynamically using \`new\`. Must be freed using \`delete\` or \`delete[]\` to prevent memory leaks.`;
         sendBotAnswer(memReply, "Here is how dynamic memory allocation works in C++ using new and delete.", { page: 2, label: `${targetNote.subject_code} • Dynamic Memory, Page 2` });
         return;
       }
@@ -1511,11 +1584,33 @@ const StudentDashboard = () => {
       if (/\b(oop|object-oriented|class|classes|object|objects|encapsulation|abstraction|inheritance|polymorphism|constructor|destructor|virtual\s+function)\b/i.test(normalizedQuery)) {
         const oopReply =
           `🧱 **Object-Oriented Programming (OOP) & The 4 Pillars (${targetNote.subject_code} · Page 3):**\n\n` +
-          `• **1. Encapsulation:** Bundling variables (data attributes) and methods (member functions) inside a class while restricting direct access using access specifiers (\`private\`, \`protected\`, \`public\`).\n` +
-          `• **2. Abstraction:** Exposing only relevant operations to the outside world while hiding intricate internal implementation (achieved via abstract classes and pure virtual functions \`virtual void draw() = 0;\`).\n` +
-          `• **3. Inheritance:** A derived child class inherits properties and methods from a base parent class (\`class Dog : public Animal\`), promoting code reuse.\n` +
-          `• **4. Polymorphism:** "Many forms" — allowing objects of different classes to respond to the same function call. Includes compile-time polymorphism (function overloading) and run-time polymorphism (virtual functions & method overriding).\n` +
-          `• **Constructors & Destructors:** A constructor (\`ClassName()\`) initializes objects upon instantiation; a destructor (\`~ClassName()\`) executes automatically when an object goes out of scope to release resources.`;
+          `\`\`\`cpp\n` +
+          `#include <iostream>\n` +
+          `#include <string>\n` +
+          `using namespace std;\n\n` +
+          `// Class demonstrating Encapsulation\n` +
+          `class Student {\n` +
+          `private:\n` +
+          `    string name;   // Private data attribute\n` +
+          `    int score;\n\n` +
+          `public:\n` +
+          `    // Constructor initializing object\n` +
+          `    Student(string n, int s) : name(n), score(s) {}\n\n` +
+          `    // Public Member Function\n` +
+          `    void display() {\n` +
+          `        cout << "Student: " << name << " | Score: " << score << "/100" << endl;\n` +
+          `    }\n` +
+          `};\n\n` +
+          `int main() {\n` +
+          `    Student s1("Daniel", 92); // Instantiate object\n` +
+          `    s1.display();\n` +
+          `    return 0;\n` +
+          `}\n` +
+          `\`\`\`\n\n` +
+          `• **1. Encapsulation:** Bundling data and methods while restricting direct access via access specifiers (\`private\`, \`public\`).\n` +
+          `• **2. Abstraction:** Hiding intricate internal details and exposing only essential interfaces.\n` +
+          `• **3. Inheritance:** Reusing base class functionality in derived child classes (\`class Dog : public Animal\`).\n` +
+          `• **4. Polymorphism:** Allowing objects of different types to respond to the same function call dynamically.`;
         sendBotAnswer(oopReply, "Here is the explanation of the four pillars of OOP: encapsulation, abstraction, inheritance, and polymorphism.", { page: 3, label: `${targetNote.subject_code} • OOP Fundamentals, Page 3` });
         return;
       }
@@ -2563,7 +2658,11 @@ const StudentDashboard = () => {
                 borderBottomLeftRadius: msg.sender === 'bot' ? '4px' : '16px',
               }}
             >
-              {msg.text}
+              {msg.sender === 'bot' ? (
+                <FormattedChatMessage content={msg.text} />
+              ) : (
+                msg.text
+              )}
               {msg.source && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
