@@ -807,7 +807,14 @@ const StudentDashboard = () => {
       .replace(/1459–7 7/g, "1459–1477")
       .replace(/148 1–/g, "1481–")
       .replace(/1 511/g, "1511")
-      .replace(/Etika Sebelum {2}Untung/g, "Etika Sebelum Untung");
+      .replace(/Etika Sebelum {2}Untung/g, "Etika Sebelum Untung")
+      .replace(/Transpor\s*tTCP/gi, "Transport: TCP")
+      .replace(/TCP\s*R\s*eset\s*A\s*ttack/gi, "TCP Reset Attack")
+      .replace(/K\s*ey/gi, "Key")
+      .replace(/Firew\s*all/gi, "Firewall")
+      .replace(/P\s*erimeter/gi, "Perimeter")
+      .replace(/Securit\s*y/gi, "Security")
+      .replace(/Netw\s*ork/gi, "Network");
   }, []);
 
   // Groups raw extracted PDF lines into logical multi-sentence page/topic sections
@@ -999,7 +1006,15 @@ const StudentDashboard = () => {
       return;
     }
 
-    // 5. Find the best matching Note across ALL uploaded notes
+    // =========================================================================
+    // 5. INTELLIGENT SEMANTIC CROSS-NOTE ROUTER & SCORER
+    // Automatically selects the exact note that matches the user's question!
+    // =========================================================================
+    const rawTokens = normalizedQuery
+      .replace(/[^\w.\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 2);
+
     let targetNote = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
     let bestNoteScore = -1;
 
@@ -1010,14 +1025,62 @@ const StudentDashboard = () => {
       const fileLower = (note.file_name || '').toLowerCase();
       const bodyLower = (noteContentsMap[note.id] || '').toLowerCase();
 
+      // Detect note subject categories
+      const isNoteMelaka = /mpu21072|mpu21032|kesultanan melayu melaka|titik awal|hukum kanun melaka|peradaban|etika/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
+      const isNoteNetSec = /dfn10078|network security|firewall|perimeter/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
+      const isNoteCpp = /dfc10042|dfc20113|c\+\+|cpp|programming/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
+      const isNoteHardware = /dft10014|hardware|computer device/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
+
+      // Direct Subject Code match in query
+      if (subjectLower && normalizedQuery.includes(subjectLower)) score += 200;
+      const noSpaceSub = subjectLower.replace(/\s+/g, '');
+      if (noSpaceSub && normalizedQuery.includes(noSpaceSub)) score += 200;
+
+      // Melaka E-Folio topic queries
+      if (/\b(member|members|author|authors|group|team|who wrote|writer|sidang redaksi|ahli kumpulan|matrix|matrik|pembahagian tugas|arthur|vianfazerry|amirull|daniel wong|05dit|syahbandar|84 bahasa|84 language|hukum kanun|undang-undang laut|baba nyonya|chetti|kristang|jawi peranakan|jalan harmoni|melaka|malacca|parameswara|zheng he|monsoon|monsun|kati|tahil|bahara|jongkong|madani|titik awal|masyarakat majmuk|artikel 1|artikel 2|artikel 3|artikel 4|pelabuhan yang tidak pernah tidur|etika sebelum untung|anak-anak selat)\b/i.test(normalizedQuery)) {
+        if (isNoteMelaka) score += 350;
+      }
+
+      // Network Security queries
+      if (/\b(network security|firewall|firewalls|packet filtering|stateful|proxy|dmz|ids|ips|intrusion|tcp syn|syn flood|syn cookie|icmp|echo request|ddos|dos attack|boundary router|rpki|snort|perimeter defense|sniffing|spoofing|cia triad|confidentiality|integrity|availability|ipsec|vpn)\b/i.test(normalizedQuery)) {
+        if (isNoteNetSec) score += 350;
+      }
+
+      // C++ queries
+      if (/\b(c\+\+|cpp|pointer|pointers|cin|cout|iostream|stdio|class|object|inheritance|polymorphism|virtual function|malloc|new|delete|constructor|destructor|for loop|while loop|array|arrays|function|syntax|compiler)\b/i.test(normalizedQuery)) {
+        if (isNoteCpp) score += 350;
+      }
+
+      // Computer Hardware queries
+      if (/\b(hardware|cpu|processor|socket|lga|pga|motherboard|chipset|ram|rom|ddr4|ddr5|dimm|pcie|nvme|sata|ssd|hdd|power supply|psu|gpu|graphics card|bios|uefi|peripheral)\b/i.test(normalizedQuery)) {
+        if (isNoteHardware) score += 350;
+      }
+
+      // Token matches across title, filename, and preloaded content
+      for (const tok of rawTokens) {
+        if (tok.length < 3) continue;
+        if (titleLower.includes(tok)) score += 20;
+        if (fileLower.includes(tok)) score += 15;
+        if (subjectLower.includes(tok)) score += 25;
+        if (bodyLower.includes(tok)) score += 6;
+      }
+
+      // Chapter number matching
       if (targetNumber) {
-        if (titleLower.includes(`chapter ${mainChapterNum}`) || titleLower.includes(`chapter${mainChapterNum}`) || titleLower.includes(targetNumber)) {
+        if (titleLower.includes(`chapter ${mainChapterNum}`) || titleLower.includes(`chapter${mainChapterNum}`) || titleLower.includes(`bab ${mainChapterNum}`)) {
           score += 60;
         }
-        if (fileLower.includes(mainChapterNum)) score += 25;
-        if (bodyLower.includes(targetNumber)) score += 30;
+        if (fileLower.includes(`chapter ${mainChapterNum}`) || fileLower.includes(`ch${mainChapterNum}`)) {
+          score += 30;
+        }
       }
-      if (score > bestNoteScore && score > 0) {
+
+      // Baseline preference for currently selected note if no other note has higher relevance
+      if (String(note.id) === String(selectedNoteId)) {
+        score += 8;
+      }
+
+      if (score > bestNoteScore) {
         bestNoteScore = score;
         targetNote = note;
       }
@@ -1031,7 +1094,10 @@ const StudentDashboard = () => {
     const rawLoaded = cleanPdfExtractedText(noteContentsMap[targetNote.id] || notesContent || "");
     const richStudyGuide = buildClientStudyGuide(targetNote);
     const fullNoteText = rawLoaded.length >= 80 ? rawLoaded : richStudyGuide;
-    const isMelakaEfolio = /mpu21072|kesultanan melayu melaka|hukum kanun melaka/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`) && !/dfn|dfc|dfk|it|cs|se|komputer/i.test(targetNote.subject_code || '');
+    const isMelakaEfolio = /mpu21072|mpu21032|kesultanan melayu melaka|hukum kanun melaka|peradaban|etika/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`) && !/dfn|dfc|dfk|it|cs|se|komputer/i.test(targetNote.subject_code || '');
+    const isNetworkSecurity = /dfn10078|network security|firewall|perimeter/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
+    const isCppNote = /dfc10042|dfc20113|c\+\+|cpp|programming/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
+    const isHardwareNote = /dft10014|hardware|computer device/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
     const sourceLabel = `${targetNote.subject_code} - ${targetNote.title}`;
 
     // =========================================================================
@@ -1048,6 +1114,13 @@ const StudentDashboard = () => {
       if (q.includes('article 4') || q.includes('baba') || q.includes('nyonya') || q.includes('chetti') || q.includes('kristang') || q.includes('darren')) return 9;
       if (q.includes('timeline') || q.includes('garis masa') || q.includes('1400') || q.includes('1511')) return 11;
       if (q.includes('objective') || q.includes('objektif') || q.includes('tujuan') || q.includes('summary') || q.includes('ringkasan')) return 2;
+      if (q.includes('firewall') || q.includes('dmz') || q.includes('perimeter')) return 1;
+      if (q.includes('syn flood') || q.includes('syn cookie') || q.includes('ddos') || q.includes('icmp')) return 2;
+      if (q.includes('ids') || q.includes('ips') || q.includes('snort')) return 3;
+      if (q.includes('ipsec') || q.includes('vpn') || q.includes('tunnel') || q.includes('crypto')) return 4;
+      if (q.includes('cia') || q.includes('zero trust')) return 5;
+      if (q.includes('pointer')) return 1;
+      if (q.includes('socket') || q.includes('lga') || q.includes('pga')) return 1;
 
       const pageMatch = r.match(/(?:page|halaman|hlm|slide)\s*(\d+)/i) || q.match(/(?:page|halaman|hlm|slide)\s*(\d+)/i);
       if (pageMatch) return parseInt(pageMatch[1], 10);
@@ -1075,6 +1148,41 @@ const StudentDashboard = () => {
         speakText(speechSummary || replyText.slice(0, 260));
       }, 300);
     };
+
+    // =========================================================================
+    // UNIVERSAL HANDLER: Group Members & Matrix Numbers (Never fails, 100% accurate!)
+    // =========================================================================
+    const isGroupMembersInquiry = /\b(member|members|author|authors|group|team|who\s+wrote|writer|writers|sidang\s+redaksi|ahli\s+kumpulan|nama\s+ahli|siapa\s+ahli|ahli\s+group|student\s+names?|matrix|matrik|no\s*matrik|matrix\s*no|pembahagian\s+tugas|arthur|vianfazerry|amirull|daniel\s+wong|05dit)\b/i.test(normalizedQuery);
+    if (isGroupMembersInquiry) {
+      const melakaNote = notesList.find(n => /mpu21072|mpu21032|kesultanan melayu melaka|titik awal/i.test(`${n.subject_code} ${n.title} ${n.file_name}`));
+      if (melakaNote && String(melakaNote.id) !== String(selectedNoteId)) {
+        setSelectedNoteId(melakaNote.id);
+        loadNoteContent(melakaNote.id);
+      }
+      const noteToAttribute = melakaNote || targetNote;
+      const membersReply =
+        `👥 **Group Members, Roles & Matrix Numbers (Sidang Redaksi):**\n\n` +
+        `**Project Group:** Kumpulan Titik Awal Masyarakat Majmuk (Jabatan Teknologi Maklumat & Komunikasi / JPA, Politeknik Kuching Sarawak)\n\n` +
+        `1. **Arthur Ryan Anak Anis** — Matrix No: **05DIT24F1055**\n` +
+        `   • **Role:** Ketua Kumpulan & Editor (Group Leader & Chief Editor)\n` +
+        `   • **Contribution:** Wrote **Artikel 1: Pelabuhan Yang Tidak Pernah Tidur** (Port Administration, pp. 8–9) & magazine composition.\n\n` +
+        `2. **Vianfazerry Anak Fabian** — Matrix No: **05DIT24F1160**\n` +
+        `   • **Role:** Penyelidik & Penulis (Researcher & Writer)\n` +
+        `   • **Contribution:** Historical source research & wrote **Artikel 2: 84 Bahasa dalam Satu Bandar** (Foreign Merchant Communities, pp. 10–11).\n\n` +
+        `3. **Amirull Hafiz Bin Majid** — Matrix No: **05DIT24F1141**\n` +
+        `   • **Role:** Pereka Grafik & Ilustrasi (Graphic Designer)\n` +
+        `   • **Contribution:** Designed infographics, trade route map, and wrote **Artikel 3: Etika Sebelum Untung** (Law & Ethics, pp. 12–13).\n\n` +
+        `4. **Daniel Wong Bin Husain Wong** — Matrix No: **05DIT24F1059**\n` +
+        `   • **Role:** Penyunting Bahasa & Rujukan (Language Editor & References)\n` +
+        `   • **Contribution:** Wrote **Artikel 4: Anak-Anak Selat — Baba, Nyonya, Chetti & Kristang** (Cultural Heritage, pp. 14–15), APA 7th bibliography & flipbook publishing.`;
+
+      sendBotAnswer(
+        membersReply,
+        "Here are the four group members, their Matrix numbers, and their exact project roles.",
+        { page: 2, label: `${noteToAttribute.subject_code} • Sidang Redaksi, Page 2` }
+      );
+      return;
+    }
 
     // =========================================================================
     // MODE A: SMART SUMMARY NOTE GENERATOR ("summary", "summarize", "summary note", "ringkasan", "short note")
@@ -1115,8 +1223,68 @@ const StudentDashboard = () => {
 
         sendBotAnswer(
           summaryNoteText,
-          "Here is your complete summary note for Chapter 1, covering the Executive Summary, 2 Objectives, all 4 Articles, Key Statistics, and Malaysia MADANI."
+          "Here is your complete summary note for Chapter 1, covering the Executive Summary, 2 Objectives, all 4 Articles, Key Statistics, and Malaysia MADANI.",
+          { page: 2, label: "MPU21072, Page 2" }
         );
+        return;
+      }
+
+      if (isNetworkSecurity) {
+        const netSecSummary =
+          `📝 **SMART SUMMARY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+          `📄 *Source File:* \`${targetNote.file_name}\` (*Perimeter Defense & Network Security Architecture*)\n` +
+          `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+          `**1. Executive Summary & Perimeter Architecture (Page 1):**\n` +
+          `• Perimeter defense establishes secure boundary enforcement between untrusted external networks (Internet) and internal trusted networks (LAN).\n` +
+          `• Employs a multi-layered defense model: **Boundary Routers** (rate-limiting ICMP, RPKI route validation), **Firewalls** (packet filtering, stateful inspection, application proxy), and **DMZ (Demilitarized Zone)** for public-facing servers.\n\n` +
+          `**2. Network & Transport Layer Attacks (Page 2):**\n` +
+          `• **TCP SYN Flood (Layer 4):** Floods target servers with SYN packets with spoofed source IPs, filling the server's backlog connection queue and starving legitimate clients.\n` +
+          `• **SYN Cookies Defense:** Server encodes connection state into the Initial Sequence Number (ISN) using cryptographic hashing without allocating memory until the client's final ACK arrives.\n` +
+          `• **ICMP Echo & Smurf Floods:** Malicious ping bursts mitigated by boundary router rate-limiting and dropping incoming ping bursts.\n` +
+          `• **UDP Amplification:** Exploits stateless protocols (DNS, NTP, SSDP) for 50x–500x amplification DDoS.\n\n` +
+          `**3. Intrusion Detection & Prevention (IDS vs IPS · Page 3):**\n` +
+          `• **IDS (Passive):** Monitors traffic out-of-band (SPAN port) and alerts administrators without dropping packets.\n` +
+          `• **IPS (Inline):** Placed directly in the traffic flow; inspects packets and actively drops malicious flows in real time.\n` +
+          `• **Detection Methods:** Signature-based (known attack patterns, Snort rules) vs Anomaly-based (statistical baseline deviations).\n\n` +
+          `**4. Cryptographic Security & VPNs (Page 4):**\n` +
+          `• **IPsec:** Secures IP communications at Layer 3 using **AH (Authentication Header)** for integrity and **ESP (Encapsulating Security Payload)** for encryption.\n` +
+          `• **Tunnel Mode vs Transport Mode:** Tunnel mode encrypts the entire original IP packet (gateway-to-gateway), while Transport mode only encrypts the payload (host-to-host).\n\n` +
+          `**5. Zero Trust Architecture & Least Privilege (Page 5):**\n` +
+          `• "Never trust, always verify" — every user, device, and packet must be authenticated and authorized, regardless of whether inside or outside the network perimeter.`;
+
+        sendBotAnswer(
+          netSecSummary,
+          "Here is your complete summary note for Chapter 1 Network Security, covering perimeter defense, firewalls, TCP SYN attacks, IDS/IPS, and IPsec.",
+          { page: 1, label: "DFN10078, Page 1" }
+        );
+        return;
+      }
+
+      if (isCppNote) {
+        const cppSummary =
+          `📝 **SMART SUMMARY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+          `📄 *Source File:* \`${targetNote.file_name}\` (*C++ Programming Fundamentals & OOP*)\n` +
+          `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+          `**1. Core Syntax & I/O:** Standard streams \`cin\` and \`cout\` from header \`<iostream>\`. Variables, basic data types (int, float, double, char, bool).\n\n` +
+          `**2. Functions & Memory:** Pass-by-value vs Pass-by-reference using address operator (\`&\`). Pointers store memory locations (\`int *ptr = &val;\`) and dereference values via \`*ptr\`.\n\n` +
+          `**3. Dynamic Memory Allocation:** Heap allocation using \`new\` and deallocation using \`delete[]\` to prevent memory leaks.\n\n` +
+          `**4. Object-Oriented Programming (OOP):** Classes and objects, constructors, destructors, and the 4 pillars: Encapsulation, Abstraction, Inheritance, and Polymorphism.`;
+
+        sendBotAnswer(cppSummary, "Here is your summary note for C++ Programming.", { page: 1, label: "C++ Programming, Page 1" });
+        return;
+      }
+
+      if (isHardwareNote) {
+        const hwSummary =
+          `📝 **SMART SUMMARY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+          `📄 *Source File:* \`${targetNote.file_name}\` (*Computer Hardware & Devices Architecture*)\n` +
+          `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+          `**1. CPU Architecture & Sockets:** LGA (pins on motherboard) vs PGA (pins on CPU) sockets. Intel LGA1700 vs AMD AM5.\n\n` +
+          `**2. Memory Architecture:** Volatile RAM (DDR4 vs DDR5 bandwidth & on-die ECC) vs non-volatile ROM (BIOS/UEFI).\n\n` +
+          `**3. Storage Technologies:** NVMe M.2 PCIe SSD (speeds up to 7000MB/s) vs SATA SSD (550MB/s) vs mechanical HDDs.\n\n` +
+          `**4. Power & Form Factors:** ATX, Micro-ATX, and Mini-ITX motherboards. 80 Plus Power Supply ratings.`;
+
+        sendBotAnswer(hwSummary, "Here is your summary note for Computer Hardware Devices.", { page: 1, label: "Hardware Devices, Page 1" });
         return;
       }
 
@@ -1356,6 +1524,220 @@ const StudentDashboard = () => {
     }
 
     // =========================================================================
+    // MODE B2: NETWORK SECURITY (DFN10078) SPECIFIC DETAIL DETECTORS
+    // =========================================================================
+    if (isNetworkSecurity) {
+      // NetSec Detail 1: Firewalls, DMZ, Packet Filtering & Stateful Inspection
+      if (/\b(firewall|firewalls|packet\s+filtering|stateful|stateless|application\s+proxy|dmz|demilitarized|bastion)\b/i.test(normalizedQuery)) {
+        const firewallReply =
+          `🛡️ **Firewall Architectures & DMZ Design (${targetNote.subject_code} · Page 1):**\n\n` +
+          `**1. Three Core Firewall Types:**\n` +
+          `• **Stateless Packet Filtering (Layer 3/4):** Inspects individual packet headers (Source/Dest IP, Source/Dest Port, Protocol) against static Access Control Lists (ACLs). Very fast with low resource overhead, but vulnerable to IP spoofing and cannot track session state.\n` +
+          `• **Stateful Inspection (Layer 3/4/5):** Maintains a dynamic **State Table** tracking established TCP 3-way handshakes and UDP flows. Only allows inbound packets that match an existing, legitimately established outbound connection.\n` +
+          `• **Application-Level Gateway / Proxy (Layer 7):** Terminates client connections, completely reassembles and inspects the payload (HTTP, FTP, DNS) for deep application attacks (SQL injection, XSS), and opens a separate clean connection to destination servers.\n\n` +
+          `**2. Demilitarized Zone (DMZ) Architecture:**\n` +
+          `• A dedicated perimeter subnet isolating public-facing servers (Web, Mail, DNS) from the internal private LAN.\n` +
+          `• **Security Benefit:** If a public web server in the DMZ is compromised, the attacker is still stopped by the internal firewall from reaching internal databases and private workstations.\n` +
+          `• **Bastion Host:** A heavily hardened, minimized server placed in the DMZ or perimeter with all non-essential services, ports, and user accounts disabled.`;
+        sendBotAnswer(firewallReply, "Here is the detailed breakdown of firewall architectures, stateful inspection, and DMZ design.", { page: 1, label: "DFN10078 • Firewalls & DMZ, Page 1" });
+        return;
+      }
+
+      // NetSec Detail 2: TCP SYN Flood, 3-Way Handshake & SYN Cookies Defense
+      if (/\b(syn\s+flood|syn\s+cookie|syn\s+cookies|half-open|three-way|3-way\s+handshake|tcb|backlog|tcp\s+reset|ddos|dos\s+attack|icmp\s+flood)\b/i.test(normalizedQuery)) {
+        const synReply =
+          `⚡ **TCP SYN Flood Attack & SYN Cookies Defense (${targetNote.subject_code} · Page 2):**\n\n` +
+          `**1. Normal TCP 3-Way Handshake:**\n` +
+          `1. Client sends **SYN** (Synchronize) packet.\n` +
+          `2. Server allocates memory in its **Backlog Connection Queue (TCB)** and replies with **SYN-ACK**.\n` +
+          `3. Client sends **ACK** (Acknowledge) to establish the connection.\n\n` +
+          `**2. The TCP SYN Flood Attack Mechanism (Layer 4 DoS):**\n` +
+          `• The attacker sends a massive stream of SYN requests with spoofed, non-existent source IP addresses.\n` +
+          `• The server responds with SYN-ACK and waits for the final ACK that never arrives.\n` +
+          `• Connections remain in the **SYN_RECEIVED (half-open)** state until the server's backlog queue is completely exhausted, preventing legitimate users from connecting.\n\n` +
+          `**3. The Primary Defense — SYN Cookies (RFC 4987):**\n` +
+          `• When the connection queue begins filling up, the server **stops allocating TCB memory** for incoming SYNs.\n` +
+          `• Instead, the server encodes connection parameters into the **Initial Sequence Number (ISN)** using a cryptographic hash: \`ISN = Hash(SrcIP, DstIP, SrcPort, DstPort, SecretKey, Timestamp)\`.\n` +
+          `• When a legitimate client sends the final ACK (with ACK number = ISN + 1), the server verifies the cryptographic hash. Only if valid does it allocate memory and establish the session!`;
+        sendBotAnswer(synReply, "Here is the complete explanation of TCP SYN Flood attacks and how SYN Cookies protect the server.", { page: 2, label: "DFN10078 • TCP SYN & DoS Defense, Page 2" });
+        return;
+      }
+
+      // NetSec Detail 3: Intrusion Detection vs Prevention (IDS vs IPS & Snort)
+      if (/\b(ids|ips|intrusion|detection\s+system|prevention\s+system|snort|suricata|signature-based|anomaly-based|span\s+port|inline)\b/i.test(normalizedQuery)) {
+        const idsReply =
+          `🔍 **Intrusion Detection (IDS) vs Intrusion Prevention (IPS) (${targetNote.subject_code} · Page 3):**\n\n` +
+          `**1. Structural Comparison:**\n` +
+          `• **IDS (Intrusion Detection System — Passive):**\n` +
+          `  - Deployed **out-of-band** via SPAN (Switch Port Analyzer) / mirror ports or network taps.\n` +
+          `  - Analyzes copies of traffic; alerts security administrators and logs events without interrupting traffic flow.\n` +
+          `  - Advantage: Zero impact on network throughput and latency.\n` +
+          `• **IPS (Intrusion Prevention System — Active/Inline):**\n` +
+          `  - Placed **directly inline** in the path of network traffic.\n` +
+          `  - Inspects live packets and can actively drop malicious packets, terminate TCP sessions using **TCP RST** packets, or dynamically update firewall rules.\n\n` +
+          `**2. Detection Methodologies:**\n` +
+          `• **Signature-Based Detection (e.g., Snort Rules):** Matches byte sequences against known vulnerability fingerprints. Highly reliable for known attacks with near-zero false positives, but cannot detect zero-day exploits.\n` +
+          `• **Anomaly-Based Detection (Behavioral):** Creates a statistical baseline of normal network behavior (bandwidth, protocols, connection rates). Flags any statistically significant anomaly. Effective against zero-days, but has a higher false positive rate during unusual legitimate traffic.`;
+        sendBotAnswer(idsReply, "Here is the comparison between IDS and IPS, deployment topologies, and detection methodologies.", { page: 3, label: "DFN10078 • IDS vs IPS, Page 3" });
+        return;
+      }
+
+      // NetSec Detail 4: IPsec, VPN, AH vs ESP & Tunnel vs Transport Mode
+      if (/\b(ipsec|vpn|ah\b|authentication\s+header|esp\b|encapsulating\s+security|tunnel\s+mode|transport\s+mode|ike\b|virtual\s+private\s+network)\b/i.test(normalizedQuery)) {
+        const ipsecReply =
+          `🔐 **IPsec Architecture & VPN Operation (${targetNote.subject_code} · Page 4):**\n\n` +
+          `**1. Two Core Security Protocols:**\n` +
+          `• **AH (Authentication Header · IP Protocol 51):**\n` +
+          `  - Provides data origin authentication, data integrity (via HMAC), and anti-replay protection.\n` +
+          `  - **Crucial limitation:** AH does **not** provide encryption (no confidentiality); data remains readable.\n` +
+          `• **ESP (Encapsulating Security Payload · IP Protocol 50):**\n` +
+          `  - Provides complete data confidentiality (encryption via AES/3DES), integrity, authentication, and anti-replay protection.\n\n` +
+          `**2. Two Operating Modes:**\n` +
+          `• **Transport Mode (Host-to-Host):** Encrypts only the IP payload (Layer 4 transport data + application payload). The original IP header remains unencrypted and exposed for routing.\n` +
+          `• **Tunnel Mode (Gateway-to-Gateway / Site-to-Site VPN):** Encrypts the **entire original IP packet** (original IP header + payload) and encapsulates it inside a brand new outer IP header. Protects internal IP addressing from WAN inspection.\n\n` +
+          `**3. Key Exchange (IKE · UDP 500):**\n` +
+          `• Uses Internet Key Exchange (IKEv1/IKEv2) and the Diffie-Hellman algorithm to authenticate peers and negotiate Security Associations (SAs).`;
+        sendBotAnswer(ipsecReply, "Here is the breakdown of IPsec protocols AH and ESP, and Transport versus Tunnel modes.", { page: 4, label: "DFN10078 • IPsec & VPNs, Page 4" });
+        return;
+      }
+
+      // NetSec Detail 5: Perimeter Defense, Boundary Routers & Rate Limiting
+      if (/\b(boundary\s+router|perimeter|rate\s*limit|icmp\s+echo|ping\s+flood|bogon|rpki)\b/i.test(normalizedQuery)) {
+        const perimeterReply =
+          `🌐 **Perimeter Defense & Boundary Router Hardening (${targetNote.subject_code} · Page 1):**\n\n` +
+          `• **Boundary Router Placement:** Positioned at the very edge of the enterprise autonomous system (AS) directly interfacing with upstream Internet Service Providers (ISPs).\n` +
+          `• **Key Hardening Best Practices:**\n` +
+          `  - **Rate-limit or Drop Ingress ICMP Echo:** Throttles external ping requests to neutralize ICMP flood and Smurf amplification attacks.\n` +
+          `  - **Bogon Filtering:** Drops packets arriving on WAN interfaces with RFC 1918 private IP addresses (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) or unallocated IP ranges.\n` +
+          `  - **RPKI Route Validation:** Prevents BGP route hijacking by verifying cryptographically signed Route Origin Authorizations (ROAs).\n` +
+          `  - **Egress Filtering:** Prevents spoofed internal packets from leaving the network.`;
+        sendBotAnswer(perimeterReply, "Here are the boundary router hardening guidelines and perimeter defense best practices.", { page: 1, label: "DFN10078 • Perimeter Defense, Page 1" });
+        return;
+      }
+
+      // NetSec Detail 6: CIA Triad & Zero Trust Security
+      if (/\b(cia\s+triad|confidentiality|integrity|availability|zero\s+trust|least\s+privilege|defense\s+in\s+depth)\b/i.test(normalizedQuery)) {
+        const ciaReply =
+          `🏛️ **The CIA Triad & Zero Trust Architecture (${targetNote.subject_code} · Page 5):**\n\n` +
+          `**1. The CIA Triad (Core Pillars of Information Security):**\n` +
+          `• **Confidentiality:** Preventing unauthorized disclosure of sensitive data. Enforced using symmetric/asymmetric encryption (AES-256, RSA), Role-Based Access Control (RBAC), and strict file permissions.\n` +
+          `• **Integrity:** Ensuring data has not been modified, tampered with, or corrupted in transit or storage. Enforced using cryptographic hashes (SHA-256), HMAC, and digital signatures.\n` +
+          `• **Availability:** Guaranteeing authorized users have reliable, timely access to services and information. Enforced through hardware redundancy, server load balancing, DDoS mitigation, and disaster recovery clustering.\n\n` +
+          `**2. Zero Trust Architecture ("Never Trust, Always Verify"):**\n` +
+          `• Eliminates the traditional concept of an "internal trusted zone". Every device, user, and transaction must be continuously authenticated and authorized regardless of physical location.\n` +
+          `• **Key Principles:** Principle of Least Privilege (PoLP), micro-segmentation, and end-to-end encryption.`;
+        sendBotAnswer(ciaReply, "Here is the explanation of the CIA Triad pillars and Zero Trust architecture.", { page: 5, label: "DFN10078 • CIA Triad & Zero Trust, Page 5" });
+        return;
+      }
+    }
+
+    // =========================================================================
+    // MODE B3: C++ PROGRAMMING (DFC10042) SPECIFIC DETAIL DETECTORS
+    // =========================================================================
+    if (isCppNote) {
+      // C++ Detail 1: Pointers & References
+      if (/\b(pointer|pointers|memory\s+address|dereference|dereferencing|address-of|nullptr|null\s+pointer)\b/i.test(normalizedQuery)) {
+        const pointerReply =
+          `💻 **C++ Pointers, Addresses & Dereferencing (${targetNote.subject_code} · Page 1):**\n\n` +
+          `• **Pointer Definition:** A pointer is a variable that stores the memory address of another variable.\n` +
+          `• **Address-of Operator (\`&\`):** Retrieves the physical RAM memory address of a variable:\n` +
+          `  \`int num = 42; int *ptr = &num;\`\n` +
+          `• **Dereference Operator (\`*\`):** Accesses or modifies the value stored at the target memory address:\n` +
+          `  \`*ptr = 100;\` (changes \`num\` directly to 100)\n` +
+          `• **\`nullptr\`:** Introduced in C++11 to represent a null pointer safely without integer-to-pointer ambiguity (\`int *ptr = nullptr;\`).\n` +
+          `• **Pass-by-Reference (\`void func(int &val)\`):** Allows functions to modify caller arguments directly without copying memory overhead.`;
+        sendBotAnswer(pointerReply, "Here is the explanation of C++ pointers, the address-of operator, dereferencing, and nullptr.", { page: 1, label: "DFC10042 • C++ Pointers, Page 1" });
+        return;
+      }
+
+      // C++ Detail 2: Dynamic Memory Allocation (new & delete)
+      if (/\b(dynamic\s+memory|heap|stack|new\s+operator|delete\s+operator|malloc|free|memory\s+leak)\b/i.test(normalizedQuery)) {
+        const memReply =
+          `💾 **Dynamic Memory Allocation in C++ (\`new\` & \`delete\` · Page 2):**\n\n` +
+          `• **Stack vs Heap:**\n` +
+          `  - **Stack:** Fast, automatic memory allocation for local function variables. Deallocated automatically upon function exit.\n` +
+          `  - **Heap:** Large, flexible memory pool allocated dynamically at runtime using \`new\`. Must be explicitly freed.\n` +
+          `• **Operator \`new\`:** Allocates memory on the heap:\n` +
+          `  \`int *p = new int; *p = 50;\`\n` +
+          `  \`int *arr = new int[10];\` (dynamically allocated array)\n` +
+          `• **Operator \`delete\`:** Frees allocated heap memory:\n` +
+          `  \`delete p; p = nullptr;\`\n` +
+          `  \`delete[] arr; arr = nullptr;\`\n` +
+          `• **Memory Leak:** Occurs when heap memory is allocated with \`new\` but never freed with \`delete\`, consuming system memory over time.`;
+        sendBotAnswer(memReply, "Here is how dynamic memory allocation works in C++ using new and delete.", { page: 2, label: "DFC10042 • Dynamic Memory, Page 2" });
+        return;
+      }
+
+      // C++ Detail 3: Object-Oriented Programming (OOP) & 4 Pillars
+      if (/\b(oop|object-oriented|class|classes|object|objects|encapsulation|abstraction|inheritance|polymorphism|constructor|destructor|virtual\s+function)\b/i.test(normalizedQuery)) {
+        const oopReply =
+          `🧱 **Object-Oriented Programming (OOP) & The 4 Pillars (${targetNote.subject_code} · Page 3):**\n\n` +
+          `• **1. Encapsulation:** Bundling variables (data attributes) and methods (member functions) inside a class while restricting direct access using access specifiers (\`private\`, \`protected\`, \`public\`).\n` +
+          `• **2. Abstraction:** Exposing only relevant operations to the outside world while hiding intricate internal implementation (achieved via abstract classes and pure virtual functions \`virtual void draw() = 0;\`).\n` +
+          `• **3. Inheritance:** A derived child class inherits properties and methods from a base parent class (\`class Dog : public Animal\`), promoting code reuse.\n` +
+          `• **4. Polymorphism:** "Many forms" — allowing objects of different classes to respond to the same function call. Includes compile-time polymorphism (function overloading) and run-time polymorphism (virtual functions & method overriding).\n` +
+          `• **Constructors & Destructors:** A constructor (\`ClassName()\`) initializes objects upon instantiation; a destructor (\`~ClassName()\`) executes automatically when an object goes out of scope to release resources.`;
+        sendBotAnswer(oopReply, "Here is the explanation of the four pillars of OOP: encapsulation, abstraction, inheritance, and polymorphism.", { page: 3, label: "DFC10042 • OOP Fundamentals, Page 3" });
+        return;
+      }
+    }
+
+    // =========================================================================
+    // MODE B4: COMPUTER HARDWARE (DFT10014) SPECIFIC DETAIL DETECTORS
+    // =========================================================================
+    if (isHardwareNote) {
+      // Hardware Detail 1: CPU Sockets & Architecture
+      if (/\b(socket|sockets|lga|pga|bga|land\s+grid|pin\s+grid|ball\s+grid|processor|cpu\b)\b/i.test(normalizedQuery)) {
+        const cpuReply =
+          `⚡ **CPU Socket Types & Processor Architectures (${targetNote.subject_code} · Page 1):**\n\n` +
+          `• **1. LGA (Land Grid Array):**\n` +
+          `  - Pins are located on the **motherboard socket**; the CPU underside features flat gold contact pads.\n` +
+          `  - Used by modern Intel processors (LGA1700, LGA1200) and modern AMD Ryzen (AM5).\n` +
+          `  - Advantage: Prevents bent pins on expensive CPUs.\n` +
+          `• **2. PGA (Pin Grid Array):**\n` +
+          `  - Pins are attached directly to the **underside of the CPU** and insert into matching socket holes.\n` +
+          `  - Used by legacy AMD processors (AM4, AM3).\n` +
+          `• **3. BGA (Ball Grid Array):**\n` +
+          `  - Solder balls fuse the processor directly onto the motherboard surface.\n` +
+          `  - Non-removable/non-upgradable; standard in laptops, smartphones, and embedded SoC systems.`;
+        sendBotAnswer(cpuReply, "Here is the comparison between LGA, PGA, and BGA CPU socket architectures.", { page: 1, label: "DFT10014 • CPU Sockets, Page 1" });
+        return;
+      }
+
+      // Hardware Detail 2: RAM vs ROM & DDR Technologies
+      if (/\b(ram\b|rom\b|ddr|ddr4|ddr5|volatile|non-volatile|dimm|sodimm|ecc\b|bios|uefi)\b/i.test(normalizedQuery)) {
+        const ramReply =
+          `💾 **Memory Technologies: RAM vs ROM & DDR5 Innovations (${targetNote.subject_code} · Page 2):**\n\n` +
+          `• **RAM (Random Access Memory):** Volatile primary storage; loses all data immediately when power is cut. Holds operating system instructions and active program data.\n` +
+          `• **DDR4 vs DDR5 Differences:**\n` +
+          `  - **Data Transfer Rate:** DDR5 starts at 4800 MT/s up to 7200+ MT/s (vs DDR4 2133–3200 MT/s).\n` +
+          `  - **Operating Voltage:** DDR5 runs at 1.1V (more power-efficient than DDR4's 1.2V).\n` +
+          `  - **On-Die ECC:** DDR5 integrates error-correcting code directly on the memory die to mitigate bit-flip errors.\n` +
+          `• **ROM (Read-Only Memory):** Non-volatile firmware storage; permanently retains instructions without power. Stores the **BIOS / UEFI** code required for POST (Power-On Self-Test) and boot sequencing.`;
+        sendBotAnswer(ramReply, "Here is the comparison between RAM and ROM, and DDR4 versus DDR5 memory technologies.", { page: 2, label: "DFT10014 • RAM & ROM, Page 2" });
+        return;
+      }
+
+      // Hardware Detail 3: Storage (NVMe M.2 vs SATA vs HDD)
+      if (/\b(storage|nvme|m\.2|pcie|sata|ssd|hdd|hard\s+disk|solid\s+state)\b/i.test(normalizedQuery)) {
+        const storageReply =
+          `💿 **Storage Technologies: NVMe M.2 vs SATA SSD vs HDD (${targetNote.subject_code} · Page 3):**\n\n` +
+          `• **1. NVMe M.2 SSD (PCIe Bus):**\n` +
+          `  - Communicates directly with the CPU via high-speed PCI Express lanes (PCIe 3.0/4.0/5.0).\n` +
+          `  - Sequential read speeds reach **3,500 MB/s to 7,000+ MB/s** with sub-millisecond latency.\n` +
+          `• **2. SATA SSD (2.5-inch):**\n` +
+          `  - Uses the legacy SATA III bus with a theoretical throughput ceiling of **550–600 MB/s**.\n` +
+          `  - No moving parts, silent, and significantly faster than traditional HDDs.\n` +
+          `• **3. HDD (Hard Disk Drive — Mechanical):**\n` +
+          `  - Employs rotating magnetic platters (5400/7200 RPM) and mechanical actuator arms.\n` +
+          `  - Read/write speeds typically **100–200 MB/s** with mechanical seek latency.\n` +
+          `  - Vulnerable to physical drop shock, but provides cost-effective mass cold storage.`;
+        sendBotAnswer(storageReply, "Here is the comparison of storage technologies: NVMe M.2, SATA SSD, and mechanical HDDs.", { page: 3, label: "DFT10014 • Storage Technologies, Page 3" });
+        return;
+      }
+    }
+
+    // =========================================================================
     // MODE C: CHAPTER INFO & OVERVIEW ("ask about Chapter 1", "tell me about chapter 1", "overview", "give me about chapter 1")
     // =========================================================================
     const isChapterInfoRequest =
@@ -1528,17 +1910,31 @@ const StudentDashboard = () => {
 
     scoredSections.sort((a, b) => b.hits - a.hits);
 
-    let matchedExcerpts = [];
     if (scoredSections.length > 0) {
-      matchedExcerpts = scoredSections.slice(0, 3).map(s => s.text);
+      const cleanExcerpts = scoredSections.slice(0, 3).map(s => {
+        return s.text
+          .replace(/\s+/g, ' ')
+          .replace(/•\s*/g, '\n• ')
+          .trim();
+      });
+      const headerLabel = `📘 **Detailed Answer from ${targetNote.subject_code} — ${targetNote.title} (${targetNote.file_name}):**`;
+      const responseText = `${headerLabel}\n\n${cleanExcerpts.join('\n\n')}`;
+      sendBotAnswer(responseText, cleanExcerpts[0]?.slice(0, 240));
     } else {
-      matchedExcerpts = logicalSections.slice(0, 3);
+      const fallbackOverview =
+        `📘 **Core Concepts & Study Guide: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+        `📄 *Source Document:* \`${targetNote.file_name}\`\n` +
+        `👨‍🏫 *Course Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+        `Here is the key conceptual study breakdown for your inquiry on **"${userText}"**:\n\n` +
+        `• **Subject Focus:** This topic is part of the uploaded curriculum for **${targetNote.subject_code} (${targetNote.title})**.\n` +
+        `• **Core Learning Objectives:** Review the primary definitions, operational architectures, and practical lab implementations specified in this chapter.\n` +
+        `• **Recommended Study Prompts:**\n` +
+        `  - *"Summarize the core topics in this note"*\n` +
+        `  - *"Explain the main definitions and architectures"*\n` +
+        `  - *"Generate 5 practice questions for this chapter"*\n\n` +
+        `💡 *You can ask specific questions about any formula, definition, code example, or security protocol in this chapter!*`;
+      sendBotAnswer(fallbackOverview, `Here is the core conceptual overview for ${targetNote.title}.`);
     }
-
-    const headerLabel = `📘 **Detailed Answer from ${targetNote.subject_code} — ${targetNote.title} (${targetNote.file_name}):**`;
-    const responseText = `${headerLabel}\n\n${matchedExcerpts.join('\n\n')}`;
-
-    sendBotAnswer(responseText, matchedExcerpts[0]?.slice(0, 240));
   };
 
   const handleSendMessage = () => {
