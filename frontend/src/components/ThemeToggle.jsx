@@ -42,11 +42,6 @@ const ThemeToggle = () => {
     setIsOpen(false);
   };
 
-  const toggleTheme = (e) => {
-    e.stopPropagation();
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
-
   return (
     <div className="theme-toggle-container" ref={containerRef}>
       {/* Three Horizontal Bars (--- / Hamburger icon matching media screenshot) */}
@@ -110,16 +105,6 @@ const ThemeToggle = () => {
               <span className="theme-item-label">Dark Mode</span>
               {theme === 'dark' && <span className="theme-checkmark">✓</span>}
             </button>
-          </div>
-
-          {/* Quick Toggle Switch Row */}
-          <div className="theme-quick-toggle" onClick={toggleTheme} title="Click to quick toggle mode">
-            <span className="quick-toggle-text">Quick Switch</span>
-            <div className={`theme-toggle-switch ${theme === 'dark' ? 'is-dark' : 'is-light'}`}>
-              <span className="toggle-switch-handle">
-                {theme === 'dark' ? '🌙' : '☀️'}
-              </span>
-            </div>
           </div>
         </div>
       )}
