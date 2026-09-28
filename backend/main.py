@@ -96,6 +96,235 @@ class SystemSettingRequest(BaseModel):
     key: str
     value: str
 
+class TimetableSlotRequest(BaseModel):
+    day: str
+    day_index: Optional[int] = 1
+    start_time: str
+    end_time: str
+    subject_code: str
+    subject_title: str
+    type: str = "Lecture"
+    venue: str = "Classroom"
+    lecturer_name: Optional[str] = ""
+    lecturer_id: Optional[int] = None
+    color: Optional[str] = "#0284c7"
+
+class TimetableSlotUpdateRequest(BaseModel):
+    day: Optional[str] = None
+    day_index: Optional[int] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    subject_code: Optional[str] = None
+    subject_title: Optional[str] = None
+    type: Optional[str] = None
+    venue: Optional[str] = None
+    lecturer_name: Optional[str] = None
+    lecturer_id: Optional[int] = None
+    color: Optional[str] = None
+
+# -----------------
+# Timetable Initial Data & Helpers
+# -----------------
+DAY_NAME_TO_INDEX = {
+    'Monday': 1,
+    'Tuesday': 2,
+    'Wednesday': 3,
+    'Thursday': 4,
+    'Friday': 5,
+    'Saturday': 6,
+    'Sunday': 7
+}
+
+DEFAULT_TIMETABLE_SLOTS = [
+    {
+        "id": "mon-1",
+        "day": "Monday",
+        "dayIndex": 1,
+        "startTime": "08:00",
+        "endTime": "10:00",
+        "subjectCode": "DFC11063",
+        "subjectTitle": "Programming Fundamentals (C++)",
+        "type": "Lecture",
+        "venue": "Bilik Kuliah BK1 (Blok Teknologi Maklumat)",
+        "lecturer": "",
+        "color": "#0284c7"
+    },
+    {
+        "id": "mon-2",
+        "day": "Monday",
+        "dayIndex": 1,
+        "startTime": "10:15",
+        "endTime": "12:15",
+        "subjectCode": "DUA6022",
+        "subjectTitle": "Komunikasi Bahasa Inggeris Komunikatif",
+        "type": "Tutorial",
+        "venue": "Bilik Bahasa BB2",
+        "lecturer": "",
+        "color": "#8b5cf6"
+    },
+    {
+        "id": "mon-3",
+        "day": "Monday",
+        "dayIndex": 1,
+        "startTime": "14:00",
+        "endTime": "16:00",
+        "subjectCode": "DFT10014",
+        "subjectTitle": "Computer Hardware & Devices Architecture",
+        "type": "Practical Lab",
+        "venue": "Bengkel Baikpulih Perkakasan (BHP)",
+        "lecturer": "",
+        "color": "#10b981"
+    },
+    {
+        "id": "tue-1",
+        "day": "Tuesday",
+        "dayIndex": 2,
+        "startTime": "08:00",
+        "endTime": "10:00",
+        "subjectCode": "DFN10078",
+        "subjectTitle": "Network Security & Perimeter Defense",
+        "type": "Practical Lab",
+        "venue": "Makmal Keselamatan Siber & Rangkaian (MKSR)",
+        "lecturer": "",
+        "color": "#ef4444"
+    },
+    {
+        "id": "tue-2",
+        "day": "Tuesday",
+        "dayIndex": 2,
+        "startTime": "10:30",
+        "endTime": "12:30",
+        "subjectCode": "DFC11063",
+        "subjectTitle": "Programming Fundamentals (C++ Lab & Logic)",
+        "type": "Practical Lab",
+        "venue": "Makmal Komputer MK3 (Aras 2)",
+        "lecturer": "",
+        "color": "#0284c7"
+    },
+    {
+        "id": "tue-3",
+        "day": "Tuesday",
+        "dayIndex": 2,
+        "startTime": "14:00",
+        "endTime": "16:00",
+        "subjectCode": "MPU21032",
+        "subjectTitle": "Penghayatan Etika dan Peradaban",
+        "type": "Lecture",
+        "venue": "Dewan Kuliah DK2 (Bangunan Utama)",
+        "lecturer": "",
+        "color": "#f59e0b"
+    },
+    {
+        "id": "wed-1",
+        "day": "Wednesday",
+        "dayIndex": 3,
+        "startTime": "08:30",
+        "endTime": "10:30",
+        "subjectCode": "DFT10014",
+        "subjectTitle": "Computer Hardware & Device Diagnostics",
+        "type": "Lecture",
+        "venue": "Bilik Seminar CS (Jabatan TMK)",
+        "lecturer": "",
+        "color": "#10b981"
+    },
+    {
+        "id": "wed-2",
+        "day": "Wednesday",
+        "dayIndex": 3,
+        "startTime": "11:00",
+        "endTime": "13:00",
+        "subjectCode": "DFN10078",
+        "subjectTitle": "Firewalls, IDS/IPS & IPsec Architecture",
+        "type": "Lecture",
+        "venue": "Dewan Kuliah Utama DKU",
+        "lecturer": "",
+        "color": "#ef4444"
+    },
+    {
+        "id": "thu-1",
+        "day": "Thursday",
+        "dayIndex": 4,
+        "startTime": "08:00",
+        "endTime": "11:00",
+        "subjectCode": "DFC11063",
+        "subjectTitle": "C++ Data Structures, Pointers & OOP Coding",
+        "type": "Practical Lab",
+        "venue": "Makmal Komputer MK4 (Software Lab)",
+        "lecturer": "",
+        "color": "#0284c7"
+    },
+    {
+        "id": "thu-2",
+        "day": "Thursday",
+        "dayIndex": 4,
+        "startTime": "14:00",
+        "endTime": "16:00",
+        "subjectCode": "DFN10078",
+        "subjectTitle": "Network Security Lab: Packet Inspection & Snort",
+        "type": "Practical Lab",
+        "venue": "Makmal Keselamatan Siber & Rangkaian (MKSR)",
+        "lecturer": "",
+        "color": "#ef4444"
+    },
+    {
+        "id": "fri-1",
+        "day": "Friday",
+        "dayIndex": 5,
+        "startTime": "08:00",
+        "endTime": "10:00",
+        "subjectCode": "DFT10014",
+        "subjectTitle": "Hardware Lab: Motherboard & NVMe PCIe Testing",
+        "type": "Practical Lab",
+        "venue": "Bengkel Baikpulih Perkakasan (BHP)",
+        "lecturer": "",
+        "color": "#10b981"
+    },
+    {
+        "id": "fri-2",
+        "day": "Friday",
+        "dayIndex": 5,
+        "startTime": "10:15",
+        "endTime": "12:00",
+        "subjectCode": "AI-LMS",
+        "subjectTitle": "FYP Project Consultation & AI Revision Session",
+        "type": "Consultation",
+        "venue": "Bilik Rundingan FYP Aras 3",
+        "lecturer": "",
+        "color": "#38bdf8"
+    }
+]
+
+def format_timetable_row(row):
+    if not row:
+        return None
+    color = row.get("color") or "#0284c7"
+    day = row.get("day") or "Monday"
+    day_idx = row.get("day_index") or DAY_NAME_TO_INDEX.get(day, 1)
+    lecturer = row.get("lecturer_name") or row.get("lecturer") or ""
+    return {
+        "id": str(row.get("id")),
+        "day": day,
+        "dayIndex": day_idx,
+        "day_index": day_idx,
+        "startTime": row.get("start_time") or row.get("startTime") or "",
+        "start_time": row.get("start_time") or row.get("startTime") or "",
+        "endTime": row.get("end_time") or row.get("endTime") or "",
+        "end_time": row.get("end_time") or row.get("endTime") or "",
+        "subjectCode": row.get("subject_code") or row.get("subjectCode") or "",
+        "subject_code": row.get("subject_code") or row.get("subjectCode") or "",
+        "subjectTitle": row.get("subject_title") or row.get("subjectTitle") or "",
+        "subject_title": row.get("subject_title") or row.get("subjectTitle") or "",
+        "type": row.get("type") or "Lecture",
+        "venue": row.get("venue") or "",
+        "lecturer": lecturer,
+        "lecturer_name": lecturer,
+        "lecturer_id": row.get("lecturer_id"),
+        "color": color,
+        "bgLight": f"{color}14",
+        "bgDark": f"{color}33",
+        "borderColor": color
+    }
+
 # -----------------
 # Database Auto-Migration
 # -----------------
@@ -195,6 +424,26 @@ def ensure_db_columns():
                     );
                     """
                 )
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS timetables (
+                        id VARCHAR(50) PRIMARY KEY,
+                        day VARCHAR(20) NOT NULL,
+                        day_index INT NOT NULL,
+                        start_time VARCHAR(10) NOT NULL,
+                        end_time VARCHAR(10) NOT NULL,
+                        subject_code VARCHAR(30) NOT NULL,
+                        subject_title VARCHAR(200) NOT NULL,
+                        type VARCHAR(50) NOT NULL,
+                        venue VARCHAR(150) NOT NULL,
+                        lecturer_name VARCHAR(120) DEFAULT '',
+                        lecturer_id INT REFERENCES users(id) ON DELETE SET NULL,
+                        color VARCHAR(20) DEFAULT '#0284c7',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                )
                 conn.commit()
 
             with conn.cursor() as cur:
@@ -215,6 +464,8 @@ def ensure_db_columns():
                 cur.execute("ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS feedback TEXT;")
                 cur.execute("ALTER TABLE lecturer_messages ADD COLUMN IF NOT EXISTS image_data TEXT;")
                 cur.execute("ALTER TABLE admin_support_tickets ADD COLUMN IF NOT EXISTS image_data TEXT;")
+                cur.execute("ALTER TABLE timetables ADD COLUMN IF NOT EXISTS lecturer_id INT;")
+                cur.execute("ALTER TABLE timetables ADD COLUMN IF NOT EXISTS color VARCHAR(20) DEFAULT '#0284c7';")
                 cur.execute("INSERT INTO system_settings (key, value) VALUES ('LECTURER_SECRET_KEY', 'STAFF2026') ON CONFLICT (key) DO NOTHING;")
 
                 # Seed default Administrator account if not already present
@@ -230,6 +481,33 @@ def ensure_db_columns():
                         """,
                         (admin_hash,)
                     )
+
+                # Seed default timetable slots if empty
+                cur.execute("SELECT COUNT(*) AS cnt FROM timetables;")
+                t_count = cur.fetchone()
+                count_val = t_count["cnt"] if isinstance(t_count, dict) else (t_count[0] if t_count else 0)
+                if count_val == 0:
+                    for slot in DEFAULT_TIMETABLE_SLOTS:
+                        cur.execute(
+                            """
+                            INSERT INTO timetables (id, day, day_index, start_time, end_time, subject_code, subject_title, type, venue, lecturer_name, color)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (id) DO NOTHING;
+                            """,
+                            (
+                                slot["id"],
+                                slot["day"],
+                                slot["dayIndex"],
+                                slot["startTime"],
+                                slot["endTime"],
+                                slot["subjectCode"],
+                                slot["subjectTitle"],
+                                slot["type"],
+                                slot["venue"],
+                                "",
+                                slot["color"]
+                            )
+                        )
                 conn.commit()
         except Exception as e:
             print(f"[DB] Auto-migration note: {e}")
@@ -2293,6 +2571,277 @@ def get_admin_notes():
             return {"status": "success", "notes": notes}
     finally:
         conn.close()
+
+# -----------------
+# Class Timetable Endpoints
+# -----------------
+IN_MEMORY_TIMETABLE = [dict(s) for s in DEFAULT_TIMETABLE_SLOTS]
+
+@app.get("/timetable")
+@app.get("/api/timetable")
+def get_timetable():
+    """Returns the full active class timetable."""
+    conn = get_connection()
+    if not conn:
+        return {"status": "success", "timetable": [format_timetable_row(s) for s in IN_MEMORY_TIMETABLE]}
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, day, day_index, start_time, end_time, subject_code,
+                       subject_title, type, venue, lecturer_name, lecturer_id, color
+                FROM timetables
+                ORDER BY day_index ASC, start_time ASC;
+                """
+            )
+            rows = cur.fetchall()
+            if not rows:
+                # If table was just created and empty, seed it
+                for slot in DEFAULT_TIMETABLE_SLOTS:
+                    cur.execute(
+                        """
+                        INSERT INTO timetables (id, day, day_index, start_time, end_time, subject_code, subject_title, type, venue, lecturer_name, color)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING;
+                        """,
+                        (
+                            slot["id"],
+                            slot["day"],
+                            slot["dayIndex"],
+                            slot["startTime"],
+                            slot["endTime"],
+                            slot["subjectCode"],
+                            slot["subjectTitle"],
+                            slot["type"],
+                            slot["venue"],
+                            "",
+                            slot["color"]
+                        )
+                    )
+                conn.commit()
+                cur.execute(
+                    """
+                    SELECT id, day, day_index, start_time, end_time, subject_code,
+                           subject_title, type, venue, lecturer_name, lecturer_id, color
+                    FROM timetables
+                    ORDER BY day_index ASC, start_time ASC;
+                    """
+                )
+                rows = cur.fetchall()
+            return {"status": "success", "timetable": [format_timetable_row(r) for r in rows]}
+    except Exception as e:
+        print(f"[Timetable] Error fetching timetable: {e}")
+        return {"status": "success", "timetable": [format_timetable_row(s) for s in IN_MEMORY_TIMETABLE]}
+    finally:
+        conn.close()
+
+@app.put("/timetable/{slot_id}")
+@app.put("/api/timetable/{slot_id}")
+def update_timetable_slot(slot_id: str, req: TimetableSlotUpdateRequest):
+    """
+    Updates a timetable slot. When a lecturer saves changes, their name is
+    automatically set to lecturer_name.
+    """
+    conn = get_connection()
+    day_idx = req.day_index if req.day_index is not None else (DAY_NAME_TO_INDEX.get(req.day, 1) if req.day else None)
+
+    # In-memory update
+    for idx, item in enumerate(IN_MEMORY_TIMETABLE):
+        if str(item.get("id")) == str(slot_id):
+            if req.day is not None: item["day"] = req.day
+            if day_idx is not None: item["dayIndex"] = day_idx
+            if req.start_time is not None: item["startTime"] = req.start_time; item["start_time"] = req.start_time
+            if req.end_time is not None: item["endTime"] = req.end_time; item["end_time"] = req.end_time
+            if req.subject_code is not None: item["subjectCode"] = req.subject_code; item["subject_code"] = req.subject_code
+            if req.subject_title is not None: item["subjectTitle"] = req.subject_title; item["subject_title"] = req.subject_title
+            if req.type is not None: item["type"] = req.type
+            if req.venue is not None: item["venue"] = req.venue
+            if req.lecturer_name is not None: item["lecturer"] = req.lecturer_name; item["lecturer_name"] = req.lecturer_name
+            if req.lecturer_id is not None: item["lecturer_id"] = req.lecturer_id
+            if req.color is not None: item["color"] = req.color
+            break
+
+    if not conn:
+        target = next((item for item in IN_MEMORY_TIMETABLE if str(item.get("id")) == str(slot_id)), None)
+        return {"status": "success", "slot": format_timetable_row(target), "message": "Class timetable slot updated!"}
+
+    try:
+        with conn.cursor() as cur:
+            # Check if slot exists
+            cur.execute("SELECT * FROM timetables WHERE id = %s;", (slot_id,))
+            existing = cur.fetchone()
+            if not existing:
+                raise HTTPException(status_code=404, detail="Timetable slot not found")
+
+            new_day = req.day if req.day is not None else existing.get("day")
+            new_day_idx = day_idx if day_idx is not None else existing.get("day_index")
+            new_start = req.start_time if req.start_time is not None else existing.get("start_time")
+            new_end = req.end_time if req.end_time is not None else existing.get("end_time")
+            new_code = req.subject_code if req.subject_code is not None else existing.get("subject_code")
+            new_title = req.subject_title if req.subject_title is not None else existing.get("subject_title")
+            new_type = req.type if req.type is not None else existing.get("type")
+            new_venue = req.venue if req.venue is not None else existing.get("venue")
+            new_lecturer_name = req.lecturer_name if req.lecturer_name is not None else existing.get("lecturer_name")
+            new_lecturer_id = req.lecturer_id if req.lecturer_id is not None else existing.get("lecturer_id")
+            new_color = req.color if req.color is not None else existing.get("color")
+
+            cur.execute(
+                """
+                UPDATE timetables
+                SET day = %s, day_index = %s, start_time = %s, end_time = %s,
+                    subject_code = %s, subject_title = %s, type = %s, venue = %s,
+                    lecturer_name = %s, lecturer_id = %s, color = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING *;
+                """,
+                (
+                    new_day, new_day_idx, new_start, new_end, new_code,
+                    new_title, new_type, new_venue, new_lecturer_name,
+                    new_lecturer_id, new_color, slot_id
+                )
+            )
+            updated = cur.fetchone()
+            conn.commit()
+            return {"status": "success", "slot": format_timetable_row(updated), "message": "Class timetable slot updated!"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Timetable] Error updating slot {slot_id}: {e}")
+        target = next((item for item in IN_MEMORY_TIMETABLE if str(item.get("id")) == str(slot_id)), None)
+        return {"status": "success", "slot": format_timetable_row(target), "message": "Class timetable slot updated!"}
+    finally:
+        conn.close()
+
+@app.post("/timetable")
+@app.post("/api/timetable")
+def add_timetable_slot(req: TimetableSlotRequest):
+    """Adds a new class timetable slot."""
+    new_id = f"slot-{int(datetime.now().timestamp() * 1000)}"
+    day_idx = req.day_index or DAY_NAME_TO_INDEX.get(req.day, 1)
+
+    new_dict = {
+        "id": new_id,
+        "day": req.day,
+        "dayIndex": day_idx,
+        "day_index": day_idx,
+        "startTime": req.start_time,
+        "start_time": req.start_time,
+        "endTime": req.end_time,
+        "end_time": req.end_time,
+        "subjectCode": req.subject_code,
+        "subject_code": req.subject_code,
+        "subjectTitle": req.subject_title,
+        "subject_title": req.subject_title,
+        "type": req.type,
+        "venue": req.venue,
+        "lecturer": req.lecturer_name or "",
+        "lecturer_name": req.lecturer_name or "",
+        "lecturer_id": req.lecturer_id,
+        "color": req.color or "#0284c7"
+    }
+    IN_MEMORY_TIMETABLE.append(new_dict)
+
+    conn = get_connection()
+    if not conn:
+        return {"status": "success", "slot": format_timetable_row(new_dict), "message": "Class timetable slot added!"}
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO timetables (id, day, day_index, start_time, end_time, subject_code, subject_title, type, venue, lecturer_name, lecturer_id, color)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING *;
+                """,
+                (
+                    new_id, req.day, day_idx, req.start_time, req.end_time,
+                    req.subject_code, req.subject_title, req.type, req.venue,
+                    req.lecturer_name or "", req.lecturer_id, req.color or "#0284c7"
+                )
+            )
+            inserted = cur.fetchone()
+            conn.commit()
+            return {"status": "success", "slot": format_timetable_row(inserted), "message": "Class timetable slot added!"}
+    except Exception as e:
+        print(f"[Timetable] Error creating slot: {e}")
+        return {"status": "success", "slot": format_timetable_row(new_dict), "message": "Class timetable slot added!"}
+    finally:
+        conn.close()
+
+@app.delete("/timetable/{slot_id}")
+@app.delete("/api/timetable/{slot_id}")
+def delete_timetable_slot(slot_id: str):
+    """Deletes a class timetable slot."""
+    global IN_MEMORY_TIMETABLE
+    IN_MEMORY_TIMETABLE = [s for s in IN_MEMORY_TIMETABLE if str(s.get("id")) != str(slot_id)]
+
+    conn = get_connection()
+    if not conn:
+        return {"status": "success", "id": slot_id, "message": "Class timetable slot deleted"}
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM timetables WHERE id = %s;", (slot_id,))
+            conn.commit()
+            return {"status": "success", "id": slot_id, "message": "Class timetable slot deleted"}
+    except Exception as e:
+        print(f"[Timetable] Error deleting slot: {e}")
+        return {"status": "success", "id": slot_id, "message": "Class timetable slot deleted"}
+    finally:
+        conn.close()
+
+@app.post("/timetable/reset")
+@app.post("/api/timetable/reset")
+def reset_timetable():
+    """Resets timetable to default schedule with empty lecturer names."""
+    global IN_MEMORY_TIMETABLE
+    IN_MEMORY_TIMETABLE = [dict(s) for s in DEFAULT_TIMETABLE_SLOTS]
+
+    conn = get_connection()
+    if not conn:
+        return {"status": "success", "timetable": [format_timetable_row(s) for s in IN_MEMORY_TIMETABLE], "message": "Timetable reset to defaults"}
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM timetables;")
+            for slot in DEFAULT_TIMETABLE_SLOTS:
+                cur.execute(
+                    """
+                    INSERT INTO timetables (id, day, day_index, start_time, end_time, subject_code, subject_title, type, venue, lecturer_name, color)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    """,
+                    (
+                        slot["id"],
+                        slot["day"],
+                        slot["dayIndex"],
+                        slot["startTime"],
+                        slot["endTime"],
+                        slot["subjectCode"],
+                        slot["subjectTitle"],
+                        slot["type"],
+                        slot["venue"],
+                        "",
+                        slot["color"]
+                    )
+                )
+            conn.commit()
+            cur.execute(
+                """
+                SELECT id, day, day_index, start_time, end_time, subject_code,
+                       subject_title, type, venue, lecturer_name, lecturer_id, color
+                FROM timetables
+                ORDER BY day_index ASC, start_time ASC;
+                """
+            )
+            rows = cur.fetchall()
+            return {"status": "success", "timetable": [format_timetable_row(r) for r in rows], "message": "Timetable reset to defaults"}
+    except Exception as e:
+        print(f"[Timetable] Error resetting timetable: {e}")
+        return {"status": "success", "timetable": [format_timetable_row(s) for s in IN_MEMORY_TIMETABLE], "message": "Timetable reset to defaults"}
+    finally:
+        conn.close()
+
 
 
 

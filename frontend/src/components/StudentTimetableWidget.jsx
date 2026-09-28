@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
-export const POLITEKNIK_TIMETABLE_DATA = [
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+export const CLASS_TIMETABLE_DATA = [
   // MONDAY (ISNIN)
   {
     id: 'mon-1',
@@ -12,7 +14,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Programming Fundamentals (C++)',
     type: 'Lecture',
     venue: 'Bilik Kuliah BK1 (Blok Teknologi Maklumat)',
-    lecturer: 'Ts. Wong King Sing',
+    lecturer: '',
     color: '#0284c7', // Sky Blue
     bgLight: 'rgba(2, 132, 199, 0.08)',
     bgDark: 'rgba(2, 132, 199, 0.2)',
@@ -28,7 +30,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Komunikasi Bahasa Inggeris Komunikatif',
     type: 'Tutorial',
     venue: 'Bilik Bahasa BB2',
-    lecturer: 'Madam Jennifer Anak Henry',
+    lecturer: '',
     color: '#8b5cf6', // Purple
     bgLight: 'rgba(139, 92, 246, 0.08)',
     bgDark: 'rgba(139, 92, 246, 0.2)',
@@ -44,7 +46,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Computer Hardware & Devices Architecture',
     type: 'Practical Lab',
     venue: 'Bengkel Baikpulih Perkakasan (BHP)',
-    lecturer: 'En. Faizal bin Ahmad',
+    lecturer: '',
     color: '#10b981', // Emerald
     bgLight: 'rgba(16, 185, 129, 0.08)',
     bgDark: 'rgba(16, 185, 129, 0.2)',
@@ -62,7 +64,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Network Security & Perimeter Defense',
     type: 'Practical Lab',
     venue: 'Makmal Keselamatan Siber & Rangkaian (MKSR)',
-    lecturer: 'Ts. Dr. Siti Aminah / En. Khairul Azman',
+    lecturer: '',
     color: '#ef4444', // Red
     bgLight: 'rgba(239, 68, 68, 0.08)',
     bgDark: 'rgba(239, 68, 68, 0.2)',
@@ -78,7 +80,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Programming Fundamentals (C++ Lab & Logic)',
     type: 'Practical Lab',
     venue: 'Makmal Komputer MK3 (Aras 2)',
-    lecturer: 'Ts. Wong King Sing',
+    lecturer: '',
     color: '#0284c7',
     bgLight: 'rgba(2, 132, 199, 0.08)',
     bgDark: 'rgba(2, 132, 199, 0.2)',
@@ -94,7 +96,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Penghayatan Etika dan Peradaban',
     type: 'Lecture',
     venue: 'Dewan Kuliah DK2 (Bangunan Utama)',
-    lecturer: 'Ustaz Hishamuddin bin Yusof',
+    lecturer: '',
     color: '#f59e0b', // Amber
     bgLight: 'rgba(245, 158, 11, 0.08)',
     bgDark: 'rgba(245, 158, 11, 0.2)',
@@ -112,7 +114,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Computer Hardware & Device Diagnostics',
     type: 'Lecture',
     venue: 'Bilik Seminar CS (Jabatan TMK)',
-    lecturer: 'En. Faizal bin Ahmad',
+    lecturer: '',
     color: '#10b981',
     bgLight: 'rgba(16, 185, 129, 0.08)',
     bgDark: 'rgba(16, 185, 129, 0.2)',
@@ -128,7 +130,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Firewalls, IDS/IPS & IPsec Architecture',
     type: 'Lecture',
     venue: 'Dewan Kuliah Utama DKU',
-    lecturer: 'En. Khairul Azman bin Ismail',
+    lecturer: '',
     color: '#ef4444',
     bgLight: 'rgba(239, 68, 68, 0.08)',
     bgDark: 'rgba(239, 68, 68, 0.2)',
@@ -146,7 +148,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'C++ Data Structures, Pointers & OOP Coding',
     type: 'Practical Lab',
     venue: 'Makmal Komputer MK4 (Software Lab)',
-    lecturer: 'Ts. Wong King Sing',
+    lecturer: '',
     color: '#0284c7',
     bgLight: 'rgba(2, 132, 199, 0.08)',
     bgDark: 'rgba(2, 132, 199, 0.2)',
@@ -162,7 +164,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Network Security Lab: Packet Inspection & Snort',
     type: 'Practical Lab',
     venue: 'Makmal Keselamatan Siber & Rangkaian (MKSR)',
-    lecturer: 'Ts. Dr. Siti Aminah',
+    lecturer: '',
     color: '#ef4444',
     bgLight: 'rgba(239, 68, 68, 0.08)',
     bgDark: 'rgba(239, 68, 68, 0.2)',
@@ -180,7 +182,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'Hardware Lab: Motherboard & NVMe PCIe Testing',
     type: 'Practical Lab',
     venue: 'Bengkel Baikpulih Perkakasan (BHP)',
-    lecturer: 'En. Faizal bin Ahmad',
+    lecturer: '',
     color: '#10b981',
     bgLight: 'rgba(16, 185, 129, 0.08)',
     bgDark: 'rgba(16, 185, 129, 0.2)',
@@ -196,7 +198,7 @@ export const POLITEKNIK_TIMETABLE_DATA = [
     subjectTitle: 'FYP Project Consultation & AI Revision Session',
     type: 'Consultation',
     venue: 'Bilik Rundingan FYP Aras 3',
-    lecturer: 'FYP Academic Supervisor',
+    lecturer: '',
     color: '#38bdf8',
     bgLight: 'rgba(56, 189, 248, 0.08)',
     bgDark: 'rgba(56, 189, 248, 0.2)',
@@ -204,14 +206,40 @@ export const POLITEKNIK_TIMETABLE_DATA = [
   }
 ];
 
+export const POLITEKNIK_TIMETABLE_DATA = CLASS_TIMETABLE_DATA;
+
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const StudentTimetableWidget = ({
   onOpenChatWithQuery,
   onOpenNotes,
   onOpenFlashcards,
-  viewMode = 'tab' // 'tab' | 'overview'
+  viewMode = 'tab', // 'tab' | 'overview'
+  timetableData: propTimetableData
 }) => {
+  const [timetableData, setTimetableData] = useState(propTimetableData || CLASS_TIMETABLE_DATA);
+
+  const fetchLiveTimetable = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/timetable`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d?.timetable && Array.isArray(d.timetable) && d.timetable.length > 0) {
+          setTimetableData(d.timetable);
+        }
+      }
+    } catch {
+      // Keep initial/fallback data on offline error
+    }
+  }, []);
+
+  useEffect(() => {
+    if (propTimetableData && Array.isArray(propTimetableData)) {
+      setTimetableData(propTimetableData);
+    } else {
+      fetchLiveTimetable();
+    }
+  }, [propTimetableData, fetchLiveTimetable]);
   // Get current Malaysian Day of week (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6/0=Weekend)
   const currentDayIndex = new Date().getDay();
   const defaultDay = currentDayIndex >= 1 && currentDayIndex <= 5 
@@ -223,15 +251,15 @@ const StudentTimetableWidget = ({
 
   // Filter classes by day
   const filteredClasses = useMemo(() => {
-    if (selectedDay === 'All') return POLITEKNIK_TIMETABLE_DATA;
-    return POLITEKNIK_TIMETABLE_DATA.filter(c => c.day === selectedDay);
-  }, [selectedDay]);
+    if (selectedDay === 'All') return timetableData;
+    return timetableData.filter(c => c.day === selectedDay);
+  }, [selectedDay, timetableData]);
 
   // Today's classes specifically
   const todayClasses = useMemo(() => {
     const todayName = DAYS_OF_WEEK[currentDayIndex - 1] || 'Monday';
-    return POLITEKNIK_TIMETABLE_DATA.filter(c => c.day === todayName);
-  }, [currentDayIndex]);
+    return timetableData.filter(c => c.day === todayName);
+  }, [currentDayIndex, timetableData]);
 
   // Print timetable
   const handlePrintTimetable = () => {
@@ -239,7 +267,7 @@ const StudentTimetableWidget = ({
     if (!printWindow) return;
 
     const daysRows = DAYS_OF_WEEK.map(day => {
-      const dayClasses = POLITEKNIK_TIMETABLE_DATA.filter(c => c.day === day);
+      const dayClasses = timetableData.filter(c => c.day === day);
       return `
         <div style="margin-bottom: 18px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
           <div style="background: #0f172a; color: #ffffff; padding: 8px 14px; font-weight: 700; font-size: 14px;">
@@ -264,7 +292,7 @@ const StudentTimetableWidget = ({
                   <td style="padding: 8px 12px;">${c.subjectTitle}</td>
                   <td style="padding: 8px 12px;"><span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${c.type}</span></td>
                   <td style="padding: 8px 12px; color: #475569;">${c.venue}</td>
-                  <td style="padding: 8px 12px; color: #334155;">${c.lecturer}</td>
+                  <td style="padding: 8px 12px; color: #334155;">${c.lecturer || '—'}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -277,7 +305,7 @@ const StudentTimetableWidget = ({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Politeknik Kuching Sarawak — AI-LMS Official Timetable</title>
+          <title>Class Timetable — AI-LMS</title>
           <style>
             @page { size: A4 landscape; margin: 12mm; }
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; margin: 0; padding: 10px; }
@@ -285,13 +313,13 @@ const StudentTimetableWidget = ({
         </head>
         <body>
           <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 16px;">
-            <h2 style="margin: 0; font-size: 20px;">POLITEKNIK KUCHING SARAWAK (JABATAN TEKNOLOGI MAKLUMAT & KOMUNIKASI)</h2>
-            <h3 style="margin: 4px 0 0; color: #0284c7; font-size: 15px;">Official Student Class Schedule & Timetable • Academic Session 2026/2027</h3>
+            <h2 style="margin: 0; font-size: 20px; letter-spacing: 0.04em;">CLASS TIMETABLE</h2>
+            <h3 style="margin: 4px 0 0; color: #0284c7; font-size: 15px;">Student Class Schedule & Timetable • Academic Session 2026/2027</h3>
             <p style="margin: 4px 0 0; font-size: 11px; color: #64748b;">Generated via AI-LMS Study Companion • Printed: ${new Date().toLocaleDateString()}</p>
           </div>
           ${daysRows}
           <div style="margin-top: 14px; font-size: 11px; color: #64748b; text-align: center;">
-            Official schedule verified by Academic Unit & Department of Information and Communication Technology.
+            Official class schedule verified by Academic Faculty.
           </div>
           <script>
             window.onload = function() { window.print(); }
@@ -307,22 +335,22 @@ const StudentTimetableWidget = ({
     let icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//Politeknik Kuching Sarawak//AI-LMS Class Timetable//EN',
+      'PRODID:-//AI-LMS//Class Timetable//EN',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
-      'X-WR-CALNAME:Politeknik Class Schedule'
+      'X-WR-CALNAME:Class Schedule'
     ];
 
-    POLITEKNIK_TIMETABLE_DATA.forEach(c => {
+    timetableData.forEach(c => {
       const dayMap = { Monday: 'MO', Tuesday: 'TU', Wednesday: 'WE', Thursday: 'TH', Friday: 'FR' };
-      const startClean = c.startTime.replace(':', '') + '00';
-      const endClean = c.endTime.replace(':', '') + '00';
+      const startClean = (c.startTime || '08:00').replace(':', '') + '00';
+      const endClean = (c.endTime || '10:00').replace(':', '') + '00';
 
       icsContent.push(
         'BEGIN:VEVENT',
         `SUMMARY:${c.subjectCode} - ${c.subjectTitle} (${c.type})`,
         `LOCATION:${c.venue}`,
-        `DESCRIPTION:Lecturer: ${c.lecturer}\\nType: ${c.type}\\nPlatform: Politeknik AI-LMS`,
+        `DESCRIPTION:Lecturer: ${c.lecturer || 'Unassigned'}\\nType: ${c.type}\\nPlatform: AI-LMS`,
         `RRULE:FREQ=WEEKLY;BYDAY=${dayMap[c.day]}`,
         `DTSTART;TZID=Asia/Kuala_Lumpur:20260901T${startClean}`,
         `DTEND;TZID=Asia/Kuala_Lumpur:20260901T${endClean}`,
@@ -336,7 +364,7 @@ const StudentTimetableWidget = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'Politeknik_Class_Timetable.ics');
+    link.setAttribute('download', 'Class_Timetable.ics');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -454,7 +482,7 @@ const StudentTimetableWidget = ({
                     📍 {c.venue}
                   </p>
                   <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    👨‍🏫 {c.lecturer}
+                    👨‍🏫 {c.lecturer ? c.lecturer : <span style={{ opacity: 0.65, fontStyle: 'italic' }}>Unassigned</span>}
                   </p>
                 </div>
 
@@ -524,10 +552,10 @@ const StudentTimetableWidget = ({
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>📅</span>
-            <span>Official Politeknik Class Timetable</span>
+            <span>Class Timetable</span>
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Politeknik Kuching Sarawak • Diploma Teknologi Maklumat (Keselamatan Maklumat) • Session 2026/2027
+            Diploma Teknologi Maklumat (Keselamatan Maklumat) • Academic Session 2026/2027
           </p>
         </div>
 
@@ -658,7 +686,7 @@ const StudentTimetableWidget = ({
       {displayMode === 'grid' && selectedDay === 'All' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
           {DAYS_OF_WEEK.map(day => {
-            const daySessions = POLITEKNIK_TIMETABLE_DATA.filter(c => c.day === day);
+            const daySessions = timetableData.filter(c => c.day === day);
             const isToday = DAYS_OF_WEEK[currentDayIndex - 1] === day;
 
             return (
@@ -720,7 +748,7 @@ const StudentTimetableWidget = ({
                         📍 {c.venue}
                       </div>
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        👨‍🏫 {c.lecturer}
+                        👨‍🏫 {c.lecturer ? c.lecturer : <span style={{ opacity: 0.65, fontStyle: 'italic' }}>Unassigned</span>}
                       </div>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                         <button
@@ -808,7 +836,7 @@ const StudentTimetableWidget = ({
                 </h3>
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                   <span>📍 <strong>Venue:</strong> {c.venue}</span>
-                  <span>👨‍🏫 <strong>Lecturer:</strong> {c.lecturer}</span>
+                  <span>👨‍🏫 <strong>Lecturer:</strong> {c.lecturer ? c.lecturer : <span style={{ opacity: 0.65, fontStyle: 'italic' }}>Unassigned</span>}</span>
                 </div>
               </div>
 

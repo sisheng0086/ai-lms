@@ -6,7 +6,7 @@ import ProfilePictureUploader from '../components/ProfilePictureUploader';
 import RevisionFlashcardsModal from '../components/RevisionFlashcardsModal';
 import StudentStudyProgressWidget from '../components/StudentStudyProgressWidget';
 import FormattedChatMessage from '../components/FormattedChatMessage';
-import StudentTimetableWidget, { POLITEKNIK_TIMETABLE_DATA } from '../components/StudentTimetableWidget';
+import StudentTimetableWidget, { CLASS_TIMETABLE_DATA, POLITEKNIK_TIMETABLE_DATA } from '../components/StudentTimetableWidget';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -86,6 +86,9 @@ const StudentDashboard = () => {
       return [];
     }
   });
+
+  // Class Timetable state
+  const [timetableList, setTimetableList] = useState(CLASS_TIMETABLE_DATA || POLITEKNIK_TIMETABLE_DATA);
 
   // AI chat states
   const [messages, setMessages] = useState([
@@ -203,6 +206,20 @@ const StudentDashboard = () => {
       }
     } catch (err) {
       console.error("Failed to load announcements:", err);
+    }
+  }, []);
+
+  const fetchTimetable = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/timetable`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d?.timetable && Array.isArray(d.timetable) && d.timetable.length > 0) {
+          setTimetableList(d.timetable);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load timetable:", err);
     }
   }, []);
 
@@ -566,11 +583,12 @@ const StudentDashboard = () => {
     fetchAssignments(parsedUser.id);
     fetchContactData(parsedUser.id);
     fetchAnnouncements();
+    fetchTimetable();
 
     return () => {
       window.speechSynthesis.cancel();
     };
-  }, [navigate, fetchNotes, fetchAssignments, fetchContactData, fetchAnnouncements]);
+  }, [navigate, fetchNotes, fetchAssignments, fetchContactData, fetchAnnouncements, fetchTimetable]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -683,7 +701,8 @@ const StudentDashboard = () => {
     await Promise.all([
       fetchContactData(user.id),
       fetchAssignments(user.id),
-      fetchNotes()
+      fetchNotes(),
+      fetchTimetable()
     ]);
     setTimeout(() => setRefreshingContact(false), 350);
   };
@@ -1262,13 +1281,17 @@ const StudentDashboard = () => {
         const currentDayIndex = new Date().getDay();
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const todayName = days[currentDayIndex] || 'Monday';
-        const todayClasses = POLITEKNIK_TIMETABLE_DATA.filter(c => c.day === todayName);
+        const todayClasses = timetableList.filter(c => c.day === todayName);
 
-        let reply = `📅 **Politeknik Kuching Sarawak — Student Class Schedule:**\n\n`;
+        let reply = `📅 **Class Timetable — Student Class Schedule:**\n\n`;
         if (todayClasses.length > 0) {
           reply += `🎯 **Today's Classes (${todayName}):**\n`;
           todayClasses.forEach(c => {
-            reply += `• **${c.subjectCode} (${c.type}):** ${c.startTime} – ${c.endTime}\n  📍 *Venue:* ${c.venue}\n  👨‍🏫 *Lecturer:* ${c.lecturer}\n\n`;
+            const code = c.subjectCode || c.subject_code;
+            const start = c.startTime || c.start_time;
+            const end = c.endTime || c.end_time;
+            const lecturer = c.lecturer || c.lecturer_name || 'Unassigned';
+            reply += `• **${code} (${c.type}):** ${start} – ${end}\n  📍 *Venue:* ${c.venue}\n  👨‍🏫 *Lecturer:* ${lecturer}\n\n`;
           });
         } else {
           reply += `🌴 **Today (${todayName}):** No scheduled classes for today! Perfect time for revision.\n\n`;
@@ -4051,6 +4074,7 @@ const StudentDashboard = () => {
               {/* Today's Live Class Schedule Widget */}
               <StudentTimetableWidget
                 viewMode="overview"
+                timetableData={timetableList}
                 onOpenChatWithQuery={(q) => {
                   setActiveTab('chat');
                   processStudentQuery(q);
@@ -4589,6 +4613,7 @@ const StudentDashboard = () => {
           {activeTab === 'timetable' && (
             <StudentTimetableWidget
               viewMode="tab"
+              timetableData={timetableList}
               onOpenChatWithQuery={(q) => {
                 setActiveTab('chat');
                 processStudentQuery(q);

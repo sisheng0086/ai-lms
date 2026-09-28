@@ -105,6 +105,41 @@ const LecturerDashboard = () => {
   const [creatingAnn, setCreatingAnn] = useState(false);
   const [annMessage, setAnnMessage] = useState({ type: '', text: '' });
 
+  // Class Timetable Management state
+  const [timetableList, setTimetableList] = useState([]);
+  const [loadingTimetable, setLoadingTimetable] = useState(false);
+  const [selectedTimetableDay, setSelectedTimetableDay] = useState('All');
+  const [editingSlot, setEditingSlot] = useState(null);
+  const [isAddingNewSlot, setIsAddingNewSlot] = useState(false);
+  const [savingSlot, setSavingSlot] = useState(false);
+  const [slotFormData, setSlotFormData] = useState({
+    id: '',
+    day: 'Monday',
+    day_index: 1,
+    start_time: '08:00',
+    end_time: '10:00',
+    subject_code: '',
+    subject_title: '',
+    type: 'Lecture',
+    venue: '',
+    color: '#0284c7'
+  });
+
+  const fetchTimetable = useCallback(async () => {
+    setLoadingTimetable(true);
+    try {
+      const res = await fetch(`${API_URL}/timetable`);
+      if (res.ok) {
+        const d = await res.json();
+        setTimetableList(d.timetable || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch timetable:', err);
+    } finally {
+      setLoadingTimetable(false);
+    }
+  }, []);
+
   const fetchNotes = useCallback(async (lecturerId) => {
     setLoadingNotes(true);
     try {
@@ -220,7 +255,8 @@ const LecturerDashboard = () => {
     fetchAssignments(parsedUser.id);
     fetchContactInbox(parsedUser.id);
     fetchAnnouncements();
-  }, [navigate, fetchNotes, fetchAssignments, fetchContactInbox, fetchAnnouncements]);
+    fetchTimetable();
+  }, [navigate, fetchNotes, fetchAssignments, fetchContactInbox, fetchAnnouncements, fetchTimetable]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -740,6 +776,171 @@ const LecturerDashboard = () => {
     fetchContactInbox(user.id);
     fetchAssignments(user.id);
     fetchNotes(user.id);
+    fetchTimetable();
+  };
+
+  const handleOpenEditSlot = (slot) => {
+    setIsAddingNewSlot(false);
+    setEditingSlot(slot);
+    setSlotFormData({
+      id: slot.id,
+      day: slot.day || 'Monday',
+      day_index: slot.dayIndex || slot.day_index || 1,
+      start_time: slot.startTime || slot.start_time || '08:00',
+      end_time: slot.endTime || slot.end_time || '10:00',
+      subject_code: slot.subjectCode || slot.subject_code || '',
+      subject_title: slot.subjectTitle || slot.subject_title || '',
+      type: slot.type || 'Lecture',
+      venue: slot.venue || '',
+      color: slot.color || '#0284c7'
+    });
+  };
+
+  const handleOpenAddSlot = () => {
+    setIsAddingNewSlot(true);
+    setEditingSlot({ id: 'new' });
+    setSlotFormData({
+      id: '',
+      day: 'Monday',
+      day_index: 1,
+      start_time: '08:00',
+      end_time: '10:00',
+      subject_code: '',
+      subject_title: '',
+      type: 'Lecture',
+      venue: '',
+      color: '#0284c7'
+    });
+  };
+
+  const handleSaveSlot = async (e) => {
+    e.preventDefault();
+    if (!slotFormData.subject_code.trim() || !slotFormData.subject_title.trim()) {
+      setToastMessage({ type: 'error', title: 'Validation', message: 'Subject Code and Title are required.' });
+      return;
+    }
+    setSavingSlot(true);
+
+    const DAY_MAP = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7 };
+
+    try {
+      if (isAddingNewSlot) {
+        const res = await fetch(`${API_URL}/timetable`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            day: slotFormData.day,
+            day_index: DAY_MAP[slotFormData.day] || 1,
+            start_time: slotFormData.start_time,
+            end_time: slotFormData.end_time,
+            subject_code: slotFormData.subject_code.trim(),
+            subject_title: slotFormData.subject_title.trim(),
+            type: slotFormData.type,
+            venue: slotFormData.venue.trim(),
+            lecturer_name: user.full_name, // Auto-assign current lecturer!
+            lecturer_id: user.id,
+            color: slotFormData.color
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setToastMessage({
+            type: 'success',
+            title: 'Slot Added',
+            message: `New class slot created and automatically assigned to ${user.full_name}!`
+          });
+          setEditingSlot(null);
+          fetchTimetable();
+        } else {
+          setToastMessage({ type: 'error', title: 'Error', message: data.detail || 'Failed to add slot' });
+        }
+      } else {
+        const res = await fetch(`${API_URL}/timetable/${editingSlot.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            day: slotFormData.day,
+            day_index: DAY_MAP[slotFormData.day] || 1,
+            start_time: slotFormData.start_time,
+            end_time: slotFormData.end_time,
+            subject_code: slotFormData.subject_code.trim(),
+            subject_title: slotFormData.subject_title.trim(),
+            type: slotFormData.type,
+            venue: slotFormData.venue.trim(),
+            lecturer_name: user.full_name, // Auto-assign current lecturer when completing edit!
+            lecturer_id: user.id,
+            color: slotFormData.color
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setToastMessage({
+            type: 'success',
+            title: 'Timetable Updated',
+            message: `Class slot updated and automatically assigned to ${user.full_name}!`
+          });
+          setEditingSlot(null);
+          fetchTimetable();
+        } else {
+          setToastMessage({ type: 'error', title: 'Error', message: data.detail || 'Failed to update slot' });
+        }
+      }
+    } catch (err) {
+      console.error('Error saving slot:', err);
+      setToastMessage({ type: 'error', title: 'Network Error', message: 'Failed to save timetable changes.' });
+    } finally {
+      setSavingSlot(false);
+    }
+  };
+
+  const handleDeleteSlot = (slot) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Class Slot?',
+      message: `Are you sure you want to remove the slot for "${slot.subjectCode || slot.subject_code}" (${slot.day} ${slot.startTime || slot.start_time})?\n\nThis will remove it from the class timetable.`,
+      confirmText: 'Yes, Delete Slot',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '🗑️',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/timetable/${slot.id}`, { method: 'DELETE' });
+          if (res.ok) {
+            setToastMessage({ type: 'success', title: 'Deleted', message: 'Class slot removed successfully.' });
+            fetchTimetable();
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: 'Failed to delete slot.' });
+          }
+        } catch {
+          setToastMessage({ type: 'error', title: 'Error', message: 'Network error deleting slot.' });
+        }
+      }
+    });
+  };
+
+  const handleResetTimetable = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Reset Class Timetable?',
+      message: 'Are you sure you want to reset all class schedule slots to the default template?\n\nThis will clear all custom assignments and reset lecturer names.',
+      confirmText: 'Yes, Reset Timetable',
+      cancelText: 'Cancel',
+      confirmColor: '#ef4444',
+      icon: '⚠️',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_URL}/timetable/reset`, { method: 'POST' });
+          if (res.ok) {
+            setToastMessage({ type: 'success', title: 'Timetable Reset', message: 'Class timetable reset to defaults.' });
+            fetchTimetable();
+          } else {
+            setToastMessage({ type: 'error', title: 'Error', message: 'Failed to reset timetable.' });
+          }
+        } catch {
+          setToastMessage({ type: 'error', title: 'Error', message: 'Network error resetting timetable.' });
+        }
+      }
+    });
   };
 
   const handleSendAdminTicket = async (e) => {
@@ -799,6 +1000,8 @@ const LecturerDashboard = () => {
     upload: { title: "Upload Lecture Notes", subtitle: "Upload Chapter PDFs or text notes for students to study & download" },
     materials: { title: "Uploaded Course Materials", subtitle: "Manage and download your active course notes" },
     assignments: { title: "Assignments & Student Homework", subtitle: "Publish homework assignments and grade student file submissions" },
+    announcements: { title: "Class Announcements", subtitle: "Publish official notices and updates for students" },
+    timetable: { title: "Class Timetable Management", subtitle: "Edit course schedules, venues, and timings. Saving automatically assigns your faculty name." },
     contact: { title: "Contact & Student Questions", subtitle: "Answer questions from students (with Student Name, Matrix ID & Class) or contact Admin Support" },
     profile: { title: "Lecturer Profile", subtitle: "Your faculty account details" }
   };
@@ -1803,6 +2006,446 @@ const LecturerDashboard = () => {
     </div>
   );
 
+  const renderTimetableSection = () => {
+    const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const filteredSlots = selectedTimetableDay === 'All' 
+      ? timetableList 
+      : timetableList.filter(s => s.day === selectedTimetableDay);
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Main Card */}
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📅</span>
+                <span>Class Timetable Management</span>
+              </h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '4px 0 0' }}>
+                Edit class times, venues, and subjects. When you complete editing a slot, your name (<strong>{user.full_name}</strong>) is automatically populated as the course lecturer.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleOpenAddSlot}
+                className="btn-primary"
+                style={{ padding: '8px 16px', fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span>➕</span>
+                <span>Add Class Slot</span>
+              </button>
+              <button
+                type="button"
+                onClick={fetchTimetable}
+                className="btn-secondary"
+                style={{ padding: '8px 14px', fontSize: '0.84rem' }}
+                title="Refresh timetable data"
+              >
+                🔄 Refresh
+              </button>
+              <button
+                type="button"
+                onClick={handleResetTimetable}
+                className="btn-secondary"
+                style={{ padding: '8px 14px', fontSize: '0.84rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                title="Reset all slots to default template"
+              >
+                ⚠️ Reset Defaults
+              </button>
+            </div>
+          </div>
+
+          {/* Day Filter Pills */}
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '18px', borderBottom: '1px solid var(--border)' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedTimetableDay('All')}
+              style={{
+                background: selectedTimetableDay === 'All' ? 'var(--primary)' : 'var(--input-bg)',
+                color: selectedTimetableDay === 'All' ? '#fff' : 'var(--text-main)',
+                border: '1px solid var(--border)',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: selectedTimetableDay === 'All' ? 700 : 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              All Days ({timetableList.length} Slots)
+            </button>
+            {DAYS_ORDER.map(d => {
+              const count = timetableList.filter(s => s.day === d).length;
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setSelectedTimetableDay(d)}
+                  style={{
+                    background: selectedTimetableDay === d ? 'var(--primary)' : 'var(--input-bg)',
+                    color: selectedTimetableDay === d ? '#fff' : 'var(--text-main)',
+                    border: '1px solid var(--border)',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: selectedTimetableDay === d ? 700 : 500,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {d} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Slots List */}
+          {loadingTimetable ? (
+            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              Loading class timetable schedule...
+            </div>
+          ) : filteredSlots.length === 0 ? (
+            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: '2rem' }}>📅</span>
+              <p style={{ margin: '8px 0 0', fontWeight: 600 }}>No class slots found for {selectedTimetableDay}.</p>
+              <button
+                type="button"
+                onClick={handleOpenAddSlot}
+                className="btn-primary"
+                style={{ marginTop: '12px', padding: '6px 16px', fontSize: '0.82rem' }}
+              >
+                Add First Slot for {selectedTimetableDay}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {filteredSlots.map(slot => {
+                const color = slot.color || '#0284c7';
+                const isMyClass = slot.lecturer && slot.lecturer === user.full_name;
+                const isUnassigned = !slot.lecturer || slot.lecturer.trim() === '';
+
+                return (
+                  <div
+                    key={slot.id}
+                    style={{
+                      background: 'var(--input-bg, rgba(255, 255, 255, 0.03))',
+                      border: '1px solid var(--border)',
+                      borderLeft: `5px solid ${color}`,
+                      borderRadius: '12px',
+                      padding: '16px',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '14px'
+                    }}
+                  >
+                    <div style={{ flex: '1 1 340px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                        <span style={{
+                          background: color,
+                          color: '#fff',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontWeight: 800,
+                          fontSize: '0.74rem'
+                        }}>
+                          {slot.day}
+                        </span>
+                        <span style={{
+                          fontWeight: 800,
+                          fontSize: '0.84rem',
+                          color: color
+                        }}>
+                          {slot.subjectCode || slot.subject_code}
+                        </span>
+                        <span style={{
+                          background: `${color}20`,
+                          color: color,
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700
+                        }}>
+                          {slot.type || 'Lecture'}
+                        </span>
+                      </div>
+
+                      <h4 style={{ margin: '0 0 6px', fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        {slot.subjectTitle || slot.subject_title}
+                      </h4>
+
+                      <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        <span>📍 <strong>Venue:</strong> {slot.venue || 'TBA'}</span>
+                        <span>
+                          👨‍🏫 <strong>Lecturer:</strong>{' '}
+                          {isUnassigned ? (
+                            <span style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', padding: '2px 7px', borderRadius: '4px', fontSize: '0.76rem', fontWeight: 700 }}>
+                              ⚠️ Unassigned (Click Edit to Claim)
+                            </span>
+                          ) : isMyClass ? (
+                            <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 7px', borderRadius: '4px', fontSize: '0.76rem', fontWeight: 700 }}>
+                              ✓ {slot.lecturer} (You)
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>
+                              {slot.lecturer}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <div style={{
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--border)',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: 800,
+                        color: 'var(--text-main)'
+                      }}>
+                        ⏰ {slot.startTime || slot.start_time} – {slot.endTime || slot.end_time}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditSlot(slot)}
+                        className="btn-primary"
+                        style={{ padding: '6px 14px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <span>✏️</span>
+                        <span>Edit Slot</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSlot(slot)}
+                        className="btn-secondary"
+                        style={{ padding: '6px 10px', fontSize: '0.8rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                        title="Delete slot"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Modal: Edit or Add Timetable Slot */}
+        {editingSlot && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}>
+            <div style={{
+              background: 'var(--card-bg, #1e293b)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{isAddingNewSlot ? '➕' : '✏️'}</span>
+                  <span>{isAddingNewSlot ? 'Add New Class Slot' : 'Edit Class Timetable Slot'}</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingSlot(null)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.3rem', cursor: 'pointer', padding: '4px' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Automatic Lecturer Name Stamp Callout */}
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                fontSize: '0.85rem',
+                color: '#10b981',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                lineHeight: '1.4'
+              }}>
+                <span style={{ fontSize: '1.1rem' }}>👨‍🏫</span>
+                <div>
+                  <strong>Automatic Lecturer Name Assignment:</strong>
+                  <div style={{ marginTop: '2px', fontSize: '0.8rem', color: 'var(--text-main)' }}>
+                    When you save this slot, the lecturer name will automatically be set to <strong>{user.full_name}</strong> for students on their timetable and AI study queries.
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveSlot} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                  <div>
+                    <label className="form-label">Day of Week *</label>
+                    <select
+                      className="form-input"
+                      value={slotFormData.day}
+                      onChange={(e) => setSlotFormData(prev => ({ ...prev, day: e.target.value }))}
+                      required
+                    >
+                      <option value="Monday">Monday (Isnin)</option>
+                      <option value="Tuesday">Tuesday (Selasa)</option>
+                      <option value="Wednesday">Wednesday (Rabu)</option>
+                      <option value="Thursday">Thursday (Khamis)</option>
+                      <option value="Friday">Friday (Jumaat)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="form-label">Session Type *</label>
+                    <select
+                      className="form-input"
+                      value={slotFormData.type}
+                      onChange={(e) => setSlotFormData(prev => ({ ...prev, type: e.target.value }))}
+                      required
+                    >
+                      <option value="Lecture">Lecture</option>
+                      <option value="Practical Lab">Practical Lab</option>
+                      <option value="Tutorial">Tutorial</option>
+                      <option value="Consultation">Consultation</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="form-label">Start Time *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. 08:00"
+                      value={slotFormData.start_time}
+                      onChange={(e) => setSlotFormData(prev => ({ ...prev, start_time: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">End Time *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. 10:00"
+                      value={slotFormData.end_time}
+                      onChange={(e) => setSlotFormData(prev => ({ ...prev, end_time: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                  <div>
+                    <label className="form-label">Subject Code *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. DFC11063"
+                      value={slotFormData.subject_code}
+                      onChange={(e) => setSlotFormData(prev => ({ ...prev, subject_code: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Venue / Room *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Bilik Kuliah BK1"
+                      value={slotFormData.venue}
+                      onChange={(e) => setSlotFormData(prev => ({ ...prev, venue: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Course Title *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Programming Fundamentals (C++)"
+                    value={slotFormData.subject_title}
+                    onChange={(e) => setSlotFormData(prev => ({ ...prev, subject_title: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Color Accent</label>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    {['#0284c7', '#ef4444', '#10b981', '#8b5cf6', '#f59e0b', '#38bdf8'].map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setSlotFormData(prev => ({ ...prev, color: c }))}
+                        style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '50%',
+                          background: c,
+                          border: slotFormData.color === c ? '3px solid #ffffff' : '1px solid transparent',
+                          cursor: 'pointer',
+                          boxShadow: slotFormData.color === c ? '0 0 8px rgba(0,0,0,0.5)' : 'none'
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSlot(null)}
+                    className="btn-secondary"
+                    style={{ padding: '8px 16px' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingSlot}
+                    className="btn-primary"
+                    style={{ padding: '8px 20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {savingSlot ? 'Saving...' : '💾 Save & Assign to Me'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="app-layout">
       {/* MOBILE SIDEBAR BACKDROP */}
@@ -1902,6 +2545,13 @@ const LecturerDashboard = () => {
             >
               <span>📢</span>
               <span>Announcements ({announcementsList.length})</span>
+            </button>
+            <button
+              className={`sidebar-nav-item ${activeTab === 'timetable' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('timetable'); setSidebarOpen(false); }}
+            >
+              <span>📅</span>
+              <span>Class Timetable</span>
             </button>
 
             <div className="nav-section-label" style={{ marginTop: '12px' }}>Communication & Help</div>
@@ -2115,6 +2765,13 @@ const LecturerDashboard = () => {
                     <p>Student Questions</p>
                   </div>
                 </div>
+                <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('timetable')}>
+                  <div className="stat-icon" style={{ background: 'rgba(2, 132, 199, 0.15)', color: '#0284c7' }}>📅</div>
+                  <div className="stat-info">
+                    <h3>{timetableList.length}</h3>
+                    <p>Class Timetable</p>
+                  </div>
+                </div>
               </div>
 
               {renderUploadCard()}
@@ -2129,6 +2786,8 @@ const LecturerDashboard = () => {
           {activeTab === 'assignments' && renderAssignmentsSection()}
 
           {activeTab === 'announcements' && renderAnnouncementsCard()}
+
+          {activeTab === 'timetable' && renderTimetableSection()}
 
           {activeTab === 'contact' && renderContactAndInboxCard()}
 
