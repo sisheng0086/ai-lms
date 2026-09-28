@@ -88,7 +88,7 @@ const StudentDashboard = () => {
   // AI chat states
   const [messages, setMessages] = useState([
     {
-      text: "Hai! 👋 I am AI to help you, if you have any question you can ask me! You can ask for any chapter (e.g. \"Give me Chapter 1 or Chapter 1.1 note\"), a chapter summary, or 5 practice quiz questions.",
+      text: "Hai! 👋 I am your AI Study Companion!\n\n💡 **Don't know which chapter or note has your answer?** No problem! You don't need to guess chapters — simply ask your question in your own words (e.g. *\"basic coding for C++\"*, *\"explain firewalls and DMZ\"*, or *\"what are CPU sockets\"*), and I will automatically find the right note and answer it for you!\n\nYou can also click any course chip or Quick Ask topic below to start studying.",
       sender: "bot"
     }
   ]);
@@ -871,15 +871,20 @@ const StudentDashboard = () => {
       setTimeout(() => {
         const greetingReply =
           "Hai! 👋 I am AI to help you, if you have any question you can ask me! 😊\n\n" +
-          "I am your smart AI Study Companion! I have read and indexed every page and detail of your uploaded lecture note so I can help you with:\n" +
-          "• 📘 Full Chapter Info (e.g., \"Tell me about Chapter 1\" or \"Give me Chapter 1 info\")\n" +
-          "• 📝 Summary Notes for Revision (e.g., \"Help me do the summary note\" or \"Summarize Chapter 1\")\n" +
-          "• 🔍 Detailed Questions on any section, article, timeline, law, language, community, or group member\n" +
-          "• ❓ 5 Practice Quiz Questions (e.g., \"Generate 5 practice questions\")\n\n" +
-          `📚 Uploaded Chapter(s): ${availableChaptersText}\n` +
-          "📌 Note: I strictly answer questions based on your uploaded chapter notes only.";
+          "💡 **No need to guess which note or chapter has what!** I automatically search across all your uploaded lecture notes:\n" +
+          (notesList.length > 0
+            ? notesList.map(n => `• **${n.subject_code}**: ${n.title} *(Uploaded by ${n.lecturer_name || 'Lecturer'})*`).join('\n')
+            : "*(No lecture notes uploaded yet)*") +
+          "\n\n**Here are popular things you can ask me:**\n" +
+          "• 💻 *\"Can you give me the basic coding for C++?\"*\n" +
+          "• 🔄 *\"How do loops and if-else conditions work?\"*\n" +
+          "• 🛡️ *\"Explain firewall architectures and DMZ\"*\n" +
+          "• ⚡ *\"What is the difference between LGA and PGA CPU sockets?\"*\n" +
+          "• 📝 *\"Generate a summary note for Chapter 1\"*\n" +
+          "• ❓ *\"Generate 5 practice quiz questions\"*\n\n" +
+          "👉 Just type your question or click the Quick Ask topics below!";
         setMessages(prev => [...prev, { text: greetingReply, sender: "bot", source: "AI Study Companion" }]);
-        speakText("Hai! I am AI to help you, if you have any question you can ask me!");
+        speakText("Hai! I am AI to help you. Ask any question and I will automatically find the right note for you!");
       }, 250);
       return;
     }
@@ -905,6 +910,9 @@ const StudentDashboard = () => {
     // Normalize common typos & variations (handles chpater, cahpter, chaptre, summary typos, etc.)
     const normalizedQuery = userText
       .toLowerCase()
+      .replace(/c\s*\+\+|cplusplus/g, 'cpp cplusplus c++')
+      .replace(/\bcodings?\b/g, 'code coding programming')
+      .replace(/\bprogs?\b/g, 'program programming')
       .replace(/sumarry|sumary|summery|ringkasan|rumusan/g, 'summary')
       .replace(/propos|purpos|porpose|perpose|tujuan|matlamat|objektif/g, 'purpose objective')
       .replace(/chpater|cahpter|chaptre|chepter|chaper|chaptr|chpter|cptr|cpt|chap\.?|ch\.?\s*(?=\d)/g, 'chapter ')
@@ -1008,6 +1016,7 @@ const StudentDashboard = () => {
     // 5. INTELLIGENT SEMANTIC CROSS-NOTE ROUTER & SCORER
     // Automatically selects the exact note that matches the user's question!
     // =========================================================================
+    const initialSelectedNoteId = selectedNoteId;
     const rawTokens = normalizedQuery
       .replace(/[^\w.\s]/g, ' ')
       .split(/\s+/)
@@ -1021,54 +1030,54 @@ const StudentDashboard = () => {
       const titleLower = (note.title || '').toLowerCase();
       const subjectLower = (note.subject_code || '').toLowerCase();
       const fileLower = (note.file_name || '').toLowerCase();
-      const bodyLower = (noteContentsMap[note.id] || '').toLowerCase();
+      const bodyLower = (cleanPdfExtractedText(noteContentsMap[note.id] || '')).toLowerCase();
 
-      // Detect note subject categories
-      const isNoteNetSec = /dfn10078|network security|firewall|perimeter/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
-      const isNoteCpp = /dfc10042|dfc20113|c\+\+|cpp|programming/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
-      const isNoteHardware = /dft10014|hardware|computer device/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
+      // Detect note subject categories (broad regex to match any course code variation)
+      const isNoteNetSec = /dfn|network\s*security|firewall|perimeter|cyber/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
+      const isNoteCpp = /dfc|c\+\+|cpp|cplusplus|programming|coding/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
+      const isNoteHardware = /dfk|dft|hardware|computer\s*device|perkakasan/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
 
       // Direct Subject Code match in query
-      if (subjectLower && normalizedQuery.includes(subjectLower)) score += 200;
+      if (subjectLower && normalizedQuery.includes(subjectLower)) score += 250;
       const noSpaceSub = subjectLower.replace(/\s+/g, '');
-      if (noSpaceSub && normalizedQuery.includes(noSpaceSub)) score += 200;
+      if (noSpaceSub && normalizedQuery.includes(noSpaceSub)) score += 250;
 
       // Network Security queries
-      if (/\b(network security|firewall|firewalls|packet filtering|stateful|proxy|dmz|ids|ips|intrusion|tcp syn|syn flood|syn cookie|icmp|echo request|ddos|dos attack|boundary router|rpki|snort|perimeter defense|sniffing|spoofing|cia triad|confidentiality|integrity|availability|ipsec|vpn)\b/i.test(normalizedQuery)) {
-        if (isNoteNetSec) score += 350;
+      if (/\b(network\s*security|firewall|firewalls|packet\s*filtering|stateful|proxy|dmz|ids|ips|intrusion|tcp\s*syn|syn\s*flood|syn\s*cookie|icmp|echo\s*request|ddos|dos\s*attack|boundary\s*router|rpki|snort|perimeter|sniffing|spoofing|cia\s*triad|confidentiality|integrity|availability|ipsec|vpn)\b/i.test(normalizedQuery)) {
+        if (isNoteNetSec) score += 450;
       }
 
-      // C++ queries
-      if (/\b(c\+\+|cpp|pointer|pointers|cin|cout|iostream|stdio|class|object|inheritance|polymorphism|virtual function|malloc|new|delete|constructor|destructor|for loop|while loop|array|arrays|function|syntax|compiler)\b/i.test(normalizedQuery)) {
-        if (isNoteCpp) score += 350;
+      // C++ & Coding queries
+      if (/\b(c\+\+|cpp|cplusplus|pointer|pointers|cin|cout|iostream|stdio|class|classes|object|objects|inheritance|polymorphism|virtual\s*function|malloc|new|delete|constructor|destructor|for\s*loop|while\s*loop|loop|loops|array|arrays|function|functions|syntax|compiler|coding|code|programming|program|variable|variables|datatype|data\s*types|if\s*else|switch\s*case|header|basic\s*coding|basic\s*code|hello\s*world)\b/i.test(normalizedQuery)) {
+        if (isNoteCpp) score += 450;
       }
 
       // Computer Hardware queries
-      if (/\b(hardware|cpu|processor|socket|lga|pga|motherboard|chipset|ram|rom|ddr4|ddr5|dimm|pcie|nvme|sata|ssd|hdd|power supply|psu|gpu|graphics card|bios|uefi|peripheral)\b/i.test(normalizedQuery)) {
-        if (isNoteHardware) score += 350;
+      if (/\b(hardware|cpu|processor|socket|sockets|lga|pga|bga|motherboard|chipset|ram|rom|ddr4|ddr5|dimm|sodimm|pcie|nvme|sata|ssd|hdd|power\s*supply|psu|gpu|graphics\s*card|bios|uefi|peripheral|perkakasan)\b/i.test(normalizedQuery)) {
+        if (isNoteHardware) score += 450;
       }
 
-      // Token matches across title, filename, and preloaded content
+      // Token matches across title, filename, subject, and preloaded content
       for (const tok of rawTokens) {
         if (tok.length < 3) continue;
-        if (titleLower.includes(tok)) score += 20;
-        if (fileLower.includes(tok)) score += 15;
-        if (subjectLower.includes(tok)) score += 25;
-        if (bodyLower.includes(tok)) score += 6;
+        if (titleLower.includes(tok)) score += 25;
+        if (fileLower.includes(tok)) score += 18;
+        if (subjectLower.includes(tok)) score += 30;
+        if (bodyLower.includes(tok)) score += 8;
       }
 
       // Chapter number matching
       if (targetNumber) {
         if (titleLower.includes(`chapter ${mainChapterNum}`) || titleLower.includes(`chapter${mainChapterNum}`) || titleLower.includes(`bab ${mainChapterNum}`)) {
-          score += 60;
+          score += 80;
         }
         if (fileLower.includes(`chapter ${mainChapterNum}`) || fileLower.includes(`ch${mainChapterNum}`)) {
-          score += 30;
+          score += 40;
         }
       }
 
       // Baseline preference for currently selected note if no other note has higher relevance
-      if (String(note.id) === String(selectedNoteId)) {
+      if (selectedNoteId && selectedNoteId !== 'auto' && String(note.id) === String(selectedNoteId)) {
         score += 8;
       }
 
@@ -1078,6 +1087,13 @@ const StudentDashboard = () => {
       }
     }
 
+    const noteWasAutoSwitched = Boolean(
+      targetNote &&
+      initialSelectedNoteId &&
+      initialSelectedNoteId !== 'auto' &&
+      String(targetNote.id) !== String(initialSelectedNoteId)
+    );
+
     if (targetNote && String(targetNote.id) !== String(selectedNoteId)) {
       setSelectedNoteId(targetNote.id);
       loadNoteContent(targetNote.id);
@@ -1086,9 +1102,9 @@ const StudentDashboard = () => {
     const rawLoaded = cleanPdfExtractedText(noteContentsMap[targetNote.id] || notesContent || "");
     const richStudyGuide = buildClientStudyGuide(targetNote);
     const fullNoteText = rawLoaded.length >= 80 ? rawLoaded : richStudyGuide;
-    const isNetworkSecurity = /dfn10078|network security|firewall|perimeter/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
-    const isCppNote = /dfc10042|dfc20113|c\+\+|cpp|programming/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
-    const isHardwareNote = /dft10014|hardware|computer device/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
+    const isNetworkSecurity = /dfn|network\s*security|firewall|perimeter/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
+    const isCppNote = /dfc|c\+\+|cpp|cplusplus|programming|coding/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
+    const isHardwareNote = /dfk|dft|hardware|computer\s*device|perkakasan/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
     const sourceLabel = `${targetNote.subject_code} - ${targetNote.title}`;
 
     // =========================================================================
@@ -1105,8 +1121,12 @@ const StudentDashboard = () => {
       if (q.includes('ids') || q.includes('ips') || q.includes('snort')) return 3;
       if (q.includes('ipsec') || q.includes('vpn') || q.includes('tunnel') || q.includes('crypto')) return 4;
       if (q.includes('cia') || q.includes('zero trust')) return 5;
-      if (q.includes('pointer')) return 1;
+      if (q.includes('pointer') || q.includes('basic coding') || q.includes('coding') || q.includes('syntax')) return 1;
+      if (q.includes('loop') || q.includes('function') || q.includes('dynamic memory')) return 2;
+      if (q.includes('oop') || q.includes('object-oriented') || q.includes('class')) return 3;
       if (q.includes('socket') || q.includes('lga') || q.includes('pga')) return 1;
+      if (q.includes('ram') || q.includes('rom') || q.includes('ddr')) return 2;
+      if (q.includes('storage') || q.includes('nvme') || q.includes('sata') || q.includes('ssd')) return 3;
 
       const pageMatch = r.match(/(?:page|halaman|hlm|slide)\s*(\d+)/i) || q.match(/(?:page|halaman|hlm|slide)\s*(\d+)/i);
       if (pageMatch) return parseInt(pageMatch[1], 10);
@@ -1118,13 +1138,18 @@ const StudentDashboard = () => {
       const chapterPrefix = targetNumber ? `Chapter ${mainChapterNum}` : (targetNote.subject_code || 'Lecture Note');
       const citationTitle = customCitation?.label || `${chapterPrefix}, Page ${pageNum}`;
 
+      let formattedText = replyText;
+      if (noteWasAutoSwitched) {
+        formattedText = `💡 *Auto-detected course: Switched to **${targetNote.subject_code} — ${targetNote.title}** to answer your question!*\n\n${replyText}`;
+      }
+
       setTimeout(() => {
         setMessages(prev => [
           ...prev,
           {
-            text: replyText,
+            text: formattedText,
             sender: "bot",
-            source: sourceLabel,
+            source: noteWasAutoSwitched ? `${targetNote.subject_code} (Auto-Switched)` : sourceLabel,
             noteId: targetNote.id,
             noteFileName: targetNote.file_name,
             page: pageNum,
@@ -1345,10 +1370,111 @@ const StudentDashboard = () => {
     }
 
     // =========================================================================
-    // MODE B3: C++ PROGRAMMING (DFC10042) SPECIFIC DETAIL DETECTORS
+    // MODE B3: C++ PROGRAMMING SPECIFIC DETAIL DETECTORS
     // =========================================================================
     if (isCppNote) {
-      // C++ Detail 1: Pointers & References
+      // C++ Detail 1: Basic Coding, Syntax & Program Structure
+      if (/\b(basic\s+cod|basic\s+program|basic\s+c|how\s+to\s+code|start\s+cod|syntax|hello\s*world|cin|cout|iostream|structure\s+of\s+c|variable|variables|data\s*type|input\s*output)\b/i.test(normalizedQuery)) {
+        const basicCodingReply =
+          `💻 **C++ Basic Coding & Program Structure (${targetNote.subject_code} · Page 1):**\n\n` +
+          `**1. Fundamental C++ Program Template:**\n` +
+          `\`\`\`cpp\n` +
+          `#include <iostream>   // Preprocessor directive for input/output streams\n` +
+          `using namespace std;  // Allows using cout, cin without the std:: prefix\n\n` +
+          `int main() {\n` +
+          `    // 1. Variable Declarations\n` +
+          `    string studentName;\n` +
+          `    int examScore;\n\n` +
+          `    // 2. Standard Output (cout) & User Prompt\n` +
+          `    cout << "Enter student name: ";\n` +
+          `    cin >> studentName; // Standard Input (cin)\n\n` +
+          `    cout << "Enter exam score (0-100): ";\n` +
+          `    cin >> examScore;\n\n` +
+          `    // 3. Conditional Logic (if-else)\n` +
+          `    if (examScore >= 50) {\n` +
+          `        cout << "Result: " << studentName << " passed the exam! 🎉" << endl;\n` +
+          `    } else {\n` +
+          `        cout << "Result: " << studentName << " needs to re-sit the exam." << endl;\n` +
+          `    }\n\n` +
+          `    return 0; // Return 0 signals successful execution to the OS\n` +
+          `}\n` +
+          `\`\`\`\n\n` +
+          `**2. Line-by-Line Breakdown:**\n` +
+          `• \`#include <iostream>\`: Includes the standard header library providing console input (\`cin\`) and output (\`cout\`).\n` +
+          `• \`using namespace std;\`: Grants access to standard library identifiers without writing \`std::cout\` every time.\n` +
+          `• \`int main()\`: The required entry point of every C++ program where execution begins.\n` +
+          `• \`cout <<\` (Insertion Operator): Sends data to the standard output screen.\n` +
+          `• \`cin >>\` (Extraction Operator): Reads user keyboard input into a designated variable.\n` +
+          `• \`endl\` or \`'\\n'\`: Inserts a newline character and flushes the output stream.\n` +
+          `• **Basic Primitive Data Types:**\n` +
+          `  - \`int\`: Integer numbers (e.g., \`10\`, \`-5\`).\n` +
+          `  - \`float\` / \`double\`: Floating-point decimal numbers (e.g., \`3.14\`, \`99.5\`).\n` +
+          `  - \`char\`: Single character wrapped in single quotes (e.g., \`'A'\`).\n` +
+          `  - \`string\`: Text string wrapped in double quotes (e.g., \`"Politeknik"\`).\n` +
+          `  - \`bool\`: Boolean value (\`true\` or \`false\`).`;
+        sendBotAnswer(basicCodingReply, "Here is the basic coding template, fundamental program structure, and syntax explanation for C++.", { page: 1, label: `${targetNote.subject_code} • Basic Coding, Page 1` });
+        return;
+      }
+
+      // C++ Detail 2: Control Structures & Loops
+      if (/\b(loop|loops|for\s+loop|while\s+loop|do\s+while|if\s+else|switch\s+case|conditional|control\s+structure)\b/i.test(normalizedQuery)) {
+        const loopReply =
+          `🔄 **C++ Control Structures & Loops (${targetNote.subject_code} · Page 2):**\n\n` +
+          `**1. The \`for\` Loop (Best for Known Number of Iterations):**\n` +
+          `\`\`\`cpp\n` +
+          `for (int i = 1; i <= 5; i++) {\n` +
+          `    cout << "Iteration number: " << i << endl;\n` +
+          `}\n` +
+          `\`\`\`\n` +
+          `• Syntax: \`for (initialization; condition; increment/decrement)\`.\n\n` +
+          `**2. The \`while\` Loop (Pre-Condition Checking):**\n` +
+          `\`\`\`cpp\n` +
+          `int count = 1;\n` +
+          `while (count <= 3) {\n` +
+          `    cout << "Count is: " << count << endl;\n` +
+          `    count++;\n` +
+          `}\n` +
+          `\`\`\`\n` +
+          `• Checks condition first; if condition is false at start, body never executes.\n\n` +
+          `**3. The \`do-while\` Loop (Post-Condition Checking):**\n` +
+          `\`\`\`cpp\n` +
+          `int pin;\n` +
+          `do {\n` +
+          `    cout << "Enter security PIN (1234): ";\n` +
+          `    cin >> pin;\n` +
+          `} while (pin != 1234);\n` +
+          `\`\`\`\n` +
+          `• Guarantees code executes **at least once** before evaluating condition.\n\n` +
+          `**4. Decision Branching (\`if-else if-else\` & \`switch\`):**\n` +
+          `• \`if (condition) { ... } else { ... }\` directs program control flow based on boolean expressions.`;
+        sendBotAnswer(loopReply, "Here is the explanation and code examples of C++ loops and control structures.", { page: 2, label: `${targetNote.subject_code} • Loops & Control, Page 2` });
+        return;
+      }
+
+      // C++ Detail 3: Functions, Parameter Passing & Arrays
+      if (/\b(function|functions|parameter|parameters|argument|return\s+type|pass\s+by\s+value|pass\s+by\s+ref|array|arrays)\b/i.test(normalizedQuery)) {
+        const funcReply =
+          `⚙️ **C++ Functions & Parameter Passing (${targetNote.subject_code} · Page 2):**\n\n` +
+          `**1. Function Declaration & Definition:**\n` +
+          `\`\`\`cpp\n` +
+          `// ReturnType FunctionName(Parameters)\n` +
+          `int addNumbers(int a, int b) {\n` +
+          `    return a + b; // Returns integer sum\n` +
+          `}\n` +
+          `\`\`\`\n\n` +
+          `**2. Pass-by-Value vs Pass-by-Reference:**\n` +
+          `• **Pass-by-Value (\`void update(int x)\`):** Copies argument value into a local parameter. Modifying \`x\` has zero effect on caller variable.\n` +
+          `• **Pass-by-Reference (\`void update(int &x)\`):** Uses reference operator \`&\` to alias original memory address. Changes directly affect the caller variable!\n\n` +
+          `**3. Arrays (1D Array Declaration & Access):**\n` +
+          `\`\`\`cpp\n` +
+          `int scores[5] = {85, 92, 78, 90, 88};\n` +
+          `cout << "First score: " << scores[0] << endl; // Index starts at 0\n` +
+          `\`\`\``;
+        sendBotAnswer(funcReply, "Here is how C++ functions, parameter passing, and arrays work.", { page: 2, label: `${targetNote.subject_code} • Functions & Arrays, Page 2` });
+        return;
+      }
+
+      // C++ Detail 4: Pointers & References
       if (/\b(pointer|pointers|memory\s+address|dereference|dereferencing|address-of|nullptr|null\s+pointer)\b/i.test(normalizedQuery)) {
         const pointerReply =
           `💻 **C++ Pointers, Addresses & Dereferencing (${targetNote.subject_code} · Page 1):**\n\n` +
@@ -1359,11 +1485,11 @@ const StudentDashboard = () => {
           `  \`*ptr = 100;\` (changes \`num\` directly to 100)\n` +
           `• **\`nullptr\`:** Introduced in C++11 to represent a null pointer safely without integer-to-pointer ambiguity (\`int *ptr = nullptr;\`).\n` +
           `• **Pass-by-Reference (\`void func(int &val)\`):** Allows functions to modify caller arguments directly without copying memory overhead.`;
-        sendBotAnswer(pointerReply, "Here is the explanation of C++ pointers, the address-of operator, dereferencing, and nullptr.", { page: 1, label: "DFC10042 • C++ Pointers, Page 1" });
+        sendBotAnswer(pointerReply, "Here is the explanation of C++ pointers, the address-of operator, dereferencing, and nullptr.", { page: 1, label: `${targetNote.subject_code} • C++ Pointers, Page 1` });
         return;
       }
 
-      // C++ Detail 2: Dynamic Memory Allocation (new & delete)
+      // C++ Detail 5: Dynamic Memory Allocation (new & delete)
       if (/\b(dynamic\s+memory|heap|stack|new\s+operator|delete\s+operator|malloc|free|memory\s+leak)\b/i.test(normalizedQuery)) {
         const memReply =
           `💾 **Dynamic Memory Allocation in C++ (\`new\` & \`delete\` · Page 2):**\n\n` +
@@ -1377,11 +1503,11 @@ const StudentDashboard = () => {
           `  \`delete p; p = nullptr;\`\n` +
           `  \`delete[] arr; arr = nullptr;\`\n` +
           `• **Memory Leak:** Occurs when heap memory is allocated with \`new\` but never freed with \`delete\`, consuming system memory over time.`;
-        sendBotAnswer(memReply, "Here is how dynamic memory allocation works in C++ using new and delete.", { page: 2, label: "DFC10042 • Dynamic Memory, Page 2" });
+        sendBotAnswer(memReply, "Here is how dynamic memory allocation works in C++ using new and delete.", { page: 2, label: `${targetNote.subject_code} • Dynamic Memory, Page 2` });
         return;
       }
 
-      // C++ Detail 3: Object-Oriented Programming (OOP) & 4 Pillars
+      // C++ Detail 6: Object-Oriented Programming (OOP) & 4 Pillars
       if (/\b(oop|object-oriented|class|classes|object|objects|encapsulation|abstraction|inheritance|polymorphism|constructor|destructor|virtual\s+function)\b/i.test(normalizedQuery)) {
         const oopReply =
           `🧱 **Object-Oriented Programming (OOP) & The 4 Pillars (${targetNote.subject_code} · Page 3):**\n\n` +
@@ -1390,13 +1516,13 @@ const StudentDashboard = () => {
           `• **3. Inheritance:** A derived child class inherits properties and methods from a base parent class (\`class Dog : public Animal\`), promoting code reuse.\n` +
           `• **4. Polymorphism:** "Many forms" — allowing objects of different classes to respond to the same function call. Includes compile-time polymorphism (function overloading) and run-time polymorphism (virtual functions & method overriding).\n` +
           `• **Constructors & Destructors:** A constructor (\`ClassName()\`) initializes objects upon instantiation; a destructor (\`~ClassName()\`) executes automatically when an object goes out of scope to release resources.`;
-        sendBotAnswer(oopReply, "Here is the explanation of the four pillars of OOP: encapsulation, abstraction, inheritance, and polymorphism.", { page: 3, label: "DFC10042 • OOP Fundamentals, Page 3" });
+        sendBotAnswer(oopReply, "Here is the explanation of the four pillars of OOP: encapsulation, abstraction, inheritance, and polymorphism.", { page: 3, label: `${targetNote.subject_code} • OOP Fundamentals, Page 3` });
         return;
       }
     }
 
     // =========================================================================
-    // MODE B4: COMPUTER HARDWARE (DFT10014) SPECIFIC DETAIL DETECTORS
+    // MODE B4: COMPUTER HARDWARE SPECIFIC DETAIL DETECTORS
     // =========================================================================
     if (isHardwareNote) {
       // Hardware Detail 1: CPU Sockets & Architecture
@@ -1413,7 +1539,7 @@ const StudentDashboard = () => {
           `• **3. BGA (Ball Grid Array):**\n` +
           `  - Solder balls fuse the processor directly onto the motherboard surface.\n` +
           `  - Non-removable/non-upgradable; standard in laptops, smartphones, and embedded SoC systems.`;
-        sendBotAnswer(cpuReply, "Here is the comparison between LGA, PGA, and BGA CPU socket architectures.", { page: 1, label: "DFT10014 • CPU Sockets, Page 1" });
+        sendBotAnswer(cpuReply, "Here is the comparison between LGA, PGA, and BGA CPU socket architectures.", { page: 1, label: `${targetNote.subject_code} • CPU Sockets, Page 1` });
         return;
       }
 
@@ -1427,7 +1553,7 @@ const StudentDashboard = () => {
           `  - **Operating Voltage:** DDR5 runs at 1.1V (more power-efficient than DDR4's 1.2V).\n` +
           `  - **On-Die ECC:** DDR5 integrates error-correcting code directly on the memory die to mitigate bit-flip errors.\n` +
           `• **ROM (Read-Only Memory):** Non-volatile firmware storage; permanently retains instructions without power. Stores the **BIOS / UEFI** code required for POST (Power-On Self-Test) and boot sequencing.`;
-        sendBotAnswer(ramReply, "Here is the comparison between RAM and ROM, and DDR4 versus DDR5 memory technologies.", { page: 2, label: "DFT10014 • RAM & ROM, Page 2" });
+        sendBotAnswer(ramReply, "Here is the comparison between RAM and ROM, and DDR4 versus DDR5 memory technologies.", { page: 2, label: `${targetNote.subject_code} • RAM & ROM, Page 2` });
         return;
       }
 
@@ -1445,7 +1571,7 @@ const StudentDashboard = () => {
           `  - Employs rotating magnetic platters (5400/7200 RPM) and mechanical actuator arms.\n` +
           `  - Read/write speeds typically **100–200 MB/s** with mechanical seek latency.\n` +
           `  - Vulnerable to physical drop shock, but provides cost-effective mass cold storage.`;
-        sendBotAnswer(storageReply, "Here is the comparison of storage technologies: NVMe M.2, SATA SSD, and mechanical HDDs.", { page: 3, label: "DFT10014 • Storage Technologies, Page 3" });
+        sendBotAnswer(storageReply, "Here is the comparison of storage technologies: NVMe M.2, SATA SSD, and mechanical HDDs.", { page: 3, label: `${targetNote.subject_code} • Storage Technologies, Page 3` });
         return;
       }
     }
@@ -1496,7 +1622,10 @@ const StudentDashboard = () => {
       'summary', 'summarize', 'overview', 'definition', 'definitions', 'important',
       'key', 'point', 'points', 'explain', 'explanation', 'meaning', 'course',
       'study', 'material', 'lecture', 'slide', 'slides', 'download', 'file', 'pdf',
-      'detail', 'details', 'info', 'information', 'fact', 'facts', 'page', 'hlm'
+      'detail', 'details', 'info', 'information', 'fact', 'facts', 'page', 'hlm',
+      'code', 'coding', 'program', 'programming', 'syntax', 'basic', 'basics', 'example',
+      'how', 'what', 'write', 'learn', 'exercise', 'tutorial', 'problem', 'algorithm', 'guide',
+      'device', 'component', 'system', 'structure', 'loop', 'function'
     ]);
 
     // Bilingual English <-> Malay concept expansion for coursework
@@ -1543,17 +1672,52 @@ const StudentDashboard = () => {
       Boolean(targetNumber) ||
       queryTokens.some(w => genericStudyWords.has(w));
 
-    // If user asked a question with ZERO matching tokens/synonyms/stems in the chapter and no chapter study intent -> Refuse!
+    // If zero tokens matched in the active note and no study intent: check other notes before giving up!
     if (matchedTokens.length === 0 && !hasStudyIntent) {
-      const suggestionsText = `Try asking about topics in ${targetNote.subject_code} (${targetNote.title}), or type "summary" for an overview!`;
+      const altNote = notesList.find(n => {
+        if (n.id === targetNote.id) return false;
+        const corpus = `${n.subject_code} ${n.title} ${n.file_name} ${cleanPdfExtractedText(noteContentsMap[n.id] || '')}`.toLowerCase();
+        return Array.from(expandedTokens).some(tok => corpus.includes(tok));
+      });
 
-      setTimeout(() => {
-        const refusalReply =
-          `⚠️ Sorry, I cannot answer this question because it is outside of your uploaded chapter (${targetNote.subject_code} - ${targetNote.title}).\n\n` +
-          `I strictly answer questions based on your uploaded course notes (${availableChaptersText}). ${suggestionsText}`;
-        setMessages(prev => [...prev, { text: refusalReply, sender: "bot", source: "Chapter Guard" }]);
-        speakText("Sorry, I cannot answer this question because it is outside of your uploaded chapter.");
-      }, 300);
+      if (altNote) {
+        setSelectedNoteId(altNote.id);
+        loadNoteContent(altNote.id);
+        const altText = cleanPdfExtractedText(noteContentsMap[altNote.id] || '') || buildClientStudyGuide(altNote);
+        const altSections = buildLogicalSections(altText);
+        const altScored = altSections.map(sec => {
+          let hits = 0;
+          for (const tok of expandedTokens) {
+            if (sec.toLowerCase().includes(tok)) hits += 3;
+          }
+          return { sec, hits };
+        }).filter(s => s.hits > 0).sort((a, b) => b.hits - a.hits);
+
+        const altExcerpt = altScored.length > 0
+          ? altScored.slice(0, 2).map(s => s.sec).join('\n\n')
+          : `Here is the relevant study material from ${altNote.title}.`;
+
+        const autoSwitchNotice =
+          `💡 *Auto-detected course: Switched to **${altNote.subject_code} — ${altNote.title}** to answer your question!*\n\n` +
+          `📘 **${altNote.subject_code} — ${altNote.title}:**\n\n` +
+          `${altExcerpt}\n\n` +
+          `💡 *Tip: Feel free to ask more questions about ${altNote.title} or click the Quick Ask topics below!*`;
+
+        sendBotAnswer(autoSwitchNotice, `Switched to ${altNote.title} to answer your question.`, { page: 1, label: `${altNote.subject_code}, Page 1` });
+        return;
+      }
+
+      // Soft pedagogical tutor guide instead of harsh refusal
+      const friendlyGuide =
+        `💡 **AI Study Assistant — Course Topics & Recommendations:**\n\n` +
+        `I am your course study assistant for your uploaded lecture notes:\n` +
+        `${notesList.map(n => `• **${n.subject_code}**: ${n.title} *(Uploaded by ${n.lecturer_name || 'Lecturer'})*`).join('\n')}\n\n` +
+        `For **"${userText}"**, here is how I can best assist you:\n` +
+        `• **Explore by Topic:** Use the course chips above the input to view **C++ Programming** (coding, syntax, loops, OOP), **Network Security** (firewalls, TCP SYN, IDS/IPS), or **Computer Hardware** (CPU sockets, RAM/ROM, NVMe).\n` +
+        `• **Summary Revision Sheet:** Type *"Give me a summary of Chapter 1"* for an instant cheat sheet.\n` +
+        `• **Knowledge Check:** Type *"Generate 5 practice questions"* to test yourself!\n\n` +
+        `👉 *Feel free to ask about any specific definition, formula, code example, or architecture!*`;
+      sendBotAnswer(friendlyGuide, "Here are the study topics and chapters available in your uploaded lecture notes.");
       return;
     }
 
@@ -1835,6 +1999,7 @@ const StudentDashboard = () => {
               className="form-select"
               style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
             >
+              <option value="auto">✨ All Notes (Universal Auto-Detect)</option>
               {notesList.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.subject_code} - {n.title} {n.lecturer_name ? `(Lecturer: ${n.lecturer_name})` : ''}
@@ -1867,6 +2032,62 @@ const StudentDashboard = () => {
         </div>
       )}
 
+      {/* Friendly Course & Topic Navigation Strip */}
+      {notesList.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          overflowX: 'auto',
+          padding: '8px 12px',
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '10px',
+          marginTop: '8px',
+          marginBottom: '8px'
+        }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            🧭 <strong>Courses:</strong>
+          </span>
+          <button
+            type="button"
+            className={`quick-ask-pill-chip ${selectedNoteId === 'auto' ? 'active' : ''}`}
+            onClick={() => setSelectedNoteId('auto')}
+            style={{
+              background: selectedNoteId === 'auto' ? 'rgba(56, 189, 248, 0.2)' : undefined,
+              borderColor: selectedNoteId === 'auto' ? '#38bdf8' : undefined,
+              color: selectedNoteId === 'auto' ? '#38bdf8' : undefined,
+              fontWeight: 600
+            }}
+          >
+            ✨ Auto-Detect (All Courses)
+          </button>
+          {notesList.map((note) => {
+            const isSelected = String(note.id) === String(selectedNoteId);
+            const icon = /dfc|c\+\+|cpp|programming/i.test(note.subject_code) ? '💻' : /dfk|dft|hardware/i.test(note.subject_code) ? '⚡' : '🛡️';
+            return (
+              <button
+                key={note.id}
+                type="button"
+                className={`quick-ask-pill-chip ${isSelected ? 'active' : ''}`}
+                onClick={() => {
+                  setSelectedNoteId(note.id);
+                  loadNoteContent(note.id);
+                }}
+                style={{
+                  background: isSelected ? 'rgba(16, 185, 129, 0.18)' : undefined,
+                  borderColor: isSelected ? '#10b981' : undefined,
+                  color: isSelected ? '#10b981' : undefined,
+                  fontWeight: isSelected ? 600 : 400
+                }}
+              >
+                {icon} {note.subject_code}: {note.title.length > 24 ? note.title.slice(0, 22) + '...' : note.title}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Redesigned Sleek Quick Ask Menu & Horizontal Pill Bar */}
       <div className="quick-ask-bar-container">
         {/* Menu Dropdown Trigger Button */}
@@ -1893,7 +2114,117 @@ const StudentDashboard = () => {
                 </span>
               </div>
 
-              <div className="quick-ask-category">📖 Chapter Overviews</div>
+              <div className="quick-ask-category">💻 C++ Programming (DFC11063)</div>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Can you give me the basic coding for C++?"); setQuickAskMenuOpen(false); }}
+              >
+                <span>💻</span>
+                <span>Basic Coding & Syntax Template</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("How do loops and if-else work in C++?"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🔄</span>
+                <span>Loops (for, while, do-while) & Control</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain functions and parameter passing in C++"); setQuickAskMenuOpen(false); }}
+              >
+                <span>⚙️</span>
+                <span>Functions & Parameter Passing</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain pointers and memory addresses in C++"); setQuickAskMenuOpen(false); }}
+              >
+                <span>📍</span>
+                <span>Pointers & Memory Addresses</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain the 4 pillars of OOP in C++"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🧱</span>
+                <span>OOP & The 4 Pillars</span>
+              </button>
+
+              <div className="quick-ask-category">🛡️ Network Security (DFN10078)</div>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain firewall types and DMZ architecture"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🛡️</span>
+                <span>Firewalls & DMZ Architecture</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("How does TCP SYN Flood attack work and what are SYN cookies?"); setQuickAskMenuOpen(false); }}
+              >
+                <span>⚡</span>
+                <span>TCP SYN Flood & SYN Cookies Defense</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Compare IDS versus IPS detection"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🔍</span>
+                <span>IDS vs IPS Detection Comparison</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain IPsec AH vs ESP and tunnel versus transport modes"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🔐</span>
+                <span>IPsec Architecture & VPN Modes</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain boundary router hardening and perimeter defense"); setQuickAskMenuOpen(false); }}
+              >
+                <span>🌐</span>
+                <span>Boundary Routers & Perimeter Defense</span>
+              </button>
+
+              <div className="quick-ask-category">⚡ Computer Hardware (DFK10053)</div>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Explain LGA vs PGA vs BGA CPU sockets"); setQuickAskMenuOpen(false); }}
+              >
+                <span>⚡</span>
+                <span>CPU Sockets: LGA vs PGA vs BGA</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Compare RAM vs ROM and DDR4 vs DDR5"); setQuickAskMenuOpen(false); }}
+              >
+                <span>💾</span>
+                <span>RAM vs ROM & DDR4 vs DDR5 Differences</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
+                onClick={() => { processStudentQuery("Compare NVMe M.2 SSD vs SATA SSD vs HDD"); setQuickAskMenuOpen(false); }}
+              >
+                <span>💿</span>
+                <span>NVMe M.2 SSD vs SATA SSD vs HDD</span>
+              </button>
+
+              <div className="quick-ask-category">📚 Universal Study Tools & Attribution</div>
               <button
                 type="button"
                 className="quick-ask-item"
@@ -1913,65 +2244,11 @@ const StudentDashboard = () => {
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("What are the main learning objectives and purpose of this chapter?"); setQuickAskMenuOpen(false); }}
-              >
-                <span>🎯</span>
-                <span>Learning Objectives & Purpose</span>
-              </button>
-
-              <div className="quick-ask-category">💡 Core Technical Concepts</div>
-              <button
-                type="button"
-                className="quick-ask-item"
-                onClick={() => { processStudentQuery("Explain the core concepts and architectures in this lecture note"); setQuickAskMenuOpen(false); }}
-              >
-                <span>💡</span>
-                <span>Core Concepts & Architecture</span>
-              </button>
-              <button
-                type="button"
-                className="quick-ask-item"
-                onClick={() => { processStudentQuery("What are the key technical definitions and protocols?"); setQuickAskMenuOpen(false); }}
-              >
-                <span>🔍</span>
-                <span>Key Definitions & Protocols</span>
-              </button>
-              <button
-                type="button"
-                className="quick-ask-item"
-                onClick={() => { processStudentQuery("What are the best practices and security rules taught in this note?"); setQuickAskMenuOpen(false); }}
-              >
-                <span>🛡️</span>
-                <span>Best Practices & Rules</span>
-              </button>
-              <button
-                type="button"
-                className="quick-ask-item"
-                onClick={() => { processStudentQuery("Explain the practical implementation and lab steps"); setQuickAskMenuOpen(false); }}
-              >
-                <span>⚙️</span>
-                <span>Practical Lab Implementation</span>
-              </button>
-
-              <div className="quick-ask-category">👨‍🏫 Course Info & Attribution</div>
-              <button
-                type="button"
-                className="quick-ask-item"
                 onClick={() => { processStudentQuery("Which lecturer uploaded this note?"); setQuickAskMenuOpen(false); }}
               >
                 <span>👨‍🏫</span>
                 <span>Note Lecturer & Course Info</span>
               </button>
-              <button
-                type="button"
-                className="quick-ask-item"
-                onClick={() => { processStudentQuery("What are the main topics covered in this chapter?"); setQuickAskMenuOpen(false); }}
-              >
-                <span>📋</span>
-                <span>Chapter Topics & Syllabus</span>
-              </button>
-
-              <div className="quick-ask-category">🎯 Exam Prep & Flashcards</div>
               <button
                 type="button"
                 className="quick-ask-item"
@@ -2000,15 +2277,83 @@ const StudentDashboard = () => {
           )}
         </div>
 
-        {/* Quick Trending Pill Chips alongside the Menu */}
+        {/* Quick Trending Pill Chips tailored to the active subject */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '2px', maxWidth: '100%' }}>
-          <button
-            type="button"
-            className="quick-ask-pill-chip"
-            onClick={() => processStudentQuery("Give me Chapter 1 info")}
-          >
-            📘 Chapter 1 Info
-          </button>
+          {/* C++ Specific Pills */}
+          {(selectedNoteId === 'auto' || /dfc|c\+\+|cpp|programming/i.test(selectedNote?.subject_code || '')) && (
+            <>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("Can you give me the basic coding for C++?")}
+              >
+                💻 Basic C++ Code
+              </button>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("How do loops and if-else work in C++?")}
+              >
+                🔄 Loops & If-Else
+              </button>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("Explain pointers and memory addresses in C++")}
+              >
+                📍 Pointers
+              </button>
+            </>
+          )}
+
+          {/* Network Security Specific Pills */}
+          {(selectedNoteId === 'auto' || /dfn|security|firewall/i.test(selectedNote?.subject_code || '')) && (
+            <>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("Explain firewall types and DMZ architecture")}
+              >
+                🛡️ Firewalls & DMZ
+              </button>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("How does TCP SYN Flood attack work and what are SYN cookies?")}
+              >
+                ⚡ TCP SYN Flood
+              </button>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("Compare IDS versus IPS detection")}
+              >
+                🔍 IDS vs IPS
+              </button>
+            </>
+          )}
+
+          {/* Hardware Specific Pills */}
+          {(selectedNoteId === 'auto' || /dfk|dft|hardware/i.test(selectedNote?.subject_code || '')) && (
+            <>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("Explain LGA vs PGA vs BGA CPU sockets")}
+              >
+                ⚡ CPU Sockets
+              </button>
+              <button
+                type="button"
+                className="quick-ask-pill-chip"
+                onClick={() => processStudentQuery("Compare RAM vs ROM and DDR4 vs DDR5")}
+              >
+                💾 RAM vs ROM
+              </button>
+            </>
+          )}
+
+          {/* Universal Study Pills */}
           <button
             type="button"
             className="quick-ask-pill-chip"
