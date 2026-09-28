@@ -1992,12 +1992,11 @@ const StudentDashboard = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="note-picker-container">
             <select
               value={selectedNoteId}
               onChange={handleNoteChange}
-              className="form-select"
-              style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
+              className="form-select note-picker-select"
             >
               <option value="auto">✨ All Notes (Universal Auto-Detect)</option>
               {notesList.map((n) => (
@@ -2007,7 +2006,7 @@ const StudentDashboard = () => {
               ))}
             </select>
             {selectedNote && (
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <div className="note-action-btns">
                 <button
                   type="button"
                   onClick={() => handleOpenPreviewNote(selectedNote)}
@@ -2034,19 +2033,8 @@ const StudentDashboard = () => {
 
       {/* Friendly Course & Topic Navigation Strip */}
       {notesList.length > 0 && (
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          alignItems: 'center',
-          overflowX: 'auto',
-          padding: '8px 12px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          marginTop: '8px',
-          marginBottom: '8px'
-        }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div className="course-nav-strip">
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             🧭 <strong>Courses:</strong>
           </span>
           <button
@@ -2103,16 +2091,18 @@ const StudentDashboard = () => {
           </button>
 
           {quickAskMenuOpen && (
-            <div className="quick-ask-dropdown">
-              <div className="theme-menu-header">
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>⚡</span>
-                  <span>Quick Ask Topics</span>
-                </span>
-                <span className="theme-status-tag" style={{ background: 'rgba(56, 189, 248, 0.16)', color: '#38bdf8' }}>
-                  1-CLICK AI
-                </span>
-              </div>
+            <>
+              <div className="quick-ask-dropdown-backdrop" onClick={() => setQuickAskMenuOpen(false)} />
+              <div className="quick-ask-dropdown">
+                <div className="theme-menu-header">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⚡</span>
+                    <span>Quick Ask Topics</span>
+                  </span>
+                  <span className="theme-status-tag" style={{ background: 'rgba(56, 189, 248, 0.16)', color: '#38bdf8' }}>
+                    1-CLICK AI
+                  </span>
+                </div>
 
               <div className="quick-ask-category">💻 C++ Programming (DFC11063)</div>
               <button
@@ -2274,11 +2264,12 @@ const StudentDashboard = () => {
                 <span>Export Revision Study Sheet (PDF)</span>
               </button>
             </div>
-          )}
-        </div>
+          </>
+        )}
+      </div>
 
-        {/* Quick Trending Pill Chips tailored to the active subject */}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '2px', maxWidth: '100%' }}>
+      {/* Quick Trending Pill Chips tailored to the active subject */}
+      <div className="quick-trending-pills-row">
           {/* C++ Specific Pills */}
           {(selectedNoteId === 'auto' || /dfc|c\+\+|cpp|programming/i.test(selectedNote?.subject_code || '')) && (
             <>
@@ -2415,9 +2406,9 @@ const StudentDashboard = () => {
       {/* Chat Interface */}
       <div style={{ display: 'flex', flexDirection: 'column', height: '450px', border: '1px solid var(--border)', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.4)', overflow: 'hidden' }}>
         {/* Chat Utility Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'rgba(30, 41, 59, 0.9)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Font Size:</span>
+        <div className="chat-utility-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Font:</span>
             <button
               type="button"
               onClick={() => setChatFontSize('small')}
@@ -2465,7 +2456,7 @@ const StudentDashboard = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <div className="chat-utility-actions">
             <button
               type="button"
               onClick={handleExportSummaryPdf}
@@ -2480,11 +2471,14 @@ const StudentDashboard = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px'
+                gap: '5px',
+                whiteSpace: 'nowrap'
               }}
               title="Export formatted Politeknik revision notes as PDF"
             >
-              📄 Export Summary as PDF
+              <span>📄</span>
+              <span className="chat-util-label-full">Export Summary as PDF</span>
+              <span className="chat-util-label-short">PDF Export</span>
             </button>
             <button
               type="button"
@@ -2500,11 +2494,14 @@ const StudentDashboard = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px'
+                gap: '5px',
+                whiteSpace: 'nowrap'
               }}
               title="Open 3D interactive revision flashcards deck"
             >
-              📇 Flashcards
+              <span>📇</span>
+              <span className="chat-util-label-full">Flashcards Deck</span>
+              <span className="chat-util-label-short">Flashcards</span>
             </button>
             <button
               type="button"
@@ -2629,6 +2626,7 @@ const StudentDashboard = () => {
                         <button
                           type="button"
                           onClick={() => handleDownloadNote(msg.noteId)}
+                          title={`Download ${msg.noteFileName || 'Note'}`}
                           style={{
                             background: 'rgba(16, 185, 129, 0.2)',
                             border: '1px solid rgba(16, 185, 129, 0.4)',
@@ -2637,10 +2635,11 @@ const StudentDashboard = () => {
                             borderRadius: '6px',
                             fontSize: '0.75rem',
                             fontWeight: 600,
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
                           }}
                         >
-                          ⬇️ Download {msg.noteFileName || 'Note'}
+                          ⬇️ Download Note
                         </button>
                       </>
                     )}
@@ -3667,16 +3666,27 @@ const StudentDashboard = () => {
               <span>🪪</span>
               <span>{user.matrix_no || 'STUDENT'}</span>
             </div>
-            <div className="user-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              className="user-badge"
+              onClick={() => setActiveTab('profile')}
+              title="View Student Profile & Matrix ID"
+              role="button"
+              tabIndex={0}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
               {user.profile_picture ? (
                 <img
                   src={getAvatarUrl(user.profile_picture, API_URL)}
                   alt={user.full_name}
                   className="user-badge-avatar"
                 />
-              ) : null}
-              <span>{user.full_name}</span>
-              <span style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+              ) : (
+                <div className="user-badge-avatar user-badge-avatar-fallback">
+                  {user.full_name ? user.full_name.charAt(0).toUpperCase() : '👤'}
+                </div>
+              )}
+              <span className="user-badge-name">{user.full_name}</span>
+              <span className="user-badge-role" style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
                 Student
               </span>
             </div>
@@ -4096,7 +4106,7 @@ const StudentDashboard = () => {
           {activeTab === 'contact' && renderContactSection()}
 
           {activeTab === 'profile' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', maxWidth: '900px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', maxWidth: '900px', width: '100%' }}>
               {/* Digital Student Matric Card */}
               <div style={{
                 background: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',

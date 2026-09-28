@@ -275,31 +275,37 @@ const RevisionFlashcardsModal = ({
   const masteryPercent = Math.round((masteredIds.length / cards.length) * 100);
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(15, 23, 42, 0.85)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '20px'
-    }}>
-      <div style={{
-        background: 'var(--card-bg, #1e293b)',
-        border: '1px solid var(--border, rgba(255, 255, 255, 0.15))',
-        borderRadius: '20px',
-        maxWidth: '680px',
-        width: '100%',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+    <div
+      className="flashcards-modal-overlay"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(15, 23, 42, 0.85)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '20px'
+      }}
+    >
+      <div
+        className="flashcards-modal-dialog"
+        style={{
+          background: 'var(--card-bg, #1e293b)',
+          border: '1px solid var(--border, rgba(255, 255, 255, 0.15))',
+          borderRadius: '20px',
+          maxWidth: '680px',
+          width: '100%',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
         {/* Modal Header */}
         <div style={{
           display: 'flex',

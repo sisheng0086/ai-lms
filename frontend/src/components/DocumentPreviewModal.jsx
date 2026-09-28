@@ -77,6 +77,7 @@ const DocumentPreviewModal = ({
       }}
     >
       <div
+        className="doc-preview-modal-dialog"
         style={{
           background: 'var(--card-bg, #111827)',
           border: '1px solid var(--border, rgba(255, 255, 255, 0.15))',

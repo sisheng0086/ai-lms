@@ -16,15 +16,18 @@ const StudentStudyProgressWidget = ({
   const notesProgressPercent = Math.round((safeReviewed / totalNotes) * 100);
 
   return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.35) 0%, rgba(15, 23, 42, 0.85) 100%)',
-      border: '1px solid rgba(56, 189, 248, 0.3)',
-      borderRadius: '16px',
-      padding: '20px 24px',
-      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
+    <div
+      className="study-progress-widget"
+      style={{
+        background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.35) 0%, rgba(15, 23, 42, 0.85) 100%)',
+        border: '1px solid rgba(56, 189, 248, 0.3)',
+        borderRadius: '16px',
+        padding: '20px 24px',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
       {/* Decorative background glow */}
       <div style={{
         position: 'absolute',

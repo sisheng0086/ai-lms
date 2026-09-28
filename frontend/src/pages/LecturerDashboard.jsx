@@ -2061,7 +2061,14 @@ const LecturerDashboard = () => {
               <span className="nav-btn-label">Student Q&A</span>
               <span>({pendingStudentQuestionsCount})</span>
             </button>
-            <div className="user-badge" style={{ background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', borderColor: 'rgba(251, 191, 36, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              className="user-badge"
+              onClick={() => setActiveTab('profile')}
+              title="View Lecturer Profile"
+              role="button"
+              tabIndex={0}
+              style={{ background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', borderColor: 'rgba(251, 191, 36, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
               {user.profile_picture ? (
                 <img
                   src={getAvatarUrl(user.profile_picture, API_URL)}
@@ -2069,9 +2076,13 @@ const LecturerDashboard = () => {
                   className="user-badge-avatar"
                   style={{ borderColor: '#f59e0b' }}
                 />
-              ) : null}
-              <span>{user.full_name}</span>
-              <span style={{ background: 'rgba(251, 191, 36, 0.2)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+              ) : (
+                <div className="user-badge-avatar user-badge-avatar-fallback" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', borderColor: '#f59e0b' }}>
+                  {user.full_name ? user.full_name.charAt(0).toUpperCase() : '👨‍🏫'}
+                </div>
+              )}
+              <span className="user-badge-name">{user.full_name}</span>
+              <span className="user-badge-role" style={{ background: 'rgba(251, 191, 36, 0.2)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
                 Lecturer
               </span>
             </div>
