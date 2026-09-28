@@ -853,6 +853,76 @@ const StudentDashboard = () => {
     return sections;
   }, []);
 
+  const simplifyNoteExcerpt = useCallback((scoredSections, targetNote, userQuery = "") => {
+    // 1. Clean raw artifacts from the scored sections
+    const cleanedSnippets = (scoredSections || []).slice(0, 3).map(s => {
+      let t = s.text || "";
+      // Strip URLs (file:/// or http:// or https://)
+      t = t.replace(/file:\/\/\/[^\s]+/gi, '');
+      t = t.replace(/https?:\/\/[^\s]+/gi, '');
+      // Strip dates & timestamps like "9/28/26, 12:28 AM" or "2026-09-28"
+      t = t.replace(/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?/gi, '');
+      // Strip page numbering artifacts: "Page 1 of 5", "1/3", "[Page 2]"
+      t = t.replace(/\bpage\s+\d+(\s+of\s+\d+)?\b/gi, '');
+      t = t.replace(/\b\d+\s*\/\s*\d+\b/g, '');
+      t = t.replace(/\[\s*page\s*\d+\s*\]/gi, '');
+      // Strip OCR/table boundary symbols: ▼, ▲, ►, ◄, |, ▪, ▫, etc.
+      t = t.replace(/[▼▲►◄|▪▫◆◇■□]/g, ' ');
+      // Normalize whitespace
+      t = t.replace(/\s+/g, ' ').trim();
+      return t;
+    }).filter(t => t.length > 20);
+
+    // 2. Extract key sentences for digestible bullet points
+    const sentences = [];
+    for (const snip of cleanedSnippets) {
+      const splitSentences = snip.split(/(?<=[.!?])\s+/);
+      for (const sent of splitSentences) {
+        const trimmed = sent.trim();
+        if (trimmed.length >= 25 && trimmed.length <= 280 && !sentences.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+          sentences.push(trimmed);
+        }
+        if (sentences.length >= 4) break;
+      }
+      if (sentences.length >= 4) break;
+    }
+
+    // 3. Domain-aware intuitive simplification
+    const queryLower = (userQuery || "").toLowerCase();
+    let simpleWordsIntro = "";
+    if (/compile|compiler|g\+\+|build|execute/i.test(queryLower)) {
+      simpleWordsIntro = "A compiler is like a translator: it translates your human-written C++ code into binary machine code (0s and 1s) that the CPU processor can execute directly.";
+    } else if (/firewall|perimeter|dmz/i.test(queryLower)) {
+      simpleWordsIntro = "A firewall is like a building security guard: it inspects every visitor pass (packet header) and blocks unauthorized intruders from entering private rooms (internal LAN).";
+    } else if (/syn|flood|dos|ddos/i.test(queryLower)) {
+      simpleWordsIntro = "A SYN flood is like someone calling a restaurant over and over, keeping all phone lines busy so real customers cannot call in to order food.";
+    } else if (/pointer|address|memory/i.test(queryLower)) {
+      simpleWordsIntro = "A pointer does not store data directly; it stores the memory address (like a street house number) of where data lives in computer RAM.";
+    } else if (/cpu|socket|processor/i.test(queryLower)) {
+      simpleWordsIntro = "The CPU is the brain of the computer. The socket is the physical seat where the CPU connects securely to the motherboard pins.";
+    } else if (/ram|rom|ddr/i.test(queryLower)) {
+      simpleWordsIntro = "RAM is a fast working desk that gets wiped clean when power turns off (volatile). ROM is the permanent stone tablet holding the computer's startup instructions (non-volatile).";
+    } else {
+      simpleWordsIntro = `Here is a plain-English, student-friendly explanation of the key concepts from ${targetNote?.subject_code || 'Course'} (${targetNote?.title || 'Lecture Note'}).`;
+    }
+
+    let result = `💡 **In Simple Words (${targetNote?.subject_code || 'Course'} — ${targetNote?.title || 'Lecture Note'}):**\n\n`;
+    result += `🌟 **The Big Picture:**\n${simpleWordsIntro}\n\n`;
+    result += `📋 **Simplified Key Points:**\n`;
+    if (sentences.length > 0) {
+      sentences.forEach((sent, idx) => {
+        result += `• **Point ${idx + 1}:** ${sent}\n`;
+      });
+    } else if (cleanedSnippets.length > 0) {
+      result += `• **Core Concept:** ${cleanedSnippets[0].slice(0, 300)}...\n`;
+    } else {
+      result += `• **Core Concept:** Review the essential definitions and practical applications for this topic.\n`;
+    }
+    result += `\n🎯 **Exam Takeaway:** Review these bullet points for your upcoming quiz and lab assessments!`;
+
+    return result;
+  }, []);
+
   const processStudentQuery = (rawQuery) => {
     const userText = rawQuery.trim();
     if (!userText) return;
@@ -1183,9 +1253,105 @@ const StudentDashboard = () => {
     }
 
     // =========================================================================
-    // MODE A: SMART SUMMARY NOTE GENERATOR ("summary", "summarize", "summary note", "ringkasan", "short note")
+    // MODE A: SMART SUMMARY & SIMPLIFIED NOTE GENERATOR
     // =========================================================================
-    const isSummaryRequest = /\b(summary|summarize|summarise|ringkasan|rumusan|short\s*note|study\s*note|revision\s*note|cheat\s*sheet|key\s*points|main\s*points)\b/i.test(normalizedQuery);
+    const isSimpleNoteRequest = /\b(simple|simplify|simplification|mudahkan?|senangkan?|explain\s+simply|simple\s+words?|easy\s+to\s+understand|in\s+simple\s+terms?|eli5|simple\s+note|simple\s+summary|make\s+it\s+simple|can\s+simple|simple\s+the\s+note)\b/i.test(normalizedQuery);
+    const isSummaryRequest = isSimpleNoteRequest || /\b(summary|summarize|summarise|ringkasan|rumusan|short\s*note|study\s*note|revision\s*note|cheat\s*sheet|key\s*points|main\s*points)\b/i.test(normalizedQuery);
+
+    if (isSimpleNoteRequest) {
+      if (isNetworkSecurity) {
+        const netSecSimple =
+          `💡 **SIMPLIFIED STUDY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+          `📄 *Source File:* \`${targetNote.file_name}\`\n` +
+          `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+          `🌟 **The Big Picture (In 1 Sentence):**\n` +
+          `Network security is like building a castle with moats, gates, guards, and secret codes to let good citizens in and keep hackers out.\n\n` +
+          `🔑 **The 4 Simple Things You Need To Know:**\n\n` +
+          `1. **Perimeter & Firewalls (Security at the Gate):**\n` +
+          `   • *Stateless Firewall:* Checks visitor ID badges quickly (Source/Dest IP & Port).\n` +
+          `   • *Stateful Firewall:* Remembers who already walked inside and lets their replies back in.\n` +
+          `   • *Application Proxy:* Opens every package to inspect the contents for hidden threats.\n` +
+          `   • *DMZ (Demilitarized Zone):* A public visitor lobby where web servers stay so outsiders never enter the private office.\n\n` +
+          `2. **TCP SYN Flood & SYN Cookies (The Prank Call Attack):**\n` +
+          `   • An attacker makes thousands of prank calls and hangs up halfway (half-open connection), filling up the phone lines.\n` +
+          `   • **SYN Cookies Defense:** The server doesn't hold the line! It gives the caller a cryptographic ticket number and only opens a connection when the client calls back with the ticket.\n\n` +
+          `3. **IDS vs IPS (Security Camera vs Active Bouncer):**\n` +
+          `   • **IDS (Camera):** Watches and sounds an alarm when it sees an intruder, but does not touch them.\n` +
+          `   • **IPS (Bouncer):** Stands in the doorway and physically tackles/blocks the intruder in real time.\n\n` +
+          `4. **IPsec & VPNs (Secret Envelopes vs Locked Safes):**\n` +
+          `   • **AH (Authentication Header):** Signs the envelope to prove who sent it and that nobody tampered with it (No encryption).\n` +
+          `   • **ESP (Encapsulating Security Payload):** Puts the message inside an encrypted safe box (Confidentiality + Integrity).\n\n` +
+          `🎯 **Exam Takeaway:** Remember: AH has NO encryption. ESP provides BOTH encryption and integrity!`;
+        sendBotAnswer(netSecSimple, "Here is your simplified study note for Network Security, explained in simple words.", { page: 1, label: "DFN10078 Simplified, Page 1" });
+        return;
+      }
+
+      if (isCppNote) {
+        const cppSimple =
+          `💡 **SIMPLIFIED STUDY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+          `📄 *Source File:* \`${targetNote.file_name}\`\n` +
+          `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+          `🌟 **The Big Picture (In 1 Sentence):**\n` +
+          `C++ gives you direct power to talk to computer memory and build fast, structured programs using variables, logic, and objects.\n\n` +
+          `🔑 **The 4 Simple Things You Need To Know:**\n\n` +
+          `1. **Input & Output (I/O Streams):**\n` +
+          `   • \`cout <<\` prints words and numbers to the screen.\n` +
+          `   • \`cin >>\` waits and grabs what the student types on the keyboard.\n\n` +
+          `2. **Data Types (The Storage Boxes):**\n` +
+          `   • \`int\` = whole numbers (\`25\`, \`-5\`).\n` +
+          `   • \`double\` = decimal numbers (\`3.85\`, \`99.5\`).\n` +
+          `   • \`char\` = single character (\`'A'\`).\n` +
+          `   • \`string\` = full text sentences (\`"Politeknik"\`).\n` +
+          `   • \`bool\` = true or false flag.\n\n` +
+          `3. **Pointers (Memory Locker Numbers):**\n` +
+          `   • A pointer \`int* ptr\` is like writing down a locker address on paper.\n` +
+          `   • \`&score\` gets the physical locker address in RAM.\n` +
+          `   • \`*ptr\` unlocks the door to read or change the score inside!\n\n` +
+          `4. **The 4 Pillars of OOP (Object-Oriented Programming):**\n` +
+          `   • **Encapsulation:** Put sensitive data in a safe (\`private\`) and only allow access through keys (\`public\` functions).\n` +
+          `   • **Abstraction:** You drive a car with a steering wheel without having to understand how fuel injectors work.\n` +
+          `   • **Inheritance:** A child class borrows features from a parent class (\`Dog\` inherits from \`Animal\`).\n` +
+          `   • **Polymorphism:** One command (\`makeSound()\`) makes a Dog bark and a Cat meow.\n\n` +
+          `🎯 **Exam Takeaway:** Every C++ program must start with \`int main()\` and exit with \`return 0;\`!`;
+        sendBotAnswer(cppSimple, "Here is your simplified study note for C++ Programming, explained in simple words.", { page: 1, label: "C++ Simplified, Page 1" });
+        return;
+      }
+
+      if (isHardwareNote) {
+        const hwSimple =
+          `💡 **SIMPLIFIED STUDY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
+          `📄 *Source File:* \`${targetNote.file_name}\`\n` +
+          `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
+          `🌟 **The Big Picture (In 1 Sentence):**\n` +
+          `A computer is a team: the CPU thinks, RAM remembers what you are doing right now, and the SSD saves your files permanently.\n\n` +
+          `🔑 **The 4 Simple Things You Need To Know:**\n\n` +
+          `1. **CPU Sockets (How the Brain Plugs In):**\n` +
+          `   • **LGA:** Pins are on the motherboard (Intel LGA1700, AMD AM5). Safer for the expensive CPU!\n` +
+          `   • **PGA:** Pins are on the CPU underside (older AMD AM4). Pins can bend if dropped.\n` +
+          `   • **BGA:** Soldered permanently to the board (smartphones & laptops).\n\n` +
+          `2. **RAM vs ROM (Working Desk vs Instruction Manual):**\n` +
+          `   • **RAM (Volatile):** Your open desk space while studying. Super fast, but wiped clean when power is turned off!\n` +
+          `   • **ROM (Non-Volatile):** The instruction manual engraved into the motherboard. Never disappears; boots up the computer (BIOS/UEFI).\n\n` +
+          `3. **Storage Speed Comparison:**\n` +
+          `   • **NVMe M.2 SSD:** Supersonic jet (up to 7,000 MB/s). Plugs directly into CPU PCIe lanes.\n` +
+          `   • **SATA SSD:** Fast car (550 MB/s). No moving parts.\n` +
+          `   • **Mechanical HDD:** Bicycle with spinning magnetic platters (150 MB/s). Great for cheap backups, but slow.\n\n` +
+          `4. **Motherboard Form Factors:**\n` +
+          `   • ATX = Full-sized desktop.\n` +
+          `   • Micro-ATX (mATX) = Medium compact.\n` +
+          `   • Mini-ITX = Tiny portable PC.\n\n` +
+          `🎯 **Exam Takeaway:** Volatile = wipes when power is lost (RAM). Non-volatile = keeps data forever (ROM, SSD, HDD).`;
+        sendBotAnswer(hwSimple, "Here is your simplified study note for Computer Hardware, explained in simple words.", { page: 1, label: "Hardware Simplified, Page 1" });
+        return;
+      }
+
+      // Generic uploaded note simplification
+      const logicalSections = buildLogicalSections(fullNoteText);
+      const scoredSecs = logicalSections.map((sec, idx) => ({ idx, text: sec, hits: 1 }));
+      const genericSimple = simplifyNoteExcerpt(scoredSecs, targetNote, userText);
+      sendBotAnswer(genericSimple, `Here is the simplified note for ${targetNote.title}, explained in simple words.`);
+      return;
+    }
 
     if (isSummaryRequest) {
 
@@ -1270,6 +1436,7 @@ const StudentDashboard = () => {
       if (/\b(firewall|firewalls|packet\s+filtering|stateful|stateless|application\s+proxy|dmz|demilitarized|bastion)\b/i.test(normalizedQuery)) {
         const firewallReply =
           `🛡️ **Firewall Architectures & DMZ Design (${targetNote.subject_code} · Page 1):**\n\n` +
+          `💡 **In Simple Words:** Think of a firewall like building security guards. Stateless checks visitor ID badges quickly at the gate. Stateful remembers who already walked inside and lets their replies back in. Application proxy opens and inspects every single package. DMZ is the public visitor lobby outside the private office rooms.\n\n` +
           `**1. Three Core Firewall Types:**\n` +
           `• **Stateless Packet Filtering (Layer 3/4):** Inspects individual packet headers (Source/Dest IP, Source/Dest Port, Protocol) against static Access Control Lists (ACLs). Very fast with low resource overhead, but vulnerable to IP spoofing and cannot track session state.\n` +
           `• **Stateful Inspection (Layer 3/4/5):** Maintains a dynamic **State Table** tracking established TCP 3-way handshakes and UDP flows. Only allows inbound packets that match an existing, legitimately established outbound connection.\n` +
@@ -1286,6 +1453,7 @@ const StudentDashboard = () => {
       if (/\b(syn\s+flood|syn\s+cookie|syn\s+cookies|half-open|three-way|3-way\s+handshake|tcb|backlog|tcp\s+reset|ddos|dos\s+attack|icmp\s+flood)\b/i.test(normalizedQuery)) {
         const synReply =
           `⚡ **TCP SYN Flood Attack & SYN Cookies Defense (${targetNote.subject_code} · Page 2):**\n\n` +
+          `💡 **In Simple Words:** Imagine someone dialing a pizza shop 1,000 times, ordering, but hanging up before paying. The phone lines get jammed so real customers can't order. SYN Cookies solve this by giving the caller a ticket code and hanging up immediately—only making the pizza if the caller calls back with the ticket!\n\n` +
           `**1. Normal TCP 3-Way Handshake:**\n` +
           `1. Client sends **SYN** (Synchronize) packet.\n` +
           `2. Server allocates memory in its **Backlog Connection Queue (TCB)** and replies with **SYN-ACK**.\n` +
@@ -1306,6 +1474,7 @@ const StudentDashboard = () => {
       if (/\b(ids|ips|intrusion|detection\s+system|prevention\s+system|snort|suricata|signature-based|anomaly-based|span\s+port|inline)\b/i.test(normalizedQuery)) {
         const idsReply =
           `🔍 **Intrusion Detection (IDS) vs Intrusion Prevention (IPS) (${targetNote.subject_code} · Page 3):**\n\n` +
+          `💡 **In Simple Words:** An **IDS** is a security camera (it watches and sounds an alarm, but does not touch the intruder). An **IPS** is an active bouncer standing in the door (the moment it sees an intruder, it tackles them and blocks them out).\n\n` +
           `**1. Structural Comparison:**\n` +
           `• **IDS (Intrusion Detection System — Passive):**\n` +
           `  - Deployed **out-of-band** via SPAN (Switch Port Analyzer) / mirror ports or network taps.\n` +
@@ -1325,6 +1494,7 @@ const StudentDashboard = () => {
       if (/\b(ipsec|vpn|ah\b|authentication\s+header|esp\b|encapsulating\s+security|tunnel\s+mode|transport\s+mode|ike\b|virtual\s+private\s+network)\b/i.test(normalizedQuery)) {
         const ipsecReply =
           `🔐 **IPsec Architecture & VPN Operation (${targetNote.subject_code} · Page 4):**\n\n` +
+          `💡 **In Simple Words:** **AH** signs an envelope in permanent ink so nobody can forge it, but the letter inside remains readable (NO encryption). **ESP** puts the letter inside a locked, armored steel safe (complete encryption + integrity).\n\n` +
           `**1. Two Core Security Protocols:**\n` +
           `• **AH (Authentication Header · IP Protocol 51):**\n` +
           `  - Provides data origin authentication, data integrity (via HMAC), and anti-replay protection.\n` +
@@ -1344,6 +1514,7 @@ const StudentDashboard = () => {
       if (/\b(boundary\s+router|perimeter|rate\s*limit|icmp\s+echo|ping\s+flood|bogon|rpki)\b/i.test(normalizedQuery)) {
         const perimeterReply =
           `🌐 **Perimeter Defense & Boundary Router Hardening (${targetNote.subject_code} · Page 1):**\n\n` +
+          `💡 **In Simple Words:** Boundary routers are the outer fortress gate of an organization. Hardening them means ignoring prank doorbells (ICMP flood rate-limiting), rejecting fake visitor addresses (bogon filtering), and making sure maps haven't been swapped by attackers (RPKI route validation).\n\n` +
           `• **Boundary Router Placement:** Positioned at the very edge of the enterprise autonomous system (AS) directly interfacing with upstream Internet Service Providers (ISPs).\n` +
           `• **Key Hardening Best Practices:**\n` +
           `  - **Rate-limit or Drop Ingress ICMP Echo:** Throttles external ping requests to neutralize ICMP flood and Smurf amplification attacks.\n` +
@@ -1358,6 +1529,7 @@ const StudentDashboard = () => {
       if (/\b(cia\s+triad|confidentiality|integrity|availability|zero\s+trust|least\s+privilege|defense\s+in\s+depth)\b/i.test(normalizedQuery)) {
         const ciaReply =
           `🏛️ **The CIA Triad & Zero Trust Architecture (${targetNote.subject_code} · Page 5):**\n\n` +
+          `💡 **In Simple Words:** **C**onfidentiality keeps secrets hidden (encryption), **I**ntegrity ensures files aren't tampered with (hashes), and **A**vailability keeps servers online 24/7 (redundancy). Zero Trust means "never trust anyone automatically—always verify every request."\n\n` +
           `**1. The CIA Triad (Core Pillars of Information Security):**\n` +
           `• **Confidentiality:** Preventing unauthorized disclosure of sensitive data. Enforced using symmetric/asymmetric encryption (AES-256, RSA), Role-Based Access Control (RBAC), and strict file permissions.\n` +
           `• **Integrity:** Ensuring data has not been modified, tampered with, or corrupted in transit or storage. Enforced using cryptographic hashes (SHA-256), HMAC, and digital signatures.\n` +
@@ -1385,6 +1557,7 @@ const StudentDashboard = () => {
       if (isBasicCodingInquiry) {
         const basicCodingReply =
           `💻 **C++ Basic Coding & Program Structure (${targetNote.subject_code} · Page 1):**\n\n` +
+          `💡 **In Simple Words:** A C++ program is like a step-by-step recipe. It always starts execution inside \`int main()\`, asks the user for input with \`cin >>\`, makes decisions with \`if-else\`, and displays messages on screen using \`cout <<\`.\n\n` +
           `Here is the complete, standard C++ program template in official Politeknik coding format. It is fully executable and demonstrates standard headers, input/output streams, variables, and decision logic:\n\n` +
           `\`\`\`cpp\n` +
           `// =========================================================================\n` +
@@ -1457,6 +1630,7 @@ const StudentDashboard = () => {
       if (/\b(loop|loops|for\s+loop|while\s+loop|do\s+while|if\s+else|switch\s+case|conditional|control\s+structure)\b/i.test(normalizedQuery)) {
         const loopReply =
           `🔄 **C++ Control Structures & Loops (${targetNote.subject_code} · Page 2):**\n\n` +
+          `💡 **In Simple Words:** Loops repeat actions so you don't have to write the same line twice. A \`for\` loop runs a set number of times (like doing 5 pushups). A \`while\` loop keeps running as long as a condition is true (like studying until the timer rings). \`if-else\` is a fork in the road.\n\n` +
           `**1. The \`for\` Loop (Best for Known Iteration Counts):**\n` +
           `\`\`\`cpp\n` +
           `#include <iostream>\n` +
@@ -1497,6 +1671,7 @@ const StudentDashboard = () => {
       if (/\b(function|functions|parameter|parameters|argument|return\s+type|pass\s+by\s+value|pass\s+by\s+ref|array|arrays)\b/i.test(normalizedQuery)) {
         const funcReply =
           `⚙️ **C++ Functions & Parameter Passing (${targetNote.subject_code} · Page 2):**\n\n` +
+          `💡 **In Simple Words:** A function is a reusable mini-tool: you feed it ingredients (parameters), it does work, and gives you back a result (return value). Pass-by-value makes a photocopy of your data (safe), while pass-by-reference (\`&\`) hands over the original document!\n\n` +
           `**1. Function Declaration & Definition:**\n` +
           `\`\`\`cpp\n` +
           `#include <iostream>\n` +
@@ -1527,6 +1702,7 @@ const StudentDashboard = () => {
       if (/\b(pointer|pointers|memory\s+address|dereference|dereferencing|address-of|nullptr|null\s+pointer)\b/i.test(normalizedQuery)) {
         const pointerReply =
           `💻 **C++ Pointers, Addresses & Dereferencing (${targetNote.subject_code} · Page 1):**\n\n` +
+          `💡 **In Simple Words:** A regular variable is a locker storing a value. A **pointer** is a piece of paper with the **locker number (address)** written on it. \`&score\` gets the locker number, and \`*ptr\` opens the locker to read or edit what's inside!\n\n` +
           `Here is an executable code example demonstrating pointers, memory addresses, and dereferencing in C++:\n\n` +
           `\`\`\`cpp\n` +
           `#include <iostream>\n` +
@@ -1555,6 +1731,7 @@ const StudentDashboard = () => {
       if (/\b(dynamic\s+memory|heap|stack|new\s+operator|delete\s+operator|malloc|free|memory\s+leak)\b/i.test(normalizedQuery)) {
         const memReply =
           `💾 **Dynamic Memory Allocation in C++ (\`new\` & \`delete\` · Page 2):**\n\n` +
+          `💡 **In Simple Words:** The **Stack** is like sticky notes on your desk (fast, automatically recycled when you leave). The **Heap** is a rented storage locker you book with \`new\`—you must return the key with \`delete\`, or the space stays locked forever (a **memory leak**)!\n\n` +
           `\`\`\`cpp\n` +
           `#include <iostream>\n` +
           `using namespace std;\n\n` +
@@ -1584,6 +1761,7 @@ const StudentDashboard = () => {
       if (/\b(oop|object-oriented|class|classes|object|objects|encapsulation|abstraction|inheritance|polymorphism|constructor|destructor|virtual\s+function)\b/i.test(normalizedQuery)) {
         const oopReply =
           `🧱 **Object-Oriented Programming (OOP) & The 4 Pillars (${targetNote.subject_code} · Page 3):**\n\n` +
+          `💡 **In Simple Words:** OOP models programs after real-world objects. A class is a blueprint (like blueprints for a Car), and an object is the actual car you build. Encapsulation puts the engine under the hood, Abstraction gives you pedals to drive, Inheritance makes a SportsCar from a standard Car, and Polymorphism lets any vehicle start with one ignition key.\n\n` +
           `\`\`\`cpp\n` +
           `#include <iostream>\n` +
           `#include <string>\n` +
@@ -1624,6 +1802,7 @@ const StudentDashboard = () => {
       if (/\b(socket|sockets|lga|pga|bga|land\s+grid|pin\s+grid|ball\s+grid|processor|cpu\b)\b/i.test(normalizedQuery)) {
         const cpuReply =
           `⚡ **CPU Socket Types & Processor Architectures (${targetNote.subject_code} · Page 1):**\n\n` +
+          `💡 **In Simple Words:** A CPU socket is how the processor chip connects to the motherboard. LGA puts the delicate pins on the motherboard socket to protect the CPU. PGA puts pins on the CPU chip itself. BGA solders the processor directly onto the board permanently (like in phones and thin laptops).\n\n` +
           `• **1. LGA (Land Grid Array):**\n` +
           `  - Pins are located on the **motherboard socket**; the CPU underside features flat gold contact pads.\n` +
           `  - Used by modern Intel processors (LGA1700, LGA1200) and modern AMD Ryzen (AM5).\n` +
@@ -1642,6 +1821,7 @@ const StudentDashboard = () => {
       if (/\b(ram\b|rom\b|ddr|ddr4|ddr5|volatile|non-volatile|dimm|sodimm|ecc\b|bios|uefi)\b/i.test(normalizedQuery)) {
         const ramReply =
           `💾 **Memory Technologies: RAM vs ROM & DDR5 Innovations (${targetNote.subject_code} · Page 2):**\n\n` +
+          `💡 **In Simple Words:** **RAM** is your open study desk where you keep books while working—super fast, but wiped clean the moment power is switched off (volatile). **ROM** is the permanent instruction plaque carved into the wall—it never forgets and boots up your computer (non-volatile BIOS/UEFI).\n\n` +
           `• **RAM (Random Access Memory):** Volatile primary storage; loses all data immediately when power is cut. Holds operating system instructions and active program data.\n` +
           `• **DDR4 vs DDR5 Differences:**\n` +
           `  - **Data Transfer Rate:** DDR5 starts at 4800 MT/s up to 7200+ MT/s (vs DDR4 2133–3200 MT/s).\n` +
@@ -1656,6 +1836,7 @@ const StudentDashboard = () => {
       if (/\b(storage|nvme|m\.2|pcie|sata|ssd|hdd|hard\s+disk|solid\s+state)\b/i.test(normalizedQuery)) {
         const storageReply =
           `💿 **Storage Technologies: NVMe M.2 vs SATA SSD vs HDD (${targetNote.subject_code} · Page 3):**\n\n` +
+          `💡 **In Simple Words:** Mechanical **HDD** is a record player with spinning magnetic discs (cheap, large capacity, but slow). **SATA SSD** is a solid-state drive (silent and 4-5x faster). **NVMe M.2** is a supersonic jet wired straight into the CPU's fastest lanes (10-15x faster than SATA SSD)!\n\n` +
           `• **1. NVMe M.2 SSD (PCIe Bus):**\n` +
           `  - Communicates directly with the CPU via high-speed PCI Express lanes (PCIe 3.0/4.0/5.0).\n` +
           `  - Sequential read speeds reach **3,500 MB/s to 7,000+ MB/s** with sub-millisecond latency.\n` +
@@ -1835,15 +2016,8 @@ const StudentDashboard = () => {
     scoredSections.sort((a, b) => b.hits - a.hits);
 
     if (scoredSections.length > 0) {
-      const cleanExcerpts = scoredSections.slice(0, 3).map(s => {
-        return s.text
-          .replace(/\s+/g, ' ')
-          .replace(/•\s*/g, '\n• ')
-          .trim();
-      });
-      const headerLabel = `📘 **Detailed Answer from ${targetNote.subject_code} — ${targetNote.title} (${targetNote.file_name}):**`;
-      const responseText = `${headerLabel}\n\n${cleanExcerpts.join('\n\n')}`;
-      sendBotAnswer(responseText, cleanExcerpts[0]?.slice(0, 240));
+      const responseText = simplifyNoteExcerpt(scoredSections, targetNote, userText);
+      sendBotAnswer(responseText, `Here is the simplified explanation from ${targetNote.title}.`, { page: 1, label: `${targetNote.subject_code}, Page 1` });
     } else {
       const fallbackOverview =
         `📘 **Core Concepts & Study Guide: ${targetNote.subject_code} — ${targetNote.title}**\n` +
@@ -2321,6 +2495,14 @@ const StudentDashboard = () => {
               <button
                 type="button"
                 className="quick-ask-item"
+                onClick={() => { processStudentQuery("Can you simple the note for me?"); setQuickAskMenuOpen(false); }}
+              >
+                <span>💡</span>
+                <span>Simplify Note (In Simple Words)</span>
+              </button>
+              <button
+                type="button"
+                className="quick-ask-item"
                 onClick={() => { processStudentQuery("Help me do the summary note for Chapter 1"); setQuickAskMenuOpen(false); }}
               >
                 <span>📝</span>
@@ -2440,6 +2622,14 @@ const StudentDashboard = () => {
           )}
 
           {/* Universal Study Pills */}
+          <button
+            type="button"
+            className="quick-ask-pill-chip"
+            onClick={() => processStudentQuery("Can you simple the note for me?")}
+            style={{ color: '#fbbf24', borderColor: 'rgba(251, 191, 36, 0.4)' }}
+          >
+            💡 Simplify Note
+          </button>
           <button
             type="button"
             className="quick-ask-pill-chip"
