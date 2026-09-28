@@ -292,37 +292,17 @@ const RevisionFlashcardsModal = ({
         padding: '20px'
       }}
     >
-      <div
-        className="flashcards-modal-dialog"
-        style={{
-          background: 'var(--card-bg, #1e293b)',
-          border: '1px solid var(--border, rgba(255, 255, 255, 0.15))',
-          borderRadius: '20px',
-          maxWidth: '680px',
-          width: '100%',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}
-      >
+      <div className="flashcards-modal-dialog">
         {/* Modal Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '18px 24px',
-          borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.1))',
-          background: 'rgba(0, 0, 0, 0.15)'
-        }}>
+        <div className="flashcards-modal-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '1.3rem' }}>📇</span>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main, #f8fafc)' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                 AI Revision Flashcards
               </h2>
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               {subjectCode} • {noteTitle}
             </p>
           </div>
@@ -358,20 +338,20 @@ const RevisionFlashcardsModal = ({
         </div>
 
         {/* Progress Tracker */}
-        <div style={{ padding: '12px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-            Card <strong style={{ color: '#38bdf8' }}>{currentIndex + 1}</strong> of {cards.length}
+        <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)' }}>
+            Card <strong style={{ color: '#0284c7' }}>{currentIndex + 1}</strong> of {cards.length}
           </div>
-          <div style={{ flex: 1, height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '999px', overflow: 'hidden' }}>
+          <div className="flashcard-progress-track">
             <div style={{
               width: `${masteryPercent}%`,
               height: '100%',
-              background: 'linear-gradient(90deg, #3b82f6, #10b981)',
+              background: 'linear-gradient(90deg, #0284c7, #10b981)',
               borderRadius: '999px',
               transition: 'width 0.3s ease'
             }} />
           </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#10b981' }}>
+          <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#10b981' }}>
             {masteryPercent}% Mastered
           </div>
         </div>
@@ -380,57 +360,36 @@ const RevisionFlashcardsModal = ({
         <div style={{ padding: '20px 24px' }}>
           <div
             onClick={() => setIsFlipped(prev => !prev)}
-            style={{
-              minHeight: '260px',
-              background: isFlipped
-                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(30, 41, 59, 0.9))'
-                : 'linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(30, 41, 59, 0.9))',
-              border: isFlipped
-                ? '2px solid rgba(16, 185, 129, 0.4)'
-                : '2px solid rgba(56, 189, 248, 0.4)',
-              borderRadius: '16px',
-              padding: '24px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)',
-              transition: 'all 0.25s ease'
-            }}
+            className={`flashcard-surface ${isFlipped ? 'card-back' : 'card-front'}`}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                background: isFlipped ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                color: isFlipped ? '#34d399' : '#38bdf8',
-                padding: '3px 8px',
-                borderRadius: '6px'
-              }}>
+              <span className="flashcard-badge">
                 {isFlipped ? '💡 ANSWER / EXPLANATION' : '❓ QUESTION / CONCEPT'}
               </span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <span className="flashcard-hint">
                 Click to flip card (Spacebar)
               </span>
             </div>
 
             <div style={{ margin: '20px 0', textAlign: 'center' }}>
-              <div style={{
-                fontSize: isFlipped ? '1.05rem' : '1.25rem',
-                fontWeight: isFlipped ? 500 : 700,
-                color: 'var(--text-main, #f8fafc)',
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap'
-              }}>
+              <div
+                className="flashcard-body-text"
+                style={{
+                  fontSize: isFlipped ? '1.08rem' : '1.25rem',
+                  fontWeight: isFlipped ? 500 : 700,
+                  whiteSpace: 'pre-wrap'
+                }}
+              >
                 {isFlipped ? currentCard.back : currentCard.front}
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              <span>Topic: {currentCard.topic}</span>
-              <span>🔄 Tap card to {isFlipped ? 'view Question' : 'reveal Answer'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="flashcard-topic-text">Topic: {currentCard.topic}</span>
+              <span className="flashcard-action-pill">
+                <span>🔄</span>
+                <span>Tap card to {isFlipped ? 'view Question' : 'reveal Answer'}</span>
+              </span>
             </div>
           </div>
 
@@ -439,22 +398,7 @@ const RevisionFlashcardsModal = ({
             <button
               type="button"
               onClick={handleMarkReview}
-              style={{
-                flex: 1,
-                background: needsReviewIds.includes(currentCard.id) ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                color: '#f87171',
-                padding: '10px 16px',
-                borderRadius: '10px',
-                fontWeight: 600,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.15s ease'
-              }}
+              className={`flashcard-btn-review ${needsReviewIds.includes(currentCard.id) ? 'active' : ''}`}
             >
               <span>❌</span>
               <span>Needs More Review</span>
@@ -463,22 +407,7 @@ const RevisionFlashcardsModal = ({
             <button
               type="button"
               onClick={handleMarkMastered}
-              style={{
-                flex: 1,
-                background: masteredIds.includes(currentCard.id) ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
-                color: '#34d399',
-                padding: '10px 16px',
-                borderRadius: '10px',
-                fontWeight: 600,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.15s ease'
-              }}
+              className={`flashcard-btn-mastered ${masteredIds.includes(currentCard.id) ? 'active' : ''}`}
             >
               <span>✅</span>
               <span>I Know This!</span>
@@ -487,14 +416,7 @@ const RevisionFlashcardsModal = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 24px',
-          borderTop: '1px solid var(--border, rgba(255, 255, 255, 0.1))',
-          background: 'rgba(0, 0, 0, 0.15)'
-        }}>
+        <div className="flashcards-modal-footer">
           <button
             type="button"
             onClick={handlePrev}
@@ -507,9 +429,11 @@ const RevisionFlashcardsModal = ({
           <button
             type="button"
             onClick={handleReset}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}
+            className="flashcard-reset-btn"
+            title="Reset master score and start over"
           >
-            🔄 Reset Deck
+            <span>🔄</span>
+            <span>Reset Deck</span>
           </button>
 
           <button
