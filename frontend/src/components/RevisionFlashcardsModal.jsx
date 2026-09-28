@@ -1,64 +1,168 @@
 import React, { useState, useEffect } from 'react';
 
-const DEFAULT_FLASHCARDS = [
+const NETSEC_FLASHCARDS = [
   {
     id: 1,
-    topic: 'Chapter 1: Pengenalan Etika',
-    front: 'What is the main role of a Syahbandar in the Malacca Sultanate?',
-    back: 'The Syahbandar was the Port Master responsible for maritime trade operations, customs duty collection, managing warehouse storage, and resolving disputes among foreign merchants.'
+    topic: 'Firewalls & DMZ',
+    front: 'What is the main difference between Stateless and Stateful firewalls?',
+    back: 'Stateless packet filters check individual headers (IP/Port) against static ACLs without tracking connection states. Stateful firewalls maintain a State Table of active TCP/UDP sessions and only permit incoming traffic belonging to established outbound connections.'
   },
   {
     id: 2,
-    topic: 'Chapter 1: Kepelbagaian Bahasa',
-    front: 'How many spoken languages were recorded in Malacca during its golden era?',
-    back: 'According to Tome Pires (Suma Oriental), 84 spoken languages and dialects were actively spoken by global merchants in the port of Malacca.'
+    topic: 'Perimeter Defense',
+    front: 'What is a Demilitarized Zone (DMZ) and why is it used?',
+    back: 'A DMZ is a dedicated perimeter subnet that hosts public-facing services (Web, Mail, DNS) separate from the internal private LAN. If a DMZ server is compromised, the internal LAN remains shielded behind internal firewall rules.'
   },
   {
     id: 3,
-    topic: 'Chapter 1: Perundangan',
-    front: 'What are the two foundational legal codes of the Malacca Sultanate?',
-    back: '1. Hukum Kanun Melaka (44 clauses covering civil, constitutional, and criminal law)\n2. Undang-Undang Laut Melaka (maritime regulations, ship safety, and maritime trade ethics).'
+    topic: 'DoS & DDoS Defense',
+    front: 'How does a TCP SYN Flood work, and how do SYN Cookies defend against it?',
+    back: 'Attackers flood servers with spoofed SYN packets, filling the backlog connection queue. SYN Cookies defend by encoding session state cryptographically inside the Initial Sequence Number (ISN), allocating zero memory until the legitimate client\'s final ACK arrives.'
   },
   {
     id: 4,
-    topic: 'Chapter 1: Komuniti Peranakan',
-    front: 'Who are the Peranakan (Baba & Nyonya) communities in Malaysia?',
-    back: 'Descendants of early Chinese traders who married local Malay women, creating a unique hybrid culture combining Chinese customs with Malay language, cuisine, and traditional attire (kebaya).'
+    topic: 'IDS vs IPS',
+    front: 'What is the structural difference between an IDS and an IPS?',
+    back: 'An IDS (Intrusion Detection System) sits out-of-band via SPAN/mirror ports to passively monitor and alert. An IPS (Intrusion Prevention System) sits inline directly in traffic flow to actively drop malicious packets and reset suspicious connections.'
   },
   {
     id: 5,
-    topic: 'Chapter 1: Angin Monsun',
-    front: 'How did the Monsoon Wind calendar govern trade in Malacca?',
-    back: 'Merchants from India and the West arrived via the Southwest Monsoon (May-August), while ships from China and Japan sailed on the Northeast Monsoon (November-March).'
+    topic: 'IPsec Architecture',
+    front: 'Compare the IPsec AH and ESP protocols.',
+    back: 'AH (Authentication Header · IP 51) provides integrity, origin authentication, and anti-replay, but does NOT encrypt data. ESP (Encapsulating Security Payload · IP 50) provides confidentiality (encryption via AES), integrity, and authentication.'
   },
   {
     id: 6,
-    topic: 'Chapter 1: Garis Masa Melaka',
-    front: 'What are the key timeline milestones of the Malacca Sultanate?',
-    back: '• 1400: Parameswara founds Malacca\n• 1405: Admiral Zheng He begins diplomatic missions\n• 1456–1477: Peak golden age under Sultan Mansur Shah\n• 1511: Portuguese conquest led by Afonso de Albuquerque.'
+    topic: 'VPN Modes',
+    front: 'What is the difference between IPsec Transport Mode and Tunnel Mode?',
+    back: 'Transport Mode encrypts only the payload (Layer 4+) leaving original IP headers exposed (host-to-host). Tunnel Mode encrypts the entire original IP packet and encapsulates it inside a brand new IP header (gateway-to-gateway / site-to-site VPN).'
   },
   {
     id: 7,
-    topic: 'Chapter 1: Etika & Peradaban',
-    front: 'What are the 3 key pillars of civilized trade ethics in Malacca?',
-    back: '1. Fair weights and measures (Amanah dalam timbangan)\n2. Protection of foreign merchant property and cargo\n3. Consistent customs tax rates without arbitrary extortion.'
+    topic: 'Information Security Pillars',
+    front: 'What are the 3 pillars of the CIA Triad?',
+    back: '1. Confidentiality (preventing unauthorized data disclosure via encryption & RBAC)\n2. Integrity (guaranteeing data is not tampered with via hashing & signatures)\n3. Availability (ensuring uptime via redundancy & DDoS mitigation).'
   },
   {
     id: 8,
-    topic: 'Chapter 1: Hubungan Diplomatik',
-    front: 'Why was the diplomatic relationship with Ming Dynasty China vital for Malacca?',
-    back: 'It provided royal recognition and military protection from Siamese (Ayutthaya) aggression, enabling Malacca to safely grow into Southeast Asia\'s preeminent trading entrepôt.'
+    topic: 'Security Architecture',
+    front: 'What is the core principle of Zero Trust Architecture?',
+    back: '"Never trust, always verify" — eliminates implicit trust based on network location. Enforces micro-segmentation, continuous multi-factor authentication, and least privilege access for every device and user.'
   }
 ];
+
+const CPP_FLASHCARDS = [
+  {
+    id: 1,
+    topic: 'Pointers & Addresses',
+    front: 'What is a pointer in C++ and how do & and * operators differ?',
+    back: 'A pointer stores the memory address of another variable. The address-of operator (&) retrieves a variable\'s address, while the dereference operator (*) accesses or modifies the value stored at that address.'
+  },
+  {
+    id: 2,
+    topic: 'Memory Management',
+    front: 'What is the difference between Stack and Heap memory in C++?',
+    back: 'Stack memory is fast and managed automatically for local variables upon function entry/exit. Heap memory is large and flexible, allocated dynamically at runtime using `new` and must be explicitly released using `delete`.'
+  },
+  {
+    id: 3,
+    topic: 'Error Prevention',
+    front: 'What causes a memory leak and how do you prevent it in C++?',
+    back: 'A memory leak occurs when heap memory allocated with `new` is never freed with `delete`, consuming system RAM. Prevent it by pairing every `new` with `delete` (or `delete[]`) and setting pointers to `nullptr`.'
+  },
+  {
+    id: 4,
+    topic: 'OOP 4 Pillars',
+    front: 'Name and define the 4 pillars of Object-Oriented Programming (OOP).',
+    back: '1. Encapsulation (bundling data and methods with access restrictions)\n2. Abstraction (hiding implementation details)\n3. Inheritance (reusing base class code in derived classes)\n4. Polymorphism (objects responding differently to identical function calls).'
+  },
+  {
+    id: 5,
+    topic: 'Functions & Passing',
+    front: 'Compare pass-by-value versus pass-by-reference in C++.',
+    back: 'Pass-by-value copies the argument, so changes inside the function do not affect the caller. Pass-by-reference (int &x) passes an alias to the original variable, allowing direct modification without copy overhead.'
+  }
+];
+
+const HARDWARE_FLASHCARDS = [
+  {
+    id: 1,
+    topic: 'CPU Sockets',
+    front: 'Compare LGA, PGA, and BGA CPU socket architectures.',
+    back: 'LGA (Land Grid Array) has pins on the motherboard socket and flat pads on the CPU (Intel, modern AMD AM5). PGA has pins on the CPU (legacy AMD AM4). BGA is soldered directly onto the motherboard (laptops & SoCs).'
+  },
+  {
+    id: 2,
+    topic: 'Memory Technologies',
+    front: 'What is the difference between volatile RAM and non-volatile ROM?',
+    back: 'RAM (Random Access Memory) is volatile temporary storage that loses all data when power is lost. ROM (Read-Only Memory) is non-volatile permanent storage holding BIOS/UEFI firmware for system booting.'
+  },
+  {
+    id: 3,
+    topic: 'RAM Generations',
+    front: 'What are the primary advantages of DDR5 over DDR4 RAM?',
+    back: 'Higher bandwidth (4800–7200+ MT/s vs DDR4 2133–3200 MT/s), lower voltage (1.1V vs 1.2V), dual independent 32-bit subchannels, and integrated On-Die ECC for data integrity.'
+  },
+  {
+    id: 4,
+    topic: 'Storage Architecture',
+    front: 'Compare NVMe M.2 SSDs with SATA SSDs and mechanical HDDs.',
+    back: 'NVMe M.2 connects via PCIe lanes with read speeds of 3,500–7,000+ MB/s. SATA SSDs use SATA III capped at ~550 MB/s. Mechanical HDDs use rotating magnetic platters with speeds of 100–200 MB/s.'
+  }
+];
+
+const GENERIC_COURSE_FLASHCARDS = [
+  {
+    id: 1,
+    topic: 'Course Foundations',
+    front: 'What is the primary purpose and scope of this course module?',
+    back: 'To establish foundational theoretical principles, industry standards, and hands-on practical competencies for student coursework and lab assessments.'
+  },
+  {
+    id: 2,
+    topic: 'Exam Preparation',
+    front: 'What is the recommended strategy for exam preparation in this subject?',
+    back: 'Review core definitions, understand structural diagrams and system workflows, complete practice quizzes, and verify configurations through hands-on exercises.'
+  },
+  {
+    id: 3,
+    topic: 'Methodology & Standards',
+    front: 'Why is understanding system architecture critical for practical problem-solving?',
+    back: 'It enables students to isolate subsystem bottlenecks, diagnose faults methodically, and apply targeted engineering solutions rather than trial and error.'
+  },
+  {
+    id: 4,
+    topic: 'Coursework Guidelines',
+    front: 'What documentation standards should be followed for assignments and lab submissions?',
+    back: 'Include Student Full Name, Matrix Number, Class Section, Subject Code, and clear step-by-step methodology with verified results.'
+  }
+];
+
+const getDeckForSubject = (subjectCode = '', noteTitle = '') => {
+  const combined = `${subjectCode} ${noteTitle}`.toLowerCase();
+  if (combined.includes('dfn10078') || combined.includes('security') || combined.includes('firewall') || combined.includes('network')) {
+    return NETSEC_FLASHCARDS;
+  }
+  if (combined.includes('dfc10042') || combined.includes('c++') || combined.includes('cpp') || combined.includes('programming')) {
+    return CPP_FLASHCARDS;
+  }
+  if (combined.includes('dft10014') || combined.includes('hardware') || combined.includes('device')) {
+    return HARDWARE_FLASHCARDS;
+  }
+  return GENERIC_COURSE_FLASHCARDS;
+};
 
 const RevisionFlashcardsModal = ({
   isOpen,
   onClose,
-  subjectCode = 'MPU21032',
-  noteTitle = 'Penghayatan Etika dan Peradaban',
+  subjectCode = 'COURSE',
+  noteTitle = 'Lecture Note',
   customCards = null
 }) => {
-  const cards = (customCards && customCards.length > 0) ? customCards : DEFAULT_FLASHCARDS;
+  const activeDeck = customCards && customCards.length > 0
+    ? customCards
+    : getDeckForSubject(subjectCode, noteTitle);
+  const cards = activeDeck;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [masteredIds, setMasteredIds] = useState([]);

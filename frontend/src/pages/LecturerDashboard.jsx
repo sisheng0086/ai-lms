@@ -1689,7 +1689,7 @@ const LecturerDashboard = () => {
               <label className="form-label">Subject Code (or "ALL"):</label>
               <input
                 type="text"
-                placeholder="e.g. MPU21032 or ALL"
+                placeholder="e.g. DFN10078 or ALL"
                 value={annSubjectCode}
                 onChange={(e) => setAnnSubjectCode(e.target.value)}
                 className="form-input"

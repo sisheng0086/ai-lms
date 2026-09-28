@@ -255,8 +255,8 @@ const StudentDashboard = () => {
 
   const handleExportSummaryPdf = () => {
     const activeNote = notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
-    const subjectCode = activeNote?.subject_code || 'MPU21032';
-    const noteTitle = activeNote?.title || 'Penghayatan Etika dan Peradaban';
+    const subjectCode = activeNote?.subject_code || 'COURSE';
+    const noteTitle = activeNote?.title || 'Lecture Note';
     const studentName = user?.full_name || 'Politeknik Student';
     const matrixNo = user?.matrix_no || 'N/A';
     const dateStr = new Date().toLocaleDateString('en-MY', {
@@ -265,6 +265,37 @@ const StudentDashboard = () => {
       month: 'long',
       day: 'numeric'
     });
+
+    const rawNoteText = cleanPdfExtractedText(noteContentsMap[activeNote?.id] || notesContent || '');
+    const noteSections = buildLogicalSections(rawNoteText)
+      .filter(s => s.trim().length > 25)
+      .slice(0, 4);
+
+    const cardsHtml = noteSections.length >= 2
+      ? noteSections.map((sec, i) => `
+        <div class="card">
+          <h4>📌 High-Yield Topic ${i + 1}</h4>
+          ${sec.slice(0, 260)}${sec.length > 260 ? '...' : ''}
+        </div>
+      `).join('')
+      : `
+        <div class="card">
+          <h4>📌 Core Subject Principles</h4>
+          Foundational concepts, structural architecture, and primary definitions for ${subjectCode} (${noteTitle}).
+        </div>
+        <div class="card">
+          <h4>⚙️ Practical Implementation</h4>
+          Applied methodology, configuration protocols, and lab problem-solving standards.
+        </div>
+        <div class="card">
+          <h4>🔍 Key Definitions & Standards</h4>
+          Essential terminology, performance optimization guidelines, and industry standards.
+        </div>
+        <div class="card">
+          <h4>📝 Exam Revision & Assessment</h4>
+          High-yield review topics and practical assessment preparation for continuous evaluation.
+        </div>
+      `;
 
     const recentQAs = messages
       .filter(m => m.sender === 'bot' && !m.text.includes('Hai! 👋') && !m.text.includes('cleared'))
@@ -405,27 +436,12 @@ const StudentDashboard = () => {
 
   <div class="section-title">📌 Executive Summary & Key Course Objectives</div>
   <div class="summary-box">
-    <strong>Overview:</strong> This structured study guide synthesizes key lecture note concepts, historical trade administration, dual legal codes, and multicultural unity. Prepared for Politeknik final examinations and continuous assessments.
+    <strong>Overview:</strong> This structured study guide synthesizes key lecture note concepts, technical architectures, and high-yield examinable topics for <strong>${subjectCode} — ${noteTitle}</strong>. Prepared for Politeknik final examinations and continuous assessments.
   </div>
 
   <div class="section-title">💡 High-Yield Core Examinable Topics</div>
   <div class="grid-2">
-    <div class="card">
-      <h4>🏛️ Article 1: Melaka Port & 4 Syahbandar</h4>
-      Governed by 4 Syahbandar handling merchants from Gujarat, South India/Bengal, Southeast Asia, and China/Japan with standardized warehouse security and customs taxes.
-    </div>
-    <div class="card">
-      <h4>🗣️ Article 2: 84 Global Spoken Languages</h4>
-      Tome Pires recorded 84 distinct spoken languages in Melaka. Bahasa Melayu served as the universal <em>lingua franca</em> for global commerce and international treaties.
-    </div>
-    <div class="card">
-      <h4>⚖️ Article 3: Dual Legal Foundations</h4>
-      <strong>Hukum Kanun Melaka</strong> (44 civil/criminal clauses) and <strong>Undang-Undang Laut Melaka</strong> (maritime navigation ethics, cargo accountability, and trade conduct).
-    </div>
-    <div class="card">
-      <h4>🏮 Article 4: Peranakan Hybrid Culture</h4>
-      Intermarriage fostered Baba-Nyonya, Chetti, and Kristang communities—exemplifying early harmonious diversity and the roots of contemporary Malaysia MADANI values.
-    </div>
+    ${cardsHtml}
   </div>
 
   ${recentQAs ? `
@@ -790,24 +806,6 @@ const StudentDashboard = () => {
   const cleanPdfExtractedText = useCallback((raw) => {
     if (!raw) return "";
     return raw
-      .replace(/Aw al/g, "Awal")
-      .replace(/A w al/g, "Awal")
-      .replace(/Dar i P elabuhan k e/g, "Dari Pelabuhan ke")
-      .replace(/Dar i P elabuhan/g, "Dari Pelabuhan")
-      .replace(/ke P er paduan/g, "ke Perpaduan")
-      .replace(/Per paduan/g, "Perpaduan")
-      .replace(/Hok kien/g, "Hokkien")
-      .replace(/Pedag ang/g, "Pedagang")
-      .replace(/Kum pulan/g, "Kumpulan")
-      .replace(/ker ongk ong V enice/g, "kerongkong Venice")
-      .replace(/Sesiapa y ang menjadi tuan/g, "Sesiapa yang menjadi tuan")
-      .replace(/Melak a, t ang ann ya ber ada di/g, "Melaka, tangannya berada di")
-      .replace(/±1 400/g, "1400")
-      .replace(/±1 414/g, "1414")
-      .replace(/1459–7 7/g, "1459–1477")
-      .replace(/148 1–/g, "1481–")
-      .replace(/1 511/g, "1511")
-      .replace(/Etika Sebelum {2}Untung/g, "Etika Sebelum Untung")
       .replace(/Transpor\s*tTCP/gi, "Transport: TCP")
       .replace(/TCP\s*R\s*eset\s*A\s*ttack/gi, "TCP Reset Attack")
       .replace(/K\s*ey/gi, "Key")
@@ -820,8 +818,8 @@ const StudentDashboard = () => {
   // Groups raw extracted PDF lines into logical multi-sentence page/topic sections
   const buildLogicalSections = useCallback((cleanedText) => {
     if (!cleanedText) return [];
-    // Split by explicit [Page X] or TITIK AWAL page footers first
-    const rawPages = cleanedText.split(/(?=\[Page \d+\])|(?=TITIK AWAL\s*·\s*MPU21072\s*\d+)/i);
+    // Split by explicit [Page X] or standard page breaks
+    const rawPages = cleanedText.split(/(?=\[Page \d+\])/i);
     const sections = [];
 
     for (const chunk of rawPages) {
@@ -1026,7 +1024,6 @@ const StudentDashboard = () => {
       const bodyLower = (noteContentsMap[note.id] || '').toLowerCase();
 
       // Detect note subject categories
-      const isNoteMelaka = /mpu21072|mpu21032|kesultanan melayu melaka|titik awal|hukum kanun melaka|peradaban|etika/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
       const isNoteNetSec = /dfn10078|network security|firewall|perimeter/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
       const isNoteCpp = /dfc10042|dfc20113|c\+\+|cpp|programming/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
       const isNoteHardware = /dft10014|hardware|computer device/i.test(`${subjectLower} ${titleLower} ${fileLower}`);
@@ -1035,11 +1032,6 @@ const StudentDashboard = () => {
       if (subjectLower && normalizedQuery.includes(subjectLower)) score += 200;
       const noSpaceSub = subjectLower.replace(/\s+/g, '');
       if (noSpaceSub && normalizedQuery.includes(noSpaceSub)) score += 200;
-
-      // Melaka E-Folio topic queries
-      if (/\b(member|members|author|authors|group|team|who wrote|writer|sidang redaksi|ahli kumpulan|matrix|matrik|pembahagian tugas|arthur|vianfazerry|amirull|daniel wong|05dit|syahbandar|84 bahasa|84 language|hukum kanun|undang-undang laut|baba nyonya|chetti|kristang|jawi peranakan|jalan harmoni|melaka|malacca|parameswara|zheng he|monsoon|monsun|kati|tahil|bahara|jongkong|madani|titik awal|masyarakat majmuk|artikel 1|artikel 2|artikel 3|artikel 4|pelabuhan yang tidak pernah tidur|etika sebelum untung|anak-anak selat)\b/i.test(normalizedQuery)) {
-        if (isNoteMelaka) score += 350;
-      }
 
       // Network Security queries
       if (/\b(network security|firewall|firewalls|packet filtering|stateful|proxy|dmz|ids|ips|intrusion|tcp syn|syn flood|syn cookie|icmp|echo request|ddos|dos attack|boundary router|rpki|snort|perimeter defense|sniffing|spoofing|cia triad|confidentiality|integrity|availability|ipsec|vpn)\b/i.test(normalizedQuery)) {
@@ -1094,7 +1086,6 @@ const StudentDashboard = () => {
     const rawLoaded = cleanPdfExtractedText(noteContentsMap[targetNote.id] || notesContent || "");
     const richStudyGuide = buildClientStudyGuide(targetNote);
     const fullNoteText = rawLoaded.length >= 80 ? rawLoaded : richStudyGuide;
-    const isMelakaEfolio = /mpu21072|mpu21032|kesultanan melayu melaka|hukum kanun melaka|peradaban|etika/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`) && !/dfn|dfc|dfk|it|cs|se|komputer/i.test(targetNote.subject_code || '');
     const isNetworkSecurity = /dfn10078|network security|firewall|perimeter/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
     const isCppNote = /dfc10042|dfc20113|c\+\+|cpp|programming/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
     const isHardwareNote = /dft10014|hardware|computer device/i.test(`${targetNote.subject_code} ${targetNote.title} ${targetNote.file_name} ${rawLoaded}`);
@@ -1108,11 +1099,6 @@ const StudentDashboard = () => {
       const r = (rText || '').toLowerCase();
       if (q.includes('chapter 2') || q.includes('bab 2')) return 14;
       if (q.includes('chapter 3') || q.includes('bab 3')) return 22;
-      if (q.includes('article 1') || q.includes('syahbandar') || q.includes('arthur ryan') || q.includes('pelabuhan')) return 3;
-      if (q.includes('article 2') || q.includes('84 language') || q.includes('84 bahasa') || q.includes('alyssa') || q.includes('lingua franca')) return 5;
-      if (q.includes('article 3') || q.includes('hukum kanun') || q.includes('undang-undang') || q.includes('muhammad irfan')) return 7;
-      if (q.includes('article 4') || q.includes('baba') || q.includes('nyonya') || q.includes('chetti') || q.includes('kristang') || q.includes('darren')) return 9;
-      if (q.includes('timeline') || q.includes('garis masa') || q.includes('1400') || q.includes('1511')) return 11;
       if (q.includes('objective') || q.includes('objektif') || q.includes('tujuan') || q.includes('summary') || q.includes('ringkasan')) return 2;
       if (q.includes('firewall') || q.includes('dmz') || q.includes('perimeter')) return 1;
       if (q.includes('syn flood') || q.includes('syn cookie') || q.includes('ddos') || q.includes('icmp')) return 2;
@@ -1150,37 +1136,23 @@ const StudentDashboard = () => {
     };
 
     // =========================================================================
-    // UNIVERSAL HANDLER: Group Members & Matrix Numbers (Never fails, 100% accurate!)
+    // UNIVERSAL HANDLER: Course Material & Lecturer Attribution
     // =========================================================================
-    const isGroupMembersInquiry = /\b(member|members|author|authors|group|team|who\s+wrote|writer|writers|sidang\s+redaksi|ahli\s+kumpulan|nama\s+ahli|siapa\s+ahli|ahli\s+group|student\s+names?|matrix|matrik|no\s*matrik|matrix\s*no|pembahagian\s+tugas|arthur|vianfazerry|amirull|daniel\s+wong|05dit)\b/i.test(normalizedQuery);
-    if (isGroupMembersInquiry) {
-      const melakaNote = notesList.find(n => /mpu21072|mpu21032|kesultanan melayu melaka|titik awal/i.test(`${n.subject_code} ${n.title} ${n.file_name}`));
-      if (melakaNote && String(melakaNote.id) !== String(selectedNoteId)) {
-        setSelectedNoteId(melakaNote.id);
-        loadNoteContent(melakaNote.id);
-      }
-      const noteToAttribute = melakaNote || targetNote;
-      const membersReply =
-        `👥 **Group Members, Roles & Matrix Numbers (Sidang Redaksi):**\n\n` +
-        `**Project Group:** Kumpulan Titik Awal Masyarakat Majmuk (Jabatan Teknologi Maklumat & Komunikasi / JPA, Politeknik Kuching Sarawak)\n\n` +
-        `1. **Arthur Ryan Anak Anis** — Matrix No: **05DIT24F1055**\n` +
-        `   • **Role:** Ketua Kumpulan & Editor (Group Leader & Chief Editor)\n` +
-        `   • **Contribution:** Wrote **Artikel 1: Pelabuhan Yang Tidak Pernah Tidur** (Port Administration, pp. 8–9) & magazine composition.\n\n` +
-        `2. **Vianfazerry Anak Fabian** — Matrix No: **05DIT24F1160**\n` +
-        `   • **Role:** Penyelidik & Penulis (Researcher & Writer)\n` +
-        `   • **Contribution:** Historical source research & wrote **Artikel 2: 84 Bahasa dalam Satu Bandar** (Foreign Merchant Communities, pp. 10–11).\n\n` +
-        `3. **Amirull Hafiz Bin Majid** — Matrix No: **05DIT24F1141**\n` +
-        `   • **Role:** Pereka Grafik & Ilustrasi (Graphic Designer)\n` +
-        `   • **Contribution:** Designed infographics, trade route map, and wrote **Artikel 3: Etika Sebelum Untung** (Law & Ethics, pp. 12–13).\n\n` +
-        `4. **Daniel Wong Bin Husain Wong** — Matrix No: **05DIT24F1059**\n` +
-        `   • **Role:** Penyunting Bahasa & Rujukan (Language Editor & References)\n` +
-        `   • **Contribution:** Wrote **Artikel 4: Anak-Anak Selat — Baba, Nyonya, Chetti & Kristang** (Cultural Heritage, pp. 14–15), APA 7th bibliography & flipbook publishing.`;
-
-      sendBotAnswer(
-        membersReply,
-        "Here are the four group members, their Matrix numbers, and their exact project roles.",
-        { page: 2, label: `${noteToAttribute.subject_code} • Sidang Redaksi, Page 2` }
-      );
+    const isAuthorOrGroupInquiry = /\b(member|members|author|authors|group|team|who\s+wrote|writer|writers|sidang\s+redaksi|ahli\s+kumpulan|nama\s+ahli|siapa\s+ahli|ahli\s+group|student\s+names?|matrix|matrik|no\s*matrik|matrix\s*no|pembahagian\s+tugas)\b/i.test(normalizedQuery);
+    if (isAuthorOrGroupInquiry) {
+      const activeTarget = targetNote || notesList.find(n => String(n.id) === String(selectedNoteId)) || notesList[0];
+      const lecturerName = activeTarget.lecturer_name || 'Course Lecturer';
+      setTimeout(() => {
+        const reply =
+          `ℹ️ **Course Material Information & Attribution:**\n\n` +
+          `• **Course:** ${activeTarget.subject_code} — ${activeTarget.title}\n` +
+          `• **Uploaded By Lecturer:** **${lecturerName}**\n` +
+          `• **Document File:** \`${activeTarget.file_name}\`\n\n` +
+          `📌 **Note:** There are no student group members or matrix numbers associated with this document. This is an official course lecture note uploaded directly by your lecturer for your studies.\n\n` +
+          `💡 *You can ask me any technical or conceptual questions about ${activeTarget.title}, or request a summary note and practice quiz!*`;
+        setMessages(prev => [...prev, { text: reply, sender: "bot", source: "Course Information" }]);
+        speakText(`This lecture note was uploaded by ${lecturerName}.`);
+      }, 300);
       return;
     }
 
@@ -1190,44 +1162,6 @@ const StudentDashboard = () => {
     const isSummaryRequest = /\b(summary|summarize|summarise|ringkasan|rumusan|short\s*note|study\s*note|revision\s*note|cheat\s*sheet|key\s*points|main\s*points)\b/i.test(normalizedQuery);
 
     if (isSummaryRequest) {
-      if (isMelakaEfolio) {
-        const summaryNoteText =
-          `📝 **SMART SUMMARY NOTE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
-          `📄 *Source File:* ${targetNote.file_name} (E-Folio MPU21072: *Titik Awal — Kesultanan Melayu Melaka 1400–1511*)\n\n` +
-          `**1. Executive Summary (Ringkasan Eksekutif)**\n` +
-          `• In the 15th century (1400–1511), the Melaka Sultanate grew from a fishing village into a premier global port because the Southwest (Apr–Sep) and Northeast (Nov–Mar) monsoons met at the Straits of Melaka.\n` +
-          `• Traders from India, Arabia, China, and the Malay Archipelago stayed for months waiting for the wind to shift. Through organized port administration, fair laws, and intermarriage, Melaka became the **starting point (Titik Awal) of Malaysia's plural society (Masyarakat Majmuk)**.\n\n` +
-          `**2. Two Core Objectives (Dua Objektif Penulisan)**\n` +
-          `• **Objective 1:** Explain how the trade network of the Melaka Sultanate attracted diverse ethnic groups to form the starting point (*Titik Awal*) of a plural society in Tanah Melayu.\n` +
-          `• **Objective 2:** Evaluate the trade ethics and diversity management of the Melaka era as a guide to strengthen unity in Malaysia today.\n\n` +
-          `**3. Key Points by Article (Ringkasan 4 Artikel Utama)**\n` +
-          `• **Article 1 — Port Administration (*Pelabuhan Yang Tidak Pernah Tidur* by Arthur Ryan):**\n` +
-          `  - Governed by **4 Pembesar Utama**: *Bendahara* (Chief Minister), *Temenggung* (City Security), *Laksamana* (Naval Fleet/Anti-piracy), and *Penghulu Bendahari* (Treasury/Tax).\n` +
-          `  - Appointed **4 Syahbandars** by trader region: (1) Gujarat; (2) South India, Bengal, Pegu & Pasai; (3) Java, Maluku, Banda, Palembang, Borneo & Luzon; (4) China, Champa & Ryukyu.\n` +
-          `  - Standardized weights (*kati, tahil, bahara*) and used tin ingots (*jongkong timah*) + foreign currencies.\n` +
-          `• **Article 2 — Foreign Communities (*84 Bahasa dalam Satu Bandar* by Vianfazerry):**\n` +
-          `  - Portuguese writer **Tomé Pires (*Suma Oriental*)** recorded **84 languages** spoken in Melaka.\n` +
-          `  - **Bahasa Melayu** served as the *lingua franca* uniting all traders.\n` +
-          `  - Distinct merchant settlements formed: *Kampung Keling* (Tamil/South Indian), *Kampung Jawa* (Javanese/Nusantara), *Kampung Cina* (Chinese), and *Bukit China*. Houses of worship stood side-by-side (*Jalan Harmoni*).\n` +
-          `• **Article 3 — Laws & Trade Ethics (*Etika Sebelum Untung* by Amirull Hafiz):**\n` +
-          `  - **Hukum Kanun Melaka (44 Fasal):** Written code covering criminal, family, debt, slavery, and city order.\n` +
-          `  - **Undang-Undang Laut Melaka:** Maritime law where the *Nakhoda* (ship captain) is "like a king aboard his ship" with strict duty to protect crew and cargo.\n` +
-          `  - **4 Core Ethical Values:** *Amanah* (honest weights), *Adil* (fair representation), *Hormat* (religious freedom), and *Tanggungjawab* (accountability).\n` +
-          `• **Article 4 — Cultural Heritage (*Anak-Anak Selat* by Daniel Wong):**\n` +
-          `  - Intermarriage between foreign traders and locals gave birth to hybrid communities: **Baba-Nyonya** (Chinese Peranakan), **Chetti Melaka** (Tamil Hindu Peranakan), **Portugis-Kristang** (post-1511 Portuguese creole), and **Jawi Peranakan** (Arab/Indian Muslim heritage).\n` +
-          `  - Recognized as **UNESCO World Heritage Site (2008)** and **Kebaya UNESCO Intangible Heritage (2024)**.\n\n` +
-          `**4. Connection to Malaysia MADANI (6 Core Pillars)**\n` +
-          `• *Kemampanan* (Sustainability), *Kesejahteraan* (Well-being), *Daya Cipta* (Innovation), *Hormat* (Respect), *Keyakinan* (Trust/Rule of Law), and *Ihsan* (Compassion).\n\n` +
-          `**5. Final Conclusion (Rumusan Akhir)**\n` +
-          `• Unity and pluralism do not happen by chance — Melaka succeeded because of **strategic administration, fair written laws, shared ethics, and mutual respect**.`;
-
-        sendBotAnswer(
-          summaryNoteText,
-          "Here is your complete summary note for Chapter 1, covering the Executive Summary, 2 Objectives, all 4 Articles, Key Statistics, and Malaysia MADANI.",
-          { page: 2, label: "MPU21072, Page 2" }
-        );
-        return;
-      }
 
       if (isNetworkSecurity) {
         const netSecSummary =
@@ -1301,230 +1235,9 @@ const StudentDashboard = () => {
     }
 
     // =========================================================================
-    // MODE B: SPECIFIC DETAIL DETECTORS (Detects every detail in the uploaded note!)
+    // MODE B: TECHNICAL COURSE DETAIL DETECTORS
     // =========================================================================
-    if (isMelakaEfolio) {
-      // Detail 1: Group Members / Authors / Sidang Redaksi / Matrix Numbers / Task Division
-      if (/\b(member|members|author|authors|group|team|who wrote|writer|sidang redaksi|ahli kumpulan|matrix|matrik|pembahagian tugas|arthur|vianfazerry|amirull|daniel wong|05dit)\b/i.test(normalizedQuery)) {
-        const membersReply =
-          `👥 **Group Members, Roles & Task Division (Sidang Redaksi — Page 2 & Page 20):**\n\n` +
-          `**Group Name:** Kumpulan Titik Awal Masyarakat Majmuk (4 Members · Jabatan Pengajian Am, Politeknik Kuching Sarawak)\n\n` +
-          `1. **Arthur Ryan Anak Anis** — Matrix No: **05DIT24F1055**\n` +
-          `   • **Role:** Ketua Kumpulan & Editor (Group Leader & Editor)\n` +
-          `   • **Contribution:** Wrote **Artikel 1: Pelabuhan Yang Tidak Pernah Tidur** (Port Administration, pp. 8–9) & final magazine layout.\n\n` +
-          `2. **Vianfazerry Anak Fabian** — Matrix No: **05DIT24F1160**\n` +
-          `   • **Role:** Penyelidik & Penulis (Researcher & Writer)\n` +
-          `   • **Contribution:** Source research & wrote **Artikel 2: 84 Bahasa dalam Satu Bandar** (Foreign Merchant Communities, pp. 10–11).\n\n` +
-          `3. **Amirull Hafiz Bin Majid** — Matrix No: **05DIT24F1141**\n` +
-          `   • **Role:** Pereka Grafik (Graphic Designer)\n` +
-          `   • **Contribution:** Designed infographics, trade route map, and wrote **Artikel 3: Etika Sebelum Untung** (Law & Ethics, pp. 12–13).\n\n` +
-          `4. **Daniel Wong Bin Husain Wong** — Matrix No: **05DIT24F1059**\n` +
-          `   • **Role:** Penyunting & Rujukan (Language Editor & References)\n` +
-          `   • **Contribution:** Wrote **Artikel 4: Anak-Anak Selat — Baba, Nyonya, Chetti & Kristang** (Cultural Heritage, pp. 14–15), language editing & APA 7th references.`;
-        sendBotAnswer(membersReply, "Here are the four group members, their Matrix numbers, and their exact roles in the E-Folio.");
-        return;
-      }
-
-      // Detail 2: Main Purpose / Two Objectives / Theme (Pengenalan & Objektif)
-      if (/\b(purpose|objective|objectives|tujuan|objektif|matlamat|theme|tema|pengenalan|introduction|why)\b/i.test(normalizedQuery) && !/\b(article|syahbandar|law|baba)\b/i.test(normalizedQuery)) {
-        const objReply =
-          `🎯 **Main Purpose, Theme & Objectives of Chapter 1 (${targetNote.file_name} — Page 4 & Page 5):**\n\n` +
-          `**📌 Magazine Theme (Tema Keluaran):**\n` +
-          `• **"Dari Pelabuhan ke Perpaduan"** (*From Port to Unity*) — Trade as the gateway for ethnic, cultural, and moral diversity.\n\n` +
-          `**📌 Main Purpose (Tujuan Utama — Pengenalan):**\n` +
-          `• This E-Folio explores trade relations during the **Melaka Sultanate (1400–1511)** as the **starting point (Titik Awal)** of the plural society (*masyarakat majmuk*) in Tanah Melayu.\n` +
-          `• It examines trade not merely as buying and selling, but as a complete **social system** comprising port administration, written laws, ethics, and foreign merchant settlements that integrated with local society.\n\n` +
-          `**🎯 Two Core Writing Objectives (Dua Objektif Penulisan — Page 5):**\n` +
-          `1. **Objective 1:** *Menghuraikan bagaimana jaringan perdagangan Kesultanan Melayu Melaka menarik kemasukan pelbagai bangsa sehingga membentuk titik awal masyarakat majmuk di Tanah Melayu.*\n` +
-          `   (Explain how the trade network of the Melaka Sultanate attracted diverse ethnic groups to form the starting point of a plural society in Tanah Melayu.)\n` +
-          `2. **Objective 2:** *Menilai nilai etika perdagangan dan pengurusan kepelbagaian zaman Melaka yang boleh dijadikan panduan memperkukuh perpaduan Malaysia hari ini.*\n` +
-          `   (Evaluate the trade ethics and diversity management of the Melaka era as a guide to strengthen unity in Malaysia today.)`;
-        sendBotAnswer(objReply, "Here are the main purpose, theme, and the two core writing objectives from Page 5 of your note.");
-        return;
-      }
-
-      // Detail 3: Timeline / History / Dates (1400–1511, Parameswara, Zheng He, Sultans, Portuguese)
-      if (/\b(timeline|garis masa|sejarah|history|parameswara|zheng he|muzaffar|mansur|mahmud|tun perak|portugis|portuguese|albuquerque|sequeira|1400|1405|1411|1414|1445|1459|1481|1509|1511|111)\b/i.test(normalizedQuery)) {
-        const timelineReply =
-          `⏳ **Historical Timeline of the Melaka Sultanate (Garis Masa Melaka 1400–1511 — Page 6):**\n\n` +
-          `• **±1400 — Opening of Melaka:** **Parameswara** founded Melaka at a sheltered river mouth along the main Straits of Melaka route.\n` +
-          `• **1405–1433 — Ming Fleet Voyages:** Admiral **Zheng He** made Melaka a vital stopping base, strengthening diplomatic security.\n` +
-          `• **1411 — Royal Mission to China:** Parameswara personally led a diplomatic mission to the Ming court, securing Melaka's status as a protected port.\n` +
-          `• **±1414 — Islam & Title of Sultan:** Conversion to Islam attracted Muslim merchants from Gujarat, Persia, and Arabia, making Melaka a regional hub for Islam.\n` +
-          `• **1445–1459 — Sultan Muzaffar Shah:** Compilation of **Hukum Kanun Melaka** began to regulate the growing port city.\n` +
-          `• **1459–1477 — Golden Age (Sultan Mansur Shah & Bendahara Tun Perak):** The system of **4 Syahbandars** managed merchants by region; Melaka's influence expanded across the Peninsula and Sumatra.\n` +
-          `• **1481–1511 — Sultan Mahmud Shah:** **Undang-Undang Laut Melaka** was codified to govern maritime shipping, trade contracts, and the *Nakhoda*'s authority.\n` +
-          `• **1509 — First Portuguese Arrival:** Ships led by **Diogo Lopes de Sequeira** arrived, sparking early tension with European power.\n` +
-          `• **1511 — Fall of Melaka:** Melaka fell to the Portuguese under **Afonso de Albuquerque** after **111 years**, though its multi-ethnic society continued to thrive.`;
-        sendBotAnswer(timelineReply, "Here is the complete historical timeline of Melaka from 1400 to 1511 from Page 6 of your note.");
-        return;
-      }
-
-      // Detail 4: Monsoon Winds, Geography, Trade Routes & Imported/Exported Goods (Page 7, 16, 22)
-      if (/\b(monsoon|monsun|wind|angin|geography|geografi|map|peta|route|laluan|import|export|goods|barang|dagangan|spice|rempah|silk|sutera|kain kapas|porselin|kuda|cengkih|buah pala|lada|emas|timah)\b/i.test(normalizedQuery)) {
-        const tradeReply =
-          `🧭 **Geography, Monsoon Calendar & Trade Goods Flow (Pages 7, 16 & 22):**\n\n` +
-          `**1. Strategic Location & Monsoon Schedule (Kalendar Monsun — Page 7):**\n` +
-          `• The Straits of Melaka connects the Indian Ocean and the South China Sea. Ships depended on two monsoon winds and had to stay in Melaka for months waiting for the wind to change:\n` +
-          `  - **Monsun Barat Daya (Southwest Monsoon · April – September):** Brought ships (*Dhow*) from **India, Sri Lanka, the Persian Gulf, and Arabia** carrying Gujarati & Coromandel cotton cloth, Persian carpets, frankincense (*kemenyan*), and horses.\n` +
-          `  - **Monsun Timur Laut (Northeast Monsoon · November – March):** Brought junks (*Jong*) from **China, Champa, and Ryukyu** carrying silk (*sutera*), porcelain (*porselin*), and ceramics.\n\n` +
-          `**2. Trade Goods Flow (Aliran Barang Dagangan — Page 16 & Page 22):**\n` +
-          `• **Imported into Melaka (Dibawa Masuk):**\n` +
-          `  - Kain kapas Gujarat & Coromandel (Indian cotton textiles)\n` +
-          `  - Sutera & porselin China (Chinese silk & porcelain)\n` +
-          `  - Kemenyan & kuda Arab / permaidani Parsi (Arabian frankincense, horses & Persian carpets)\n` +
-          `• **Exported from Melaka / Nusantara (Dibawa Keluar):**\n` +
-          `  - Bunga cengkih & buah pala Maluku (Cloves & nutmeg from Maluku)\n` +
-          `  - Lada Sumatera & kapur barus Borneo (Sumatran pepper & Bornean camphor)\n` +
-          `  - Bijih timah & emas Semenanjung (Peninsular tin ore & gold)`;
-        sendBotAnswer(tradeReply, "Here are the details on Melaka's monsoon calendar, trade routes, and imported and exported goods from Pages 7, 16, and 22.");
-        return;
-      }
-
-      // Detail 5: Article 1 — Port Administration, 4 Pembesar & 4 Syahbandar (Pages 8–9)
-      if (/\b(article 1|artikel 1|pelabuhan yang tidak pernah tidur|syahbandar|pembesar|bendahara|temenggung|laksamana|penghulu bendahari|kati|tahil|bahara|jongkong|port administration|pentadbiran pelabuhan)\b/i.test(normalizedQuery)) {
-        const art1Reply =
-          `🏛️ **Article 1: Port Administration — "Pelabuhan Yang Tidak Pernah Tidur" (Pages 8–9)**\n` +
-          `*Author: Arthur Ryan Anak Anis (05DIT24F1055)*\n\n` +
-          `**1. Four Principal State Officials (Empat Pembesar Utama):**\n` +
-          `• **Bendahara:** Chief Minister (Ketua Menteri) leading the administration.\n` +
-          `• **Temenggung:** Maintained city security, public order, and market weights.\n` +
-          `• **Laksamana:** Commander of the naval fleet protecting the Straits of Melaka from pirates (*lanun*).\n` +
-          `• **Penghulu Bendahari:** Managed state revenue, customs, and taxes.\n\n` +
-          `**2. The System of Four Syahbandars (Empat Syahbandar — Page 8):**\n` +
-          `Melaka appointed **4 Syahbandars**, each dedicated to specific foreign merchant groups so traders dealt with an official who knew their language and customs:\n` +
-          `• **Syahbandar 1:** Merchants from **Gujarat** (most influential group).\n` +
-          `• **Syahbandar 2:** Merchants from **South India, Bengal (Benggala), Pegu & Pasai**.\n` +
-          `• **Syahbandar 3:** Merchants from **Java, Maluku, Banda, Palembang, Borneo & Luzon**.\n` +
-          `• **Syahbandar 4:** Merchants from **China, Champa & Ryukyu**.\n\n` +
-          `**3. Standardized Weights, Currency & Social Impact (Page 9):**\n` +
-          `• Standardized measurements (**kati, tahil, bahara**) and used **tin ingots (jongkong timah)** alongside foreign currencies.\n` +
-          `• Long stays led merchants to open settlements (**Kampung Keling, Kampung Jawa, Kampung Cina**) and marry locals.\n` +
-          `• **Modern Relevance:** Port Klang and Tanjung Pelepas today compete on the same pillars: operational efficiency, legal certainty, and route safety.`;
-        sendBotAnswer(art1Reply, "Here is the complete breakdown of Article 1 on Port Administration, the 4 Pembesar, and the 4 Syahbandars.");
-        return;
-      }
-
-      // Detail 6: Article 2 — 84 Languages, Settlements, Lingua Franca & Jalan Harmoni (Pages 10–11)
-      if (/\b(article 2|artikel 2|84|language|languages|bahasa|lingua franca|tome pires|suma oriental|kampung keling|kampung jawa|kampung cina|bukit china|jalan harmoni|komuniti pedagang)\b/i.test(normalizedQuery)) {
-        const art2Reply =
-          `🗣️ **Article 2: Foreign Merchant Communities — "84 Bahasa dalam Satu Bandar" (Pages 10–11)**\n` +
-          `*Author: Vianfazerry Anak Fabian (05DIT24F1160)*\n\n` +
-          `**1. 84 Languages Recorded in One City:**\n` +
-          `• Portuguese writer **Tomé Pires** recorded in *Suma Oriental* (±1515) that **84 distinct languages** were spoken at the port of Melaka.\n` +
-          `• **Examples of languages heard:** Melayu, Tamil, Gujarati, Parsi (Persian), Arab, Jawa, Bugis, Hokkien, Benggali, Champa, Ryukyu, Kristang, and dozens more.\n\n` +
-          `**2. Bahasa Melayu as Lingua Franca:**\n` +
-          `• Despite huge diversity, Melaka stayed united because **Bahasa Melayu** emerged as the *lingua franca* (common language of trade and communication across the Malay Archipelago).\n\n` +
-          `**3. Merchant Settlements (Perkampungan Dagang — Page 10):**\n` +
-          `• **Kampung Keling:** Tamil and South Indian merchants.\n` +
-          `• **Kampung Jawa:** Javanese and Nusantara traders.\n` +
-          `• **Kampung Cina:** Traders from southern China.\n` +
-          `• **Bukit China:** Linked to the entourage of Princess **Hang Li Po** in *Sejarah Melayu* (one of the oldest Chinese cemeteries outside China).\n\n` +
-          `**4. Cultural Harmony & Jalan Harmoni (Page 11):**\n` +
-          `• On **Jalan Harmoni** in Melaka today, a Mosque (*Masjid Kampung Kling*), a Chinese Temple (*Tokong Cina*), and a Hindu Temple (*Kuil Hindu*) stand side-by-side — living proof of religious tolerance.\n` +
-          `• Mixed marriages (*perkahwinan campur*) between foreign male traders and local women gave rise to the Peranakan communities.`;
-        sendBotAnswer(art2Reply, "Here is the complete detail for Article 2 on the 84 languages, Bahasa Melayu as lingua franca, merchant settlements, and Jalan Harmoni.");
-        return;
-      }
-
-      // Detail 7: Article 3 — Laws & Trade Ethics, Hukum Kanun (44 Fasal), Undang-Undang Laut (Pages 12–13)
-      if (/\b(article 3|artikel 3|law|laws|legal|undang|hukum kanun|laut melaka|44|fasal|etika|ethics|nakhoda|riba|amanah|adil|tanggungjawab)\b/i.test(normalizedQuery)) {
-        const art3Reply =
-          `⚖️ **Article 3: Laws & Ethics — "Etika Sebelum Untung" (Pages 12–13)**\n` +
-          `*Author: Amirull Hafiz Bin Majid (05DIT24F1141)*\n\n` +
-          `**1. Two Written Legal Codes of Melaka (Page 12):**\n` +
-          `• **Hukum Kanun Melaka (Undang-Undang Melaka):** Contains **44 clauses (44 fasal)** covering criminal law, family law, slavery, debt, and city conduct — one of the earliest written legal codes in the Malay Archipelago.\n` +
-          `• **Undang-Undang Laut Melaka (Maritime Laws of Melaka):** Specifically governed life aboard ships and sea trade. It declared the **Nakhoda (Ship Captain)** as supreme authority (*"seperti raja di atas kapalnya"* — like a king aboard his ship), regulating crew duties, cargo space, theft at sea, discipline, and dispute resolution.\n\n` +
-          `**2. Protection of the Vulnerable & Moral Principles (Pages 12–13):**\n` +
-          `• Protected small cargo owners, sailors far from home, and foreign merchants unfamiliar with local customs.\n` +
-          `• Shaped by **Islamic ethics** (prohibition of *riba*/usury, honoring contracts, honest weights) and **Malay custom (Adat Melayu)** emphasizing *amanah* (trust) and *budi* (good character).\n\n` +
-          `**3. Four Enduring Ethical Values (Nilai Etika Yang Masih Relevan — Page 13):**\n` +
-          `• **Amanah (Trustworthiness):** Honest weights and measurements.\n` +
-          `• **Adil (Justice):** Dedicated officials (*Syahbandar*) for each community.\n` +
-          `• **Hormat (Respect):** Freedom of religion and customs for foreign traders.\n` +
-          `• **Tanggungjawab (Responsibility):** The *Nakhoda* is fully accountable for his ship, crew, and cargo.`;
-        sendBotAnswer(art3Reply, "Here is the detailed breakdown of Article 3 covering Hukum Kanun Melaka, Undang-Undang Laut Melaka, and the 4 core ethical values.");
-        return;
-      }
-
-      // Detail 8: Article 4 — Cultural Heritage, Anak-Anak Selat (Baba-Nyonya, Chetti, Kristang, Jawi Peranakan, UNESCO) (Pages 14–15)
-      if (/\b(article 4|artikel 4|anak-anak selat|anak selat|baba|nyonya|peranakan|chetti|kristang|jawi|warisan|heritage|culture|budaya|kebaya|asam pedas|unesco|2008|2024|famosa|stadthuys)\b/i.test(normalizedQuery)) {
-        const art4Reply =
-          `🏮 **Article 4: Cultural Heritage — "Anak-Anak Selat: Baba, Nyonya, Chetti & Kristang" (Pages 14–15)**\n` +
-          `*Author: Daniel Wong Bin Husain Wong (05DIT24F1059)*\n\n` +
-          `**1. How New Communities Formed (Page 14):**\n` +
-          `• Foreign Traders (Chinese, Tamil, Arab, Javanese) + Local Melaka Society → Marriage (*Perkahwinan Campur*) → **Anak-Anak Selat** (Communities neither purely foreign nor purely local):\n` +
-          `  - **Baba-Nyonya (Peranakan Cina):** Descendants of Chinese traders who married locals; speak *Melayu Baba*, wear the *kebaya*, cook Nyonya cuisine (combining Chinese ingredients with Malay spices like *asam pedas* and *kuih lapis*), while keeping Chinese ancestral customs.\n` +
-          `  - **Chetti Melaka (Peranakan Hindu):** Descendants of Tamil Hindu merchants who married local women since the Sultanate era; practice Hinduism while speaking Malay daily and adopting Malay customs.\n` +
-          `  - **Portugis-Kristang:** Formed after 1511; speak *Kristang* (Portuguese-based creole) and practice Catholicism blended with local traditions.\n` +
-          `  - **Jawi Peranakan:** Descendants of Arab and Indian Muslim traders married to Malay women.\n\n` +
-          `**2. UNESCO Global Recognition (Page 15):**\n` +
-          `• **2008:** Melaka and George Town were inscribed as **UNESCO World Heritage Sites** as historic multicultural trading cities.\n` +
-          `• **2024:** The **Kebaya** was inscribed on the **UNESCO Intangible Cultural Heritage List** through a joint Southeast Asian nomination including Malaysia.\n\n` +
-          `**3. Historical Landmarks & Challenge:**\n` +
-          `• Landmarks include *Porta de Santiago (A Famosa)* (1511 Portuguese fort) and *Stadthuys* (Dutch era).\n` +
-          `• **Current Challenge:** Declining numbers of fluent *Kristang* speakers and youth mastering full Baba-Nyonya and Chetti traditions.`;
-        sendBotAnswer(art4Reply, "Here is the complete breakdown of Article 4 on Baba-Nyonya, Chetti Melaka, Portugis-Kristang, Jawi Peranakan, and UNESCO recognition.");
-        return;
-      }
-
-      // Detail 9: Malaysia MADANI & Current Issues (Page 18)
-      if (/\b(madani|kemampanan|kesejahteraan|daya cipta|keyakinan|ihsan|isu semasa|current issue|modern|6 nilai|six values)\b/i.test(normalizedQuery)) {
-        const madaniReply =
-          `🇲🇾 **From the Straits of Melaka to Malaysia MADANI (Page 18):**\n\n` +
-          `Five hundred years after Melaka, the **Malaysia MADANI** framework emphasizes **6 core values (6 Nilai Teras)** that were already practiced in the port of Melaka:\n\n` +
-          `1. **Kemampanan (Sustainability):** Melaka protected its port resources — safe sea lanes and organized warehouses — for long-term continuous trade.\n` +
-          `2. **Kesejahteraan (Well-being):** Port taxes funded security and public facilities benefiting all communities.\n` +
-          `3. **Daya Cipta (Innovation):** The system of 4 Syahbandars and standardized weights (*kati, tahil, bahara*) were administrative innovations.\n` +
-          `4. **Hormat (Respect):** Every community was allowed to maintain its religion, language, and customs within the same city.\n` +
-          `5. **Keyakinan (Trust/Confidence):** Written laws (*Hukum Kanun & Undang-Undang Laut*) gave foreign merchants confidence that disputes would be judged fairly.\n` +
-          `6. **Ihsan (Compassion):** Maritime rules protected sailors and small cargo owners — showing compassion toward weaker parties.\n\n` +
-          `💡 **Lesson for Youth Today:** Unity is not an accident — it is the result of a fair system, respected laws, and openness toward people who are different from us.`;
-        sendBotAnswer(madaniReply, "Here is how Melaka's governance connects to the 6 core values of Malaysia MADANI on Page 18.");
-        return;
-      }
-
-      // Detail 10: Historical Quotes (Suara Sejarah — Venice, Ma Huan, Hang Li Po, Albuquerque — Page 17)
-      if (/\b(quote|petikan|suara sejarah|venice|kerongkong|ma huan|yingya shenglan|hang li po|sulalatus salatin|sejarah melayu)\b/i.test(normalizedQuery)) {
-        const quotesReply =
-          `📜 **Historical Quotes & Records (Suara Sejarah — Page 17):**\n\n` +
-          `1. **Tomé Pires (*Suma Oriental*, ±1515):**\n` +
-          `   • *"Sesiapa yang menjadi tuan Melaka, tangannya berada di kerongkong Venice."* ("Whoever is lord of Malacca has his hand on the throat of Venice.")\n` +
-          `   • Explains why European powers coveted Melaka: controlling the Straits meant controlling the spice route to Europe.\n\n` +
-          `2. **Undang-Undang Laut Melaka:**\n` +
-          `   • The *Nakhoda* is described as *"seperti raja di atas kapalnya"* (like a king aboard his ship) — balancing supreme authority with full accountability for crew and cargo.\n\n` +
-          `3. **Ma Huan (*Yingya Shenglan*, 1433):**\n` +
-          `   • Chronicler of the Ming treasure fleet who documented Melaka's daily life, customs, and trade products — the earliest Chinese external record of Melaka.\n\n` +
-          `4. **Sulalatus Salatin (*Sejarah Melayu*):**\n` +
-          `   • Records Melaka–China diplomatic ties through the story of **Princess Hang Li Po's** marriage to **Sultan Mansur Shah** and the settlement at Bukit China.`;
-        sendBotAnswer(quotesReply, "Here are the historical quotes and records from Page 17 of your note, including Tomé Pires, Ma Huan, and Sejarah Melayu.");
-        return;
-      }
-
-      // Detail 11: References (APA 7th Edition) & Gantt Chart (Pages 20–21)
-      if (/\b(reference|references|rujukan|citation|apa|bibliography|source|sources|book|books|gantt|carta gantt|jadual)\b/i.test(normalizedQuery)) {
-        const refReply =
-          `📚 **Project Gantt Chart & APA 7th Edition References (Pages 20–21):**\n\n` +
-          `**📊 Group Gantt Chart (Carta Gantt Kumpulan — Page 20):**\n` +
-          `• **M1–M2:** Problem-based topic discussion & consultation with course lecturer.\n` +
-          `• **M3–M6:** Group task distribution, data & historical source collection.\n` +
-          `• **M7–M10:** Writing individual articles (Articles 1–4), graphic design & infographics.\n` +
-          `• **M10–M12:** Language editing, magazine layout, fact-checking, PDF conversion & flipbook submission.\n\n` +
-          `**📖 APA 7th Edition References (Senarai Rujukan — Page 21):**\n` +
-          `1. Ahmad, A. S. (Peny.). (1986). *Sulalatus Salatin (Sejarah Melayu)*. Dewan Bahasa dan Pustaka.\n` +
-          `2. Andaya, B. W., & Andaya, L. Y. (2017). *A history of Malaysia* (3rd ed.). Palgrave Macmillan.\n` +
-          `3. Liaw, Y. F. (1976). *Undang-undang Melaka: The laws of Melaka*. Martinus Nijhoff.\n` +
-          `4. Pires, T. (1944). *The Suma Oriental of Tomé Pires* (A. Cortesão, Trans.). Hakluyt Society. (Original work ±1515).\n` +
-          `5. Reid, A. (1988). *Southeast Asia in the age of commerce, 1450–1680: Vol. 1 — The lands below the winds*. Yale University Press.\n` +
-          `6. Winstedt, R. O. (1956). *Malaya and its history*. Hutchinson University Library.\n` +
-          `7. UNESCO World Heritage Centre. (2008). *Melaka and George Town, historic cities of the Straits of Malacca*.`;
-        sendBotAnswer(refReply, "Here are the Gantt Chart project phases and the 7 APA references from Pages 20 and 21.");
-        return;
-      }
-    }
-
-    // =========================================================================
-    // MODE B2: NETWORK SECURITY (DFN10078) SPECIFIC DETAIL DETECTORS
+    // 1. Network Security (DFN10078) Specific Detail Detectors
     // =========================================================================
     if (isNetworkSecurity) {
       // NetSec Detail 1: Firewalls, DMZ, Packet Filtering & Stateful Inspection
@@ -1744,35 +1457,7 @@ const StudentDashboard = () => {
       /\b(chapter\s*\d+|bab\s*\d+|topic\s*\d+|1\.1|all\s*4\s*article|four\s*article|4\s*article|empat\s*artikel|full\s*info|info|overview|about\s*this\s*chapter|about\s*this\s*note|give\s*me\s*the\s*note|give\s*me\s*about\s*chapter|tell\s*me\s*about\s*chapter)\b/i.test(normalizedQuery) ||
       (/\bchapter\b/i.test(normalizedQuery) && /\b(give|tell|explain|show|what|about|info|guide)\b/i.test(normalizedQuery));
 
-    if (isChapterInfoRequest && isMelakaEfolio && (!mainChapterNum || mainChapterNum === '1')) {
-      const fullChapterInfo =
-        `📘 **COMPLETE CHAPTER 1 INFORMATION GUIDE: ${targetNote.subject_code} — ${targetNote.title}**\n` +
-        `📄 *Uploaded File:* ${targetNote.file_name} (*Majalah E-Folio MPU21072 Penghayatan Etika & Peradaban · Politeknik Kuching Sarawak*)\n` +
-        `👨‍🏫 *Uploaded by Lecturer:* **${targetNote.lecturer_name || 'Course Lecturer'}**\n\n` +
-        `**🏛️ Topic & Title:**\n` +
-        `• **Topik 6 · Tajuk 4:** *Titik Awal — Peranan Hubungan Perdagangan Zaman Kesultanan Melayu Melaka (1400–1511) dalam Membentuk Titik Awal Masyarakat Majmuk*\n` +
-        `• **Theme:** *"Dari Pelabuhan ke Perpaduan"* (From Port to Unity)\n\n` +
-        `**📊 Key Numbers & Facts in Chapter 1:**\n` +
-        `• **84 Languages** spoken at the port of Melaka (recorded by Tomé Pires in *Suma Oriental*).\n` +
-        `• **4 Syahbandars** managing foreign traders according to region (Gujarat; South India/Bengal/Pegu/Pasai; Java/Maluku/Borneo/Luzon; China/Champa/Ryukyu).\n` +
-        `• **44 Clauses (Fasal)** in *Hukum Kanun Melaka* + *Undang-Undang Laut Melaka*.\n` +
-        `• **111 Years** of the Melaka Sultanate (**1400–1511**) & **2 Monsoon Winds** (*Barat Daya* Apr–Sep & *Timur Laut* Nov–Mac).\n\n` +
-        `**🎯 Two Main Objectives (Page 5):**\n` +
-        `1. Explain how the Melaka Sultanate's trade network attracted diverse nations and formed the starting point (*Titik Awal*) of a plural society in Tanah Melayu.\n` +
-        `2. Evaluate Melaka's trade ethics and diversity management as a guide to strengthen unity in Malaysia today.\n\n` +
-        `**📖 Summary of the 4 Core Articles (Pages 8–15):**\n` +
-        `• **Article 1 (pp. 8–9): Pelabuhan Yang Tidak Pernah Tidur** *(by Arthur Ryan, 05DIT24F1055)* — Explains the 4 Pembesar (*Bendahara, Temenggung, Laksamana, Penghulu Bendahari*), 4 Syahbandars, standardized weights (*kati, tahil, bahara*), and tin currency (*jongkong timah*).\n` +
-        `• **Article 2 (pp. 10–11): 84 Bahasa dalam Satu Bandar** *(by Vianfazerry, 05DIT24F1160)* — Covers the 84 languages, *Bahasa Melayu* as the *lingua franca*, merchant settlements (*Kampung Keling, Kampung Jawa, Kampung Cina, Bukit China*), and religious harmony (*Jalan Harmoni*).\n` +
-        `• **Article 3 (pp. 12–13): Etika Sebelum Untung** *(by Amirull Hafiz, 05DIT24F1141)* — Covers *Hukum Kanun Melaka* (44 fasal), *Undang-Undang Laut Melaka* (*Nakhoda* as captain), and the 4 ethical pillars (*Amanah, Adil, Hormat, Tanggungjawab*).\n` +
-        `• **Article 4 (pp. 14–15): Anak-Anak Selat** *(by Daniel Wong, 05DIT24F1059)* — Explains hybrid communities born from intermarriage (**Baba-Nyonya, Chetti Melaka, Portugis-Kristang, Jawi Peranakan**) and UNESCO recognition (2008 World Heritage & 2024 Kebaya).\n\n` +
-        `💡 *Tip: You can ask me about any specific article, timeline date, group member, law, or click "📝 Generate Summary Note" for your revision sheet!*`;
-
-      sendBotAnswer(
-        fullChapterInfo,
-        "Here is the complete information for Chapter 1, including its theme, key numbers, 2 objectives, and all 4 articles."
-      );
-      return;
-    } else if (isChapterInfoRequest) {
+    if (isChapterInfoRequest) {
       // Dynamic chapter overview for technical course notes (C++, Network Security, Hardware, etc.)
       const logicalSecs = buildLogicalSections(fullNoteText);
       const overviewBullets = logicalSecs.slice(0, 5).map((sec, i) => `• **Topic Section ${i + 1}:** ${sec.slice(0, 260)}${sec.length > 260 ? '...' : ''}`);
@@ -1811,43 +1496,25 @@ const StudentDashboard = () => {
       'summary', 'summarize', 'overview', 'definition', 'definitions', 'important',
       'key', 'point', 'points', 'explain', 'explanation', 'meaning', 'course',
       'study', 'material', 'lecture', 'slide', 'slides', 'download', 'file', 'pdf',
-      'detail', 'details', 'info', 'information', 'fact', 'facts', 'efolio', 'folio', 'page', 'hlm'
+      'detail', 'details', 'info', 'information', 'fact', 'facts', 'page', 'hlm'
     ]);
 
-    // Bilingual English <-> Malay concept expansion so English questions match Malay PDF text and vice versa
+    // Bilingual English <-> Malay concept expansion for coursework
     const bilingualSynonymMap = {
-      port: ['pelabuhan', 'syahbandar', 'kapal', 'berlabuh'],
-      harbour: ['pelabuhan', 'syahbandar'],
-      trade: ['perdagangan', 'dagang', 'niaga', 'pedagang'],
-      trader: ['pedagang', 'saudagar', 'nakhoda'],
-      merchant: ['pedagang', 'komuniti', 'kampung'],
-      plural: ['majmuk', 'kepelbagaian', 'berbilang'],
-      society: ['masyarakat', 'komuniti', 'penduduk'],
-      diversity: ['kepelbagaian', 'majmuk', 'harmoni'],
-      king: ['sultan', 'raja', 'parameswara'],
-      ruler: ['sultan', 'pemerintah', 'pembesar'],
-      captain: ['nakhoda', 'kapal', 'laut'],
-      ship: ['kapal', 'jong', 'perahu', 'pelayaran'],
-      sea: ['laut', 'selat', 'maritim'],
-      strait: ['selat', 'melaka'],
-      tax: ['cukai', 'hasil', 'bendahari'],
-      weight: ['timbang', 'sukat', 'kati', 'tahil', 'bahara'],
-      tin: ['timah', 'jongkong'],
-      money: ['mata wang', 'jongkong', 'timah'],
-      currency: ['mata wang', 'tukaran', 'timah'],
-      pirate: ['lanun', 'laksamana', 'keselamatan'],
-      security: ['keselamatan', 'keamanan', 'laksamana', 'temenggung'],
-      village: ['kampung', 'perkampungan', 'keling', 'jawa', 'cina'],
-      settlement: ['perkampungan', 'kampung'],
-      marriage: ['kahwin', 'perkahwinan', 'campur', 'peranakan'],
-      food: ['masakan', 'asam pedas', 'kuih lapis', 'nyonya'],
-      clothing: ['kebaya', 'pakaian'],
-      religion: ['agama', 'islam', 'hindu', 'katolik', 'masjid', 'tokong', 'kuil'],
-      mosque: ['masjid', 'kampung kling', 'jalan harmoni'],
-      temple: ['tokong', 'kuil', 'jalan harmoni'],
-      unity: ['perpaduan', 'harmoni', 'madani'],
-      value: ['nilai', 'etika', 'amanah', 'adil', 'hormat', 'ihsan'],
-      number: ['angka', 'fakta', '84', '44', '111'],
+      security: ['keselamatan', 'perlindungan', 'firewall', 'pertahanan'],
+      attack: ['serangan', 'pencerobohan', 'ancaman', 'threat'],
+      defense: ['pertahanan', 'pencegahan', 'perlindungan', 'mitigasi'],
+      network: ['rangkaian', 'networking', 'lan', 'wan'],
+      protocol: ['protokol', 'peraturan', 'standard'],
+      firewall: ['penghalang', 'tembok api', 'firewall'],
+      memory: ['ingatan', 'memori', 'ram', 'penyimpanan'],
+      hardware: ['perkakasan', 'komponen', 'peranti'],
+      code: ['kod', 'program', 'aturcara', 'pengaturcaraan'],
+      function: ['fungsi', 'kaedah', 'method'],
+      error: ['ralat', 'masalah', 'bug', 'kegagalan'],
+      summary: ['ringkasan', 'rumusan', 'sinopsis'],
+      objective: ['objektif', 'matlamat', 'tujuan'],
+      definition: ['definisi', 'takrifan', 'maksud', 'erti'],
     };
 
     const queryTokens = normalizedQuery
@@ -1878,9 +1545,7 @@ const StudentDashboard = () => {
 
     // If user asked a question with ZERO matching tokens/synonyms/stems in the chapter and no chapter study intent -> Refuse!
     if (matchedTokens.length === 0 && !hasStudyIntent) {
-      const suggestionsText = isMelakaEfolio
-        ? "Try asking about Chapter 1, its summary note, the 4 articles, Melaka trade, Syahbandar, Hukum Kanun Melaka, 84 languages, Baba-Nyonya, or Malaysia MADANI!"
-        : `Try asking about topics in ${targetNote.subject_code} (${targetNote.title}), or type "summary" for an overview!`;
+      const suggestionsText = `Try asking about topics in ${targetNote.subject_code} (${targetNote.title}), or type "summary" for an overview!`;
 
       setTimeout(() => {
         const refusalReply =
@@ -2248,62 +1913,62 @@ const StudentDashboard = () => {
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("What are the main purpose and 2 objectives of Chapter 1?"); setQuickAskMenuOpen(false); }}
+                onClick={() => { processStudentQuery("What are the main learning objectives and purpose of this chapter?"); setQuickAskMenuOpen(false); }}
               >
                 <span>🎯</span>
-                <span>2 Core Objectives & Purpose</span>
+                <span>Learning Objectives & Purpose</span>
               </button>
 
-              <div className="quick-ask-category">🏛️ Specialized Articles</div>
+              <div className="quick-ask-category">💡 Core Technical Concepts</div>
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("Explain Article 1 and the 4 Syahbandar in detail"); setQuickAskMenuOpen(false); }}
+                onClick={() => { processStudentQuery("Explain the core concepts and architectures in this lecture note"); setQuickAskMenuOpen(false); }}
               >
-                <span>🏛️</span>
-                <span>Article 1: Port & 4 Syahbandar</span>
+                <span>💡</span>
+                <span>Core Concepts & Architecture</span>
               </button>
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("Explain Article 2 and the 84 languages in Melaka"); setQuickAskMenuOpen(false); }}
+                onClick={() => { processStudentQuery("What are the key technical definitions and protocols?"); setQuickAskMenuOpen(false); }}
               >
-                <span>🗣️</span>
-                <span>Article 2: 84 Spoken Languages</span>
+                <span>🔍</span>
+                <span>Key Definitions & Protocols</span>
               </button>
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("Explain Article 3 Hukum Kanun Melaka and Undang-Undang Laut"); setQuickAskMenuOpen(false); }}
+                onClick={() => { processStudentQuery("What are the best practices and security rules taught in this note?"); setQuickAskMenuOpen(false); }}
               >
-                <span>⚖️</span>
-                <span>Article 3: Hukum Kanun & Maritime Laws</span>
+                <span>🛡️</span>
+                <span>Best Practices & Rules</span>
               </button>
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("Explain Article 4 Baba Nyonya, Chetti, Kristang and UNESCO"); setQuickAskMenuOpen(false); }}
+                onClick={() => { processStudentQuery("Explain the practical implementation and lab steps"); setQuickAskMenuOpen(false); }}
               >
-                <span>🏮</span>
-                <span>Article 4: Baba Nyonya & Heritage</span>
+                <span>⚙️</span>
+                <span>Practical Lab Implementation</span>
               </button>
 
-              <div className="quick-ask-category">👥 Presentation & Context</div>
+              <div className="quick-ask-category">👨‍🏫 Course Info & Attribution</div>
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("Who are the group members and their matrix numbers?"); setQuickAskMenuOpen(false); }}
+                onClick={() => { processStudentQuery("Which lecturer uploaded this note?"); setQuickAskMenuOpen(false); }}
               >
-                <span>👥</span>
-                <span>Group Members & Matrix Numbers</span>
+                <span>👨‍🏫</span>
+                <span>Note Lecturer & Course Info</span>
               </button>
               <button
                 type="button"
                 className="quick-ask-item"
-                onClick={() => { processStudentQuery("Show the historical timeline of Melaka 1400-1511"); setQuickAskMenuOpen(false); }}
+                onClick={() => { processStudentQuery("What are the main topics covered in this chapter?"); setQuickAskMenuOpen(false); }}
               >
-                <span>⏳</span>
-                <span>Historical Timeline (1400–1511)</span>
+                <span>📋</span>
+                <span>Chapter Topics & Syllabus</span>
               </button>
 
               <div className="quick-ask-category">🎯 Exam Prep & Flashcards</div>
@@ -4148,7 +3813,7 @@ const StudentDashboard = () => {
                       {user.full_name}
                     </div>
                     <div style={{ fontSize: '0.85rem', color: '#93c5fd', fontFamily: 'monospace', fontWeight: 700 }}>
-                      MATRIC: {user.matrix_no || '05DIT24F1055'}
+                      MATRIC: {user.matrix_no || 'N/A'}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '2px' }}>
                       Program: Diploma Teknologi Maklumat
@@ -4272,8 +3937,8 @@ const StudentDashboard = () => {
       <RevisionFlashcardsModal
         isOpen={flashcardsOpen}
         onClose={() => setFlashcardsOpen(false)}
-        subjectCode={selectedNote?.subject_code || 'MPU21032'}
-        noteTitle={selectedNote?.title || 'Penghayatan Etika dan Peradaban'}
+        subjectCode={selectedNote?.subject_code || 'COURSE'}
+        noteTitle={selectedNote?.title || 'Lecture Note'}
       />
     </div>
   );
