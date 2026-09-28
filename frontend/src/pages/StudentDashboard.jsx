@@ -4081,6 +4081,7 @@ const StudentDashboard = () => {
                 }}
                 onOpenNotes={() => setActiveTab('materials')}
                 onOpenFlashcards={() => setFlashcardsOpen(true)}
+                onViewFullTimetable={() => setActiveTab('timetable')}
               />
 
               <div style={{ height: '20px' }} />
@@ -4633,6 +4634,14 @@ const StudentDashboard = () => {
           >
             <span className="nav-icon">🏠</span>
             <span>Home</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'timetable' ? 'active' : ''}`}
+            onClick={() => setActiveTab('timetable')}
+          >
+            <span className="nav-icon">📅</span>
+            <span>Schedule</span>
           </button>
           <button
             type="button"

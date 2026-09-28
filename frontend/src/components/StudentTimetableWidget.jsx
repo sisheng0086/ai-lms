@@ -214,6 +214,7 @@ const StudentTimetableWidget = ({
   onOpenChatWithQuery,
   onOpenNotes,
   onOpenFlashcards,
+  onViewFullTimetable,
   viewMode = 'tab', // 'tab' | 'overview'
   timetableData: propTimetableData
 }) => {
@@ -246,8 +247,9 @@ const StudentTimetableWidget = ({
     ? DAYS_OF_WEEK[currentDayIndex - 1] 
     : 'Monday';
 
+  const isMobileScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
   const [selectedDay, setSelectedDay] = useState(viewMode === 'overview' ? defaultDay : 'All');
-  const [displayMode, setDisplayMode] = useState('grid'); // 'grid' | 'timeline'
+  const [displayMode, setDisplayMode] = useState(isMobileScreen ? 'timeline' : 'grid');
 
   // Filter classes by day
   const filteredClasses = useMemo(() => {
@@ -398,7 +400,19 @@ const StudentTimetableWidget = ({
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {onViewFullTimetable && (
+              <button
+                type="button"
+                onClick={onViewFullTimetable}
+                className="btn-primary"
+                style={{ padding: '5px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}
+                title="View full interactive weekly timetable"
+              >
+                <span>Full Timetable</span>
+                <span>➔</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handlePrintTimetable}
@@ -436,7 +450,7 @@ const StudentTimetableWidget = ({
             <p style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>Use the AI Companion to revise past lecture notes or test yourself with flashcards.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
             {todayClasses.map(c => (
               <div
                 key={c.id}
@@ -541,7 +555,7 @@ const StudentTimetableWidget = ({
   return (
     <div className="timetable-tab-container">
       {/* Header Bar */}
-      <div style={{
+      <div className="timetable-header-bar" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -559,7 +573,7 @@ const StudentTimetableWidget = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="timetable-actions-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Display Mode Toggle */}
           <div style={{
             display: 'inline-flex',
@@ -575,14 +589,14 @@ const StudentTimetableWidget = ({
                 background: displayMode === 'grid' ? 'var(--primary)' : 'transparent',
                 color: displayMode === 'grid' ? '#fff' : 'var(--text-muted)',
                 border: 'none',
-                padding: '5px 12px',
+                padding: '6px 12px',
                 borderRadius: '6px',
                 fontSize: '0.78rem',
                 fontWeight: 700,
                 cursor: 'pointer'
               }}
             >
-              📊 Grid View
+              📊 Grid
             </button>
             <button
               type="button"
@@ -591,14 +605,14 @@ const StudentTimetableWidget = ({
                 background: displayMode === 'timeline' ? 'var(--primary)' : 'transparent',
                 color: displayMode === 'timeline' ? '#fff' : 'var(--text-muted)',
                 border: 'none',
-                padding: '5px 12px',
+                padding: '6px 12px',
                 borderRadius: '6px',
                 fontSize: '0.78rem',
                 fontWeight: 700,
                 cursor: 'pointer'
               }}
             >
-              📱 Timeline View
+              📱 Timeline
             </button>
           </div>
 
@@ -606,10 +620,10 @@ const StudentTimetableWidget = ({
             type="button"
             onClick={handlePrintTimetable}
             className="btn-secondary"
-            style={{ padding: '7px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}
           >
             <span>🖨️</span>
-            <span>Print Timetable (PDF)</span>
+            <span>Print PDF</span>
           </button>
           <button
             type="button"
@@ -618,27 +632,29 @@ const StudentTimetableWidget = ({
               background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(37, 99, 235, 0.26))',
               border: '1px solid rgba(56, 189, 248, 0.45)',
               color: '#38bdf8',
-              padding: '7px 14px',
+              padding: '6px 12px',
               borderRadius: '8px',
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '5px'
             }}
           >
             <span>📅</span>
-            <span>Sync to Calendar (.ics)</span>
+            <span>Sync (.ics)</span>
           </button>
         </div>
       </div>
 
       {/* Day Selector Tabs */}
-      <div style={{
+      <div className="timetable-days-bar" style={{
         display: 'flex',
         gap: '8px',
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
         paddingBottom: '10px',
         marginBottom: '16px',
         borderBottom: '1px solid var(--border)'
@@ -684,7 +700,7 @@ const StudentTimetableWidget = ({
 
       {/* GRID VIEW */}
       {displayMode === 'grid' && selectedDay === 'All' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px' }}>
           {DAYS_OF_WEEK.map(day => {
             const daySessions = timetableData.filter(c => c.day === day);
             const isToday = DAYS_OF_WEEK[currentDayIndex - 1] === day;
@@ -798,22 +814,23 @@ const StudentTimetableWidget = ({
           {filteredClasses.map(c => (
             <div
               key={c.id}
+              className="timetable-card-item"
               style={{
                 background: 'var(--card-bg)',
                 border: '1px solid var(--border)',
                 borderLeft: `6px solid ${c.color}`,
                 borderRadius: '14px',
-                padding: '18px 20px',
+                padding: '16px 18px',
                 display: 'flex',
                 flexWrap: 'wrap',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '16px',
+                gap: '14px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
               }}
             >
-              <div style={{ flex: '1 1 300px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
                   <span style={{ background: c.color, color: '#fff', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '0.76rem' }}>
                     {c.day}
                   </span>
@@ -831,28 +848,34 @@ const StudentTimetableWidget = ({
                     {c.type}
                   </span>
                 </div>
-                <h3 style={{ margin: '0 0 6px', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                <h3 style={{ margin: '0 0 6px', fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: '1.3' }}>
                   {c.subjectTitle}
                 </h3>
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                   <span>📍 <strong>Venue:</strong> {c.venue}</span>
                   <span>👨‍🏫 <strong>Lecturer:</strong> {c.lecturer ? c.lecturer : <span style={{ opacity: 0.65, fontStyle: 'italic' }}>Unassigned</span>}</span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+              <div className="timetable-timeline-action-col" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                alignItems: 'flex-end',
+                minWidth: '200px'
+              }}>
                 <div style={{
-                  fontSize: '0.95rem',
+                  fontSize: '0.9rem',
                   fontWeight: 800,
                   color: 'var(--text-main)',
                   background: 'var(--input-bg)',
-                  padding: '6px 14px',
+                  padding: '6px 12px',
                   borderRadius: '8px',
                   border: '1px solid var(--border)'
                 }}>
                   ⏰ {c.startTime} – {c.endTime}
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'flex-end' }}>
                   <button
                     type="button"
                     onClick={() => onOpenChatWithQuery?.(`Can you give me a simplified summary of ${c.subjectCode} (${c.subjectTitle}) before class?`)}
@@ -860,14 +883,16 @@ const StudentTimetableWidget = ({
                       background: `${c.color}20`,
                       border: `1px solid ${c.color}50`,
                       color: c.color,
-                      padding: '6px 14px',
+                      padding: '7px 12px',
                       borderRadius: '8px',
                       fontSize: '0.8rem',
                       fontWeight: 700,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      justifyContent: 'center',
+                      gap: '5px',
+                      minHeight: '36px'
                     }}
                   >
                     <span>🤖</span>
@@ -877,9 +902,9 @@ const StudentTimetableWidget = ({
                     type="button"
                     onClick={() => onOpenNotes?.()}
                     className="btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                    style={{ padding: '7px 12px', fontSize: '0.8rem', minHeight: '36px' }}
                   >
-                    📚 Open Notes
+                    📚 Notes
                   </button>
                 </div>
               </div>

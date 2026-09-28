@@ -1377,31 +1377,46 @@ img.user-avatar,
 
   .mobile-bottom-nav-item {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 2px;
     background: transparent;
     border: none;
     color: var(--text-muted);
     font-family: inherit;
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     font-weight: 600;
-    padding: 6px 2px;
-    border-radius: 10px;
+    padding: 5px 1px;
+    border-radius: 8px;
     cursor: pointer;
     position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .mobile-bottom-nav-item .nav-icon {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     line-height: 1;
   }
 
   .mobile-bottom-nav-item.active {
     color: var(--primary);
     background: rgba(239, 68, 68, 0.12);
+  }
+
+  @media (max-width: 380px) {
+    .mobile-bottom-nav-item {
+      font-size: 0.58rem;
+      gap: 1px;
+      padding: 4px 0;
+    }
+    .mobile-bottom-nav-item .nav-icon {
+      font-size: 1rem;
+    }
   }
 }
 
@@ -2228,6 +2243,135 @@ img.user-avatar,
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
+
+/* ============================================================
+   RESPONSIVE MOBILE STYLES: CLASS TIMETABLE & FORM INPUTS
+   ============================================================ */
+
+/* Prevent iOS Safari auto-zoom on input focus */
+@media (max-width: 768px) {
+  .form-input,
+  .form-select,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Mobile Timetable Layouts (< 640px) */
+@media (max-width: 640px) {
+  .timetable-header-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .timetable-actions-wrap {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .timetable-actions-wrap button,
+  .timetable-actions-wrap .btn-secondary,
+  .timetable-actions-wrap .btn-primary {
+    flex: 1 1 auto !important;
+    min-height: 38px !important;
+    justify-content: center !important;
+  }
+
+  .timetable-days-bar {
+    gap: 6px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .timetable-card-item {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 14px !important;
+    gap: 12px !important;
+  }
+
+  .timetable-timeline-action-col {
+    width: 100% !important;
+    align-items: stretch !important;
+    min-width: 0 !important;
+  }
+
+  .timetable-timeline-action-col > div:last-child {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .timetable-timeline-action-col > div:last-child button {
+    flex: 1 !important;
+    justify-content: center !important;
+    min-height: 40px !important;
+  }
+
+  /* Lecturer Timetable Management Responsive Styles */
+  .lecturer-timetable-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .lecturer-timetable-actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .lecturer-timetable-actions button {
+    flex: 1 1 auto !important;
+    min-height: 38px !important;
+    justify-content: center !important;
+  }
+
+  .lecturer-slot-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 14px !important;
+    gap: 12px !important;
+  }
+
+  .lecturer-slot-actions {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    border-top: 1px solid var(--border) !important;
+    padding-top: 10px !important;
+  }
+
+  .lecturer-slot-actions .btn-primary {
+    flex: 1 !important;
+    min-height: 38px !important;
+    justify-content: center !important;
+  }
+
+  .timetable-modal-box {
+    padding: 16px 14px !important;
+    max-height: 92vh !important;
+    width: 95% !important;
+    border-radius: 14px !important;
+  }
+
+  /* Timetable Overview Widget on Small Screens */
+  .timetable-overview-widget {
+    padding: 14px !important;
+  }
+}
+
 
 
 

@@ -2016,7 +2016,7 @@ const LecturerDashboard = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Main Card */}
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
+          <div className="lecturer-timetable-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
             <div>
               <h2 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>📅</span>
@@ -2027,7 +2027,7 @@ const LecturerDashboard = () => {
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div className="lecturer-timetable-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={handleOpenAddSlot}
@@ -2059,7 +2059,16 @@ const LecturerDashboard = () => {
           </div>
 
           {/* Day Filter Pills */}
-          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '18px', borderBottom: '1px solid var(--border)' }}>
+          <div className="timetable-days-bar" style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            paddingBottom: '10px',
+            marginBottom: '18px',
+            borderBottom: '1px solid var(--border)'
+          }}>
             <button
               type="button"
               onClick={() => setSelectedTimetableDay('All')}
@@ -2130,6 +2139,7 @@ const LecturerDashboard = () => {
                 return (
                   <div
                     key={slot.id}
+                    className="lecturer-slot-card"
                     style={{
                       background: 'var(--input-bg, rgba(255, 255, 255, 0.03))',
                       border: '1px solid var(--border)',
@@ -2143,7 +2153,7 @@ const LecturerDashboard = () => {
                       gap: '14px'
                     }}
                   >
-                    <div style={{ flex: '1 1 340px' }}>
+                    <div style={{ flex: '1 1 260px', minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
                         <span style={{
                           background: color,
@@ -2174,7 +2184,7 @@ const LecturerDashboard = () => {
                         </span>
                       </div>
 
-                      <h4 style={{ margin: '0 0 6px', fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      <h4 style={{ margin: '0 0 6px', fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-main)', lineHeight: '1.3' }}>
                         {slot.subjectTitle || slot.subject_title}
                       </h4>
 
@@ -2199,7 +2209,7 @@ const LecturerDashboard = () => {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div className="lecturer-slot-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <div style={{
                         background: 'var(--card-bg)',
                         border: '1px solid var(--border)',
@@ -2216,7 +2226,7 @@ const LecturerDashboard = () => {
                         type="button"
                         onClick={() => handleOpenEditSlot(slot)}
                         className="btn-primary"
-                        style={{ padding: '6px 14px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        style={{ padding: '6px 14px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', minHeight: '36px' }}
                       >
                         <span>✏️</span>
                         <span>Edit Slot</span>
@@ -2226,7 +2236,7 @@ const LecturerDashboard = () => {
                         type="button"
                         onClick={() => handleDeleteSlot(slot)}
                         className="btn-secondary"
-                        style={{ padding: '6px 10px', fontSize: '0.8rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                        style={{ padding: '6px 10px', fontSize: '0.8rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', minHeight: '36px' }}
                         title="Delete slot"
                       >
                         🗑️
@@ -2252,7 +2262,7 @@ const LecturerDashboard = () => {
             zIndex: 9999,
             padding: '16px'
           }}>
-            <div style={{
+            <div className="timetable-modal-box" style={{
               background: 'var(--card-bg, #1e293b)',
               border: '1px solid var(--border)',
               borderRadius: '16px',
@@ -2274,7 +2284,7 @@ const LecturerDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setEditingSlot(null)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.3rem', cursor: 'pointer', padding: '4px' }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.3rem', cursor: 'pointer', padding: '6px' }}
                 >
                   ✕
                 </button>
@@ -2303,11 +2313,12 @@ const LecturerDashboard = () => {
               </div>
 
               <form onSubmit={handleSaveSlot} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                   <div>
                     <label className="form-label">Day of Week *</label>
                     <select
                       className="form-input"
+                      style={{ fontSize: '16px', minHeight: '42px' }}
                       value={slotFormData.day}
                       onChange={(e) => setSlotFormData(prev => ({ ...prev, day: e.target.value }))}
                       required
@@ -2324,6 +2335,7 @@ const LecturerDashboard = () => {
                     <label className="form-label">Session Type *</label>
                     <select
                       className="form-input"
+                      style={{ fontSize: '16px', minHeight: '42px' }}
                       value={slotFormData.type}
                       onChange={(e) => setSlotFormData(prev => ({ ...prev, type: e.target.value }))}
                       required
@@ -2336,12 +2348,13 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
                   <div>
                     <label className="form-label">Start Time *</label>
                     <input
                       type="text"
                       className="form-input"
+                      style={{ fontSize: '16px', minHeight: '42px' }}
                       placeholder="e.g. 08:00"
                       value={slotFormData.start_time}
                       onChange={(e) => setSlotFormData(prev => ({ ...prev, start_time: e.target.value }))}
@@ -2353,6 +2366,7 @@ const LecturerDashboard = () => {
                     <input
                       type="text"
                       className="form-input"
+                      style={{ fontSize: '16px', minHeight: '42px' }}
                       placeholder="e.g. 10:00"
                       value={slotFormData.end_time}
                       onChange={(e) => setSlotFormData(prev => ({ ...prev, end_time: e.target.value }))}
@@ -2361,12 +2375,13 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                   <div>
                     <label className="form-label">Subject Code *</label>
                     <input
                       type="text"
                       className="form-input"
+                      style={{ fontSize: '16px', minHeight: '42px' }}
                       placeholder="e.g. DFC11063"
                       value={slotFormData.subject_code}
                       onChange={(e) => setSlotFormData(prev => ({ ...prev, subject_code: e.target.value }))}
@@ -2378,6 +2393,7 @@ const LecturerDashboard = () => {
                     <input
                       type="text"
                       className="form-input"
+                      style={{ fontSize: '16px', minHeight: '42px' }}
                       placeholder="e.g. Bilik Kuliah BK1"
                       value={slotFormData.venue}
                       onChange={(e) => setSlotFormData(prev => ({ ...prev, venue: e.target.value }))}
@@ -2391,6 +2407,7 @@ const LecturerDashboard = () => {
                   <input
                     type="text"
                     className="form-input"
+                    style={{ fontSize: '16px', minHeight: '42px' }}
                     placeholder="e.g. Programming Fundamentals (C++)"
                     value={slotFormData.subject_title}
                     onChange={(e) => setSlotFormData(prev => ({ ...prev, subject_title: e.target.value }))}
@@ -2400,15 +2417,15 @@ const LecturerDashboard = () => {
 
                 <div>
                   <label className="form-label">Color Accent</label>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                     {['#0284c7', '#ef4444', '#10b981', '#8b5cf6', '#f59e0b', '#38bdf8'].map(c => (
                       <button
                         key={c}
                         type="button"
                         onClick={() => setSlotFormData(prev => ({ ...prev, color: c }))}
                         style={{
-                          width: '30px',
-                          height: '30px',
+                          width: '34px',
+                          height: '34px',
                           borderRadius: '50%',
                           background: c,
                           border: slotFormData.color === c ? '3px solid #ffffff' : '1px solid transparent',
@@ -2420,12 +2437,12 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '14px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => setEditingSlot(null)}
                     className="btn-secondary"
-                    style={{ padding: '8px 16px' }}
+                    style={{ padding: '8px 16px', minHeight: '40px', flex: '1 1 auto' }}
                   >
                     Cancel
                   </button>
@@ -2433,7 +2450,7 @@ const LecturerDashboard = () => {
                     type="submit"
                     disabled={savingSlot}
                     className="btn-primary"
-                    style={{ padding: '8px 20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    style={{ padding: '8px 20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', minHeight: '40px', flex: '1 1 auto' }}
                   >
                     {savingSlot ? 'Saving...' : '💾 Save & Assign to Me'}
                   </button>
@@ -2842,6 +2859,14 @@ const LecturerDashboard = () => {
           >
             <span className="nav-icon">📤</span>
             <span>Upload</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'timetable' ? 'active' : ''}`}
+            onClick={() => setActiveTab('timetable')}
+          >
+            <span className="nav-icon">📅</span>
+            <span>Schedule</span>
           </button>
           <button
             type="button"
